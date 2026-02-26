@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { hostname } from "node:os";
 import { z } from "zod";
 
