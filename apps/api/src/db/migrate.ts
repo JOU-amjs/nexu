@@ -157,7 +157,7 @@ export async function migrate(dbUrl?: string) {
       pk SERIAL PRIMARY KEY,
       id TEXT NOT NULL UNIQUE,
       state TEXT NOT NULL UNIQUE,
-      bot_id TEXT NOT NULL,
+      bot_id TEXT,
       user_id TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       used_at TEXT,
@@ -174,6 +174,57 @@ export async function migrate(dbUrl?: string) {
       expires_at TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS artifacts (
+      pk SERIAL PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      bot_id TEXT NOT NULL,
+      session_key TEXT,
+      channel_type TEXT,
+      channel_id TEXT,
+      title TEXT NOT NULL,
+      artifact_type TEXT,
+      source TEXT,
+      content_type TEXT,
+      status TEXT DEFAULT 'building',
+      preview_url TEXT,
+      deploy_target TEXT,
+      lines_of_code INTEGER,
+      file_count INTEGER,
+      duration_ms INTEGER,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS artifacts_bot_id_idx ON artifacts(bot_id);
+    CREATE INDEX IF NOT EXISTS artifacts_session_key_idx ON artifacts(session_key);
+    CREATE INDEX IF NOT EXISTS artifacts_status_idx ON artifacts(status);
+    CREATE INDEX IF NOT EXISTS artifacts_created_at_idx ON artifacts(created_at);
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      pk SERIAL PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      bot_id TEXT NOT NULL,
+      session_key TEXT NOT NULL UNIQUE,
+      channel_type TEXT,
+      channel_id TEXT,
+      title TEXT NOT NULL,
+      status TEXT DEFAULT 'active',
+      message_count INTEGER DEFAULT 0,
+      last_message_at TEXT,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sessions_bot_id_idx ON sessions(bot_id);
+    CREATE INDEX IF NOT EXISTS sessions_status_idx ON sessions(status);
+    CREATE INDEX IF NOT EXISTS sessions_created_at_idx ON sessions(created_at);
+    CREATE INDEX IF NOT EXISTS sessions_channel_type_idx ON sessions(channel_type);
+  `);
+
+  // Migrations
+  await client.query(`
+    ALTER TABLE oauth_states ALTER COLUMN bot_id DROP NOT NULL;
   `);
 
   console.log("Database migrated successfully");

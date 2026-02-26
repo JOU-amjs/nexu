@@ -9,7 +9,8 @@ import {
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { bots, gatewayAssignments, gatewayPools } from "../db/schema/index.js";
+import { bots, gatewayAssignments } from "../db/schema/index.js";
+import { findDefaultPool } from "../lib/bot-helpers.js";
 
 import type { AppBindings } from "../types.js";
 
@@ -165,27 +166,6 @@ function formatBot(
   };
 }
 
-async function findOrCreateDefaultPool(): Promise<string> {
-  const [existing] = await db
-    .select()
-    .from(gatewayPools)
-    .where(eq(gatewayPools.poolName, "default"));
-
-  if (existing) {
-    return existing.id;
-  }
-
-  const poolId = createId();
-  await db.insert(gatewayPools).values({
-    id: poolId,
-    poolName: "default",
-    poolType: "shared",
-    status: "active",
-  });
-
-  return poolId;
-}
-
 export function registerBotRoutes(app: OpenAPIHono<AppBindings>) {
   app.openapi(createBotRoute, async (c) => {
     const input = c.req.valid("json");
@@ -200,7 +180,7 @@ export function registerBotRoutes(app: OpenAPIHono<AppBindings>) {
       return c.json({ message: "Bot slug already exists" }, 409);
     }
 
-    const poolId = await findOrCreateDefaultPool();
+    const poolId = await findDefaultPool();
     const botId = createId();
     const now = new Date().toISOString();
 

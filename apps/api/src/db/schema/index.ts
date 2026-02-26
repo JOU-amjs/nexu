@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   pgTable,
   serial,
@@ -150,7 +151,7 @@ export const oauthStates = pgTable("oauth_states", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
   state: text("state").notNull().unique(),
-  botId: text("bot_id").notNull(),
+  botId: text("bot_id"),
   userId: text("user_id").notNull(),
   expiresAt: text("expires_at").notNull(),
   usedAt: text("used_at"),
@@ -171,3 +172,58 @@ export const inviteCodes = pgTable("invite_codes", {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
 });
+
+export const artifacts = pgTable("artifacts", {
+  pk: serial("pk").primaryKey(),
+  id: text("id").notNull().unique(),
+  botId: text("bot_id").notNull(),
+  sessionKey: text("session_key"),
+  channelType: text("channel_type"),
+  channelId: text("channel_id"),
+  title: text("title").notNull(),
+  artifactType: text("artifact_type"),
+  source: text("source"),
+  contentType: text("content_type"),
+  status: text("status").default("building"),
+  previewUrl: text("preview_url"),
+  deployTarget: text("deploy_target"),
+  linesOfCode: integer("lines_of_code"),
+  fileCount: integer("file_count"),
+  durationMs: integer("duration_ms"),
+  metadata: text("metadata"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    botId: text("bot_id").notNull(),
+    sessionKey: text("session_key").notNull().unique(),
+    channelType: text("channel_type"),
+    channelId: text("channel_id"),
+    title: text("title").notNull(),
+    status: text("status").default("active"),
+    messageCount: integer("message_count").default(0),
+    lastMessageAt: text("last_message_at"),
+    metadata: text("metadata"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index("sessions_bot_id_idx").on(table.botId),
+    index("sessions_status_idx").on(table.status),
+    index("sessions_created_at_idx").on(table.createdAt),
+    index("sessions_channel_type_idx").on(table.channelType),
+  ],
+);

@@ -1,12 +1,14 @@
 import crypto from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import { and, eq } from "drizzle-orm";
+import { createId } from "@paralleldrive/cuid2";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   botChannels,
   channelCredentials,
   gatewayPools,
+  sessions,
   webhookRoutes,
 } from "../db/schema/index.js";
 import { decrypt } from "../lib/crypto.js";
@@ -152,13 +154,54 @@ export function registerSlackEvents(app: OpenAPIHono<AppBindings>) {
         return c.json({ error: "Invalid signature" }, 401);
       }
 
-      // Find the gateway pod
+      // Find the gateway pod + botId
       const [channel] = await db
-        .select({ accountId: botChannels.accountId })
+        .select({
+          accountId: botChannels.accountId,
+          botId: botChannels.botId,
+        })
         .from(botChannels)
         .where(eq(botChannels.id, route.botChannelId));
 
       const accountId = channel?.accountId ?? `slack-${teamId}`;
+
+      // Upsert session for message events (fire-and-forget)
+      const event = payload.event as Record<string, unknown> | undefined;
+      const isMessageEvent =
+        event?.type === "message" || event?.type === "app_mention";
+      if (isMessageEvent && channel?.botId && event?.channel) {
+        const channelId = event.channel as string;
+        const sessionKey = `slack_${teamId}_${channelId}`;
+        const now = new Date().toISOString();
+        db.insert(sessions)
+          .values({
+            id: createId(),
+            botId: channel.botId,
+            sessionKey,
+            channelType: "slack",
+            channelId,
+            title: `Slack #${channelId}`,
+            status: "active",
+            messageCount: 1,
+            lastMessageAt: now,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: sessions.sessionKey,
+            set: {
+              messageCount: sql`${sessions.messageCount} + 1`,
+              lastMessageAt: now,
+              updatedAt: now,
+            },
+          })
+          .then(() =>
+            console.log(`[slack-events] session upserted: ${sessionKey}`),
+          )
+          .catch((err) =>
+            console.error("[slack-events] session upsert failed:", err),
+          );
+      }
 
       const [pool] = await db
         .select({ podIp: gatewayPools.podIp })
