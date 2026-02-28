@@ -622,7 +622,8 @@ export type PostV1ChannelsDiscordConnectResponse = PostV1ChannelsDiscordConnectR
 
 export type PostV1ChannelsWhatsappConnectData = {
     body?: {
-        phoneNumberId: string;
+        phoneNumberId?: string;
+        phoneNumber?: string;
         displayPhoneNumber?: string;
     };
     path?: never;
@@ -632,9 +633,21 @@ export type PostV1ChannelsWhatsappConnectData = {
 
 export type PostV1ChannelsWhatsappConnectErrors = {
     /**
+     * Invalid input
+     */
+    400: {
+        message: string;
+    };
+    /**
      * WhatsApp already connected
      */
     409: {
+        message: string;
+    };
+    /**
+     * Failed to resolve phone number
+     */
+    500: {
         message: string;
     };
 };
@@ -659,6 +672,91 @@ export type PostV1ChannelsWhatsappConnectResponses = {
 };
 
 export type PostV1ChannelsWhatsappConnectResponse = PostV1ChannelsWhatsappConnectResponses[keyof PostV1ChannelsWhatsappConnectResponses];
+
+export type GetV1ChannelsWhatsappLinkStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/channels/whatsapp/link-status';
+};
+
+export type GetV1ChannelsWhatsappLinkStatusResponses = {
+    /**
+     * WhatsApp link status
+     */
+    200: {
+        linked: boolean;
+        waId: string;
+        officialPhoneNumber: string;
+        officialWaLink: string;
+        hasBotConfigured: boolean;
+    };
+};
+
+export type GetV1ChannelsWhatsappLinkStatusResponse = GetV1ChannelsWhatsappLinkStatusResponses[keyof GetV1ChannelsWhatsappLinkStatusResponses];
+
+export type PostV1ChannelsWhatsappClaimLinkData = {
+    body?: {
+        token: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/channels/whatsapp/claim-link';
+};
+
+export type PostV1ChannelsWhatsappClaimLinkErrors = {
+    /**
+     * Invalid or expired link token
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * WhatsApp ID already linked
+     */
+    409: {
+        message: string;
+    };
+};
+
+export type PostV1ChannelsWhatsappClaimLinkError = PostV1ChannelsWhatsappClaimLinkErrors[keyof PostV1ChannelsWhatsappClaimLinkErrors];
+
+export type PostV1ChannelsWhatsappClaimLinkResponses = {
+    /**
+     * WhatsApp linked successfully
+     */
+    200: {
+        linked: boolean;
+        waId: string;
+        officialPhoneNumber: string;
+        officialWaLink: string;
+        hasBotConfigured: boolean;
+    };
+};
+
+export type PostV1ChannelsWhatsappClaimLinkResponse = PostV1ChannelsWhatsappClaimLinkResponses[keyof PostV1ChannelsWhatsappClaimLinkResponses];
+
+export type PostV1ChannelsWhatsappUnlinkData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/channels/whatsapp/unlink';
+};
+
+export type PostV1ChannelsWhatsappUnlinkResponses = {
+    /**
+     * WhatsApp unlinked successfully
+     */
+    200: {
+        linked: boolean;
+        waId: string;
+        officialPhoneNumber: string;
+        officialWaLink: string;
+        hasBotConfigured: boolean;
+    };
+};
+
+export type PostV1ChannelsWhatsappUnlinkResponse = PostV1ChannelsWhatsappUnlinkResponses[keyof PostV1ChannelsWhatsappUnlinkResponses];
 
 export type GetV1ChannelsData = {
     body?: never;
@@ -924,15 +1022,17 @@ export type GetApiInternalPoolsByPoolIdConfigResponses = {
             };
             whatsapp?: {
                 enabled?: boolean;
+                allowFrom?: Array<string>;
                 groupPolicy?: 'open' | 'allowlist' | 'disabled';
-                dmPolicy?: 'pairing' | 'allowlist' | 'open';
+                dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                groupAllowFrom?: Array<string>;
                 accounts: {
                     [key: string]: {
                         enabled?: boolean;
-                        phoneNumberId: string;
-                        accessToken: string;
-                        displayPhoneNumber?: string;
+                        dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                        allowFrom?: Array<string>;
                         groupPolicy?: 'open' | 'allowlist' | 'disabled';
+                        groupAllowFrom?: Array<string>;
                     };
                 };
             };
@@ -942,6 +1042,10 @@ export type GetApiInternalPoolsByPoolIdConfigResponses = {
             match: {
                 channel: string;
                 accountId?: string;
+                peer?: {
+                    kind: 'direct' | 'group' | 'channel';
+                    id: string;
+                };
             };
         }>;
         commands?: {
@@ -1129,15 +1233,17 @@ export type GetApiInternalPoolsByPoolIdConfigLatestResponses = {
                 };
                 whatsapp?: {
                     enabled?: boolean;
+                    allowFrom?: Array<string>;
                     groupPolicy?: 'open' | 'allowlist' | 'disabled';
-                    dmPolicy?: 'pairing' | 'allowlist' | 'open';
+                    dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                    groupAllowFrom?: Array<string>;
                     accounts: {
                         [key: string]: {
                             enabled?: boolean;
-                            phoneNumberId: string;
-                            accessToken: string;
-                            displayPhoneNumber?: string;
+                            dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                            allowFrom?: Array<string>;
                             groupPolicy?: 'open' | 'allowlist' | 'disabled';
+                            groupAllowFrom?: Array<string>;
                         };
                     };
                 };
@@ -1147,6 +1253,10 @@ export type GetApiInternalPoolsByPoolIdConfigLatestResponses = {
                 match: {
                     channel: string;
                     accountId?: string;
+                    peer?: {
+                        kind: 'direct' | 'group' | 'channel';
+                        id: string;
+                    };
                 };
             }>;
             commands?: {
@@ -1288,15 +1398,17 @@ export type GetApiInternalPoolsByPoolIdConfigVersionsByVersionResponses = {
                 };
                 whatsapp?: {
                     enabled?: boolean;
+                    allowFrom?: Array<string>;
                     groupPolicy?: 'open' | 'allowlist' | 'disabled';
-                    dmPolicy?: 'pairing' | 'allowlist' | 'open';
+                    dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                    groupAllowFrom?: Array<string>;
                     accounts: {
                         [key: string]: {
                             enabled?: boolean;
-                            phoneNumberId: string;
-                            accessToken: string;
-                            displayPhoneNumber?: string;
+                            dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled';
+                            allowFrom?: Array<string>;
                             groupPolicy?: 'open' | 'allowlist' | 'disabled';
+                            groupAllowFrom?: Array<string>;
                         };
                     };
                 };
@@ -1306,6 +1418,10 @@ export type GetApiInternalPoolsByPoolIdConfigVersionsByVersionResponses = {
                 match: {
                     channel: string;
                     accountId?: string;
+                    peer?: {
+                        kind: 'direct' | 'group' | 'channel';
+                        id: string;
+                    };
                 };
             }>;
             commands?: {

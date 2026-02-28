@@ -1673,13 +1673,14 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "phoneNumber": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "displayPhoneNumber": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "phoneNumberId"
-                ]
+                }
               }
             }
           }
@@ -1747,6 +1748,24 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
           "409": {
             "description": "WhatsApp already connected",
             "content": {
@@ -1760,6 +1779,216 @@
                   },
                   "required": [
                     "message"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to resolve phone number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/whatsapp/link-status": {
+      "get": {
+        "tags": [
+          "Channels"
+        ],
+        "responses": {
+          "200": {
+            "description": "WhatsApp link status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "waId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialPhoneNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialWaLink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hasBotConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "linked",
+                    "waId",
+                    "officialPhoneNumber",
+                    "officialWaLink",
+                    "hasBotConfigured"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/whatsapp/claim-link": {
+      "post": {
+        "tags": [
+          "Channels"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "WhatsApp linked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "waId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialPhoneNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialWaLink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hasBotConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "linked",
+                    "waId",
+                    "officialPhoneNumber",
+                    "officialWaLink",
+                    "hasBotConfigured"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired link token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "WhatsApp ID already linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/channels/whatsapp/unlink": {
+      "post": {
+        "tags": [
+          "Channels"
+        ],
+        "responses": {
+          "200": {
+            "description": "WhatsApp unlinked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "waId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialPhoneNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "officialWaLink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hasBotConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "linked",
+                    "waId",
+                    "officialPhoneNumber",
+                    "officialWaLink",
+                    "hasBotConfigured"
                   ]
                 }
               }
@@ -2543,6 +2772,12 @@
                             "enabled": {
                               "type": "boolean"
                             },
+                            "allowFrom": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
                             "groupPolicy": {
                               "type": "string",
                               "enum": [
@@ -2556,8 +2791,15 @@
                               "enum": [
                                 "pairing",
                                 "allowlist",
-                                "open"
+                                "open",
+                                "disabled"
                               ]
+                            },
+                            "groupAllowFrom": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
                             },
                             "accounts": {
                               "type": "object",
@@ -2565,17 +2807,22 @@
                                 "type": "object",
                                 "properties": {
                                   "enabled": {
-                                    "type": "boolean",
-                                    "default": true
+                                    "type": "boolean"
                                   },
-                                  "phoneNumberId": {
-                                    "type": "string"
+                                  "dmPolicy": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pairing",
+                                      "allowlist",
+                                      "open",
+                                      "disabled"
+                                    ]
                                   },
-                                  "accessToken": {
-                                    "type": "string"
-                                  },
-                                  "displayPhoneNumber": {
-                                    "type": "string"
+                                  "allowFrom": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "groupPolicy": {
                                     "type": "string",
@@ -2583,14 +2830,15 @@
                                       "open",
                                       "allowlist",
                                       "disabled"
-                                    ],
-                                    "default": "open"
+                                    ]
+                                  },
+                                  "groupAllowFrom": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   }
-                                },
-                                "required": [
-                                  "phoneNumberId",
-                                  "accessToken"
-                                ]
+                                }
                               }
                             }
                           },
@@ -2616,6 +2864,26 @@
                               },
                               "accountId": {
                                 "type": "string"
+                              },
+                              "peer": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "direct",
+                                      "group",
+                                      "channel"
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "id"
+                                ]
                               }
                             },
                             "required": [
@@ -3292,6 +3560,12 @@
                                 "enabled": {
                                   "type": "boolean"
                                 },
+                                "allowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
                                 "groupPolicy": {
                                   "type": "string",
                                   "enum": [
@@ -3305,8 +3579,15 @@
                                   "enum": [
                                     "pairing",
                                     "allowlist",
-                                    "open"
+                                    "open",
+                                    "disabled"
                                   ]
+                                },
+                                "groupAllowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
                                 },
                                 "accounts": {
                                   "type": "object",
@@ -3314,17 +3595,22 @@
                                     "type": "object",
                                     "properties": {
                                       "enabled": {
-                                        "type": "boolean",
-                                        "default": true
+                                        "type": "boolean"
                                       },
-                                      "phoneNumberId": {
-                                        "type": "string"
+                                      "dmPolicy": {
+                                        "type": "string",
+                                        "enum": [
+                                          "pairing",
+                                          "allowlist",
+                                          "open",
+                                          "disabled"
+                                        ]
                                       },
-                                      "accessToken": {
-                                        "type": "string"
-                                      },
-                                      "displayPhoneNumber": {
-                                        "type": "string"
+                                      "allowFrom": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
                                       },
                                       "groupPolicy": {
                                         "type": "string",
@@ -3332,14 +3618,15 @@
                                           "open",
                                           "allowlist",
                                           "disabled"
-                                        ],
-                                        "default": "open"
+                                        ]
+                                      },
+                                      "groupAllowFrom": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
                                       }
-                                    },
-                                    "required": [
-                                      "phoneNumberId",
-                                      "accessToken"
-                                    ]
+                                    }
                                   }
                                 }
                               },
@@ -3365,6 +3652,26 @@
                                   },
                                   "accountId": {
                                     "type": "string"
+                                  },
+                                  "peer": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "direct",
+                                          "group",
+                                          "channel"
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -3913,6 +4220,12 @@
                                 "enabled": {
                                   "type": "boolean"
                                 },
+                                "allowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
                                 "groupPolicy": {
                                   "type": "string",
                                   "enum": [
@@ -3926,8 +4239,15 @@
                                   "enum": [
                                     "pairing",
                                     "allowlist",
-                                    "open"
+                                    "open",
+                                    "disabled"
                                   ]
+                                },
+                                "groupAllowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
                                 },
                                 "accounts": {
                                   "type": "object",
@@ -3935,17 +4255,22 @@
                                     "type": "object",
                                     "properties": {
                                       "enabled": {
-                                        "type": "boolean",
-                                        "default": true
+                                        "type": "boolean"
                                       },
-                                      "phoneNumberId": {
-                                        "type": "string"
+                                      "dmPolicy": {
+                                        "type": "string",
+                                        "enum": [
+                                          "pairing",
+                                          "allowlist",
+                                          "open",
+                                          "disabled"
+                                        ]
                                       },
-                                      "accessToken": {
-                                        "type": "string"
-                                      },
-                                      "displayPhoneNumber": {
-                                        "type": "string"
+                                      "allowFrom": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
                                       },
                                       "groupPolicy": {
                                         "type": "string",
@@ -3953,14 +4278,15 @@
                                           "open",
                                           "allowlist",
                                           "disabled"
-                                        ],
-                                        "default": "open"
+                                        ]
+                                      },
+                                      "groupAllowFrom": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
                                       }
-                                    },
-                                    "required": [
-                                      "phoneNumberId",
-                                      "accessToken"
-                                    ]
+                                    }
                                   }
                                 }
                               },
@@ -3986,6 +4312,26 @@
                                   },
                                   "accountId": {
                                     "type": "string"
+                                  },
+                                  "peer": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "direct",
+                                          "group",
+                                          "channel"
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id"
+                                    ]
                                   }
                                 },
                                 "required": [

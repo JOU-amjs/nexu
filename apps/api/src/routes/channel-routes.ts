@@ -3,10 +3,12 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import {
   channelListResponseSchema,
   channelResponseSchema,
+  claimWhatsAppLinkSchema,
   connectDiscordSchema,
   connectSlackSchema,
   connectWhatsAppSchema,
   slackOAuthUrlResponseSchema,
+  whatsappLinkStatusResponseSchema,
 } from "@nexu/shared";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, lt, or } from "drizzle-orm";
@@ -17,9 +19,18 @@ import {
   channelCredentials,
   oauthStates,
   webhookRoutes,
+  whatsappIdentities,
+  whatsappLinkTokens,
 } from "../db/schema/index.js";
 import { findOrCreateDefaultBot } from "../lib/bot-helpers.js";
 import { encrypt } from "../lib/crypto.js";
+import {
+  ensureWhatsAppChannelForBot,
+  findUserPrimaryBot,
+  getOfficialWhatsAppPhoneNumber,
+  getOfficialWhatsAppWaLink,
+  hasConfiguredBot,
+} from "../lib/whatsapp-linking.js";
 import { publishPoolConfigSnapshot } from "../services/runtime/pool-config-service.js";
 
 import type { AppBindings } from "../types.js";
@@ -47,6 +58,72 @@ interface SlackOAuthV2Response {
   team: { id: string; name: string };
   enterprise?: { id: string; name: string } | null;
   authed_user: { id: string };
+}
+
+interface WhatsAppPhoneNumber {
+  id: string;
+  display_phone_number?: string;
+}
+
+interface WhatsAppPhoneNumbersResponse {
+  data?: WhatsAppPhoneNumber[];
+}
+
+function normalizePhoneNumber(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+async function resolveWhatsAppPhoneNumberIdByNumber(
+  phoneNumber: string,
+): Promise<{ phoneNumberId: string; displayPhoneNumber?: string }> {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+
+  if (!accessToken) {
+    throw new Error("WHATSAPP_ACCESS_TOKEN is not configured on this server");
+  }
+
+  if (!businessAccountId) {
+    throw new Error(
+      "WHATSAPP_BUSINESS_ACCOUNT_ID is required when using phone number",
+    );
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v22.0/${encodeURIComponent(businessAccountId)}/phone_numbers`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Failed to query WhatsApp phone numbers: ${response.status} ${text}`,
+    );
+  }
+
+  const payload = (await response.json()) as WhatsAppPhoneNumbersResponse;
+  const phoneNumbers = Array.isArray(payload.data) ? payload.data : [];
+  const target = normalizePhoneNumber(phoneNumber);
+
+  const matched = phoneNumbers.find((item) => {
+    const candidate = normalizePhoneNumber(item.display_phone_number ?? "");
+    return candidate === target;
+  });
+
+  if (!matched) {
+    throw new Error(
+      `No WhatsApp phone number found for ${phoneNumber} in configured business account`,
+    );
+  }
+
+  return {
+    phoneNumberId: matched.id,
+    displayPhoneNumber: matched.display_phone_number,
+  };
 }
 
 function formatChannel(
@@ -229,9 +306,72 @@ const connectWhatsAppRoute = createRoute({
       content: { "application/json": { schema: channelResponseSchema } },
       description: "WhatsApp channel connected",
     },
+    400: {
+      content: { "application/json": { schema: errorResponseSchema } },
+      description: "Invalid input",
+    },
     409: {
       content: { "application/json": { schema: errorResponseSchema } },
       description: "WhatsApp already connected",
+    },
+    500: {
+      content: { "application/json": { schema: errorResponseSchema } },
+      description: "Failed to resolve phone number",
+    },
+  },
+});
+
+const whatsappLinkStatusRoute = createRoute({
+  method: "get",
+  path: "/v1/channels/whatsapp/link-status",
+  tags: ["Channels"],
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: whatsappLinkStatusResponseSchema },
+      },
+      description: "WhatsApp link status",
+    },
+  },
+});
+
+const claimWhatsAppLinkRoute = createRoute({
+  method: "post",
+  path: "/v1/channels/whatsapp/claim-link",
+  tags: ["Channels"],
+  request: {
+    body: {
+      content: { "application/json": { schema: claimWhatsAppLinkSchema } },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: whatsappLinkStatusResponseSchema },
+      },
+      description: "WhatsApp linked successfully",
+    },
+    400: {
+      content: { "application/json": { schema: errorResponseSchema } },
+      description: "Invalid or expired link token",
+    },
+    409: {
+      content: { "application/json": { schema: errorResponseSchema } },
+      description: "WhatsApp ID already linked",
+    },
+  },
+});
+
+const unlinkWhatsAppRoute = createRoute({
+  method: "post",
+  path: "/v1/channels/whatsapp/unlink",
+  tags: ["Channels"],
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: whatsappLinkStatusResponseSchema },
+      },
+      description: "WhatsApp unlinked successfully",
     },
   },
 });
@@ -472,7 +612,38 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     const bot = await findOrCreateDefaultBot(userId);
     const botId = bot.id;
 
-    const accountId = `whatsapp-${input.phoneNumberId}`;
+    let phoneNumberId = input.phoneNumberId?.trim() ?? "";
+    let resolvedDisplayPhoneNumber = input.displayPhoneNumber;
+
+    if (!phoneNumberId && input.phoneNumber) {
+      try {
+        const resolved = await resolveWhatsAppPhoneNumberIdByNumber(
+          input.phoneNumber,
+        );
+        phoneNumberId = resolved.phoneNumberId;
+        resolvedDisplayPhoneNumber =
+          resolvedDisplayPhoneNumber ?? resolved.displayPhoneNumber;
+      } catch (error) {
+        return c.json(
+          {
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to resolve WhatsApp phone number",
+          },
+          500,
+        );
+      }
+    }
+
+    if (!phoneNumberId) {
+      return c.json(
+        { message: "phoneNumberId or phoneNumber is required" },
+        400,
+      );
+    }
+
+    const accountId = `whatsapp-${phoneNumberId}`;
 
     const [existing] = await db
       .select()
@@ -495,7 +666,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
       .where(
         and(
           eq(webhookRoutes.channelType, "whatsapp"),
-          eq(webhookRoutes.externalId, input.phoneNumberId),
+          eq(webhookRoutes.externalId, phoneNumberId),
         ),
       );
 
@@ -516,8 +687,10 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
       accountId,
       status: "connected",
       channelConfig: JSON.stringify({
-        teamName: input.displayPhoneNumber ?? input.phoneNumberId,
-        phoneNumberId: input.phoneNumberId,
+        teamName:
+          resolvedDisplayPhoneNumber ?? input.phoneNumber ?? phoneNumberId,
+        phoneNumberId,
+        displayPhoneNumber: resolvedDisplayPhoneNumber,
       }),
       createdAt: now,
       updatedAt: now,
@@ -527,7 +700,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
       await db.insert(webhookRoutes).values({
         id: createId(),
         channelType: "whatsapp",
-        externalId: input.phoneNumberId,
+        externalId: phoneNumberId,
         poolId: bot.poolId,
         botChannelId: channelId,
         botId,
@@ -549,6 +722,204 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     }
 
     return c.json(formatChannel(channel), 200);
+  });
+
+  app.openapi(whatsappLinkStatusRoute, async (c) => {
+    const userId = c.get("userId");
+
+    const [identity] = await db
+      .select({ waId: whatsappIdentities.waId })
+      .from(whatsappIdentities)
+      .where(eq(whatsappIdentities.userId, userId));
+
+    const hasBot = await hasConfiguredBot(db, userId);
+
+    return c.json(
+      {
+        linked: Boolean(identity),
+        waId: identity?.waId ?? null,
+        officialPhoneNumber: getOfficialWhatsAppPhoneNumber(),
+        officialWaLink: getOfficialWhatsAppWaLink(),
+        hasBotConfigured: hasBot,
+      },
+      200,
+    );
+  });
+
+  app.openapi(claimWhatsAppLinkRoute, async (c) => {
+    const userId = c.get("userId");
+    const input = c.req.valid("json");
+    const now = new Date().toISOString();
+
+    const [tokenRow] = await db
+      .select()
+      .from(whatsappLinkTokens)
+      .where(eq(whatsappLinkTokens.token, input.token));
+
+    if (
+      !tokenRow ||
+      tokenRow.usedAt ||
+      new Date(tokenRow.expiresAt) < new Date()
+    ) {
+      return c.json({ message: "Invalid or expired WhatsApp link token" }, 400);
+    }
+
+    const [alreadyLinkedWa] = await db
+      .select({ userId: whatsappIdentities.userId })
+      .from(whatsappIdentities)
+      .where(eq(whatsappIdentities.waId, tokenRow.waId));
+
+    if (alreadyLinkedWa && alreadyLinkedWa.userId !== userId) {
+      return c.json(
+        { message: "This WhatsApp account is already linked to another user" },
+        409,
+      );
+    }
+
+    const [existingUserLink] = await db
+      .select({ waId: whatsappIdentities.waId })
+      .from(whatsappIdentities)
+      .where(eq(whatsappIdentities.userId, userId));
+
+    if (existingUserLink && existingUserLink.waId !== tokenRow.waId) {
+      return c.json(
+        { message: "Your account is already linked to another WhatsApp ID" },
+        409,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      if (existingUserLink) {
+        await tx
+          .update(whatsappIdentities)
+          .set({
+            waId: tokenRow.waId,
+            status: "linked",
+            linkedAt: now,
+            lastSeenAt: now,
+            updatedAt: now,
+          })
+          .where(eq(whatsappIdentities.userId, userId));
+      } else {
+        await tx.insert(whatsappIdentities).values({
+          id: createId(),
+          waId: tokenRow.waId,
+          userId,
+          status: "linked",
+          linkedAt: now,
+          lastSeenAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      await tx
+        .update(whatsappLinkTokens)
+        .set({ usedAt: now, updatedAt: now })
+        .where(eq(whatsappLinkTokens.id, tokenRow.id));
+
+      const bot = await findUserPrimaryBot(tx, userId);
+      if (bot) {
+        await ensureWhatsAppChannelForBot(tx, bot.id, tokenRow.waId);
+      }
+    });
+
+    const bot = await findUserPrimaryBot(db, userId);
+    if (bot?.poolId) {
+      await publishSnapshotSafely(bot.poolId, bot.id);
+    }
+
+    const hasBot = await hasConfiguredBot(db, userId);
+
+    return c.json(
+      {
+        linked: true,
+        waId: tokenRow.waId,
+        officialPhoneNumber: getOfficialWhatsAppPhoneNumber(),
+        officialWaLink: getOfficialWhatsAppWaLink(),
+        hasBotConfigured: hasBot,
+      },
+      200,
+    );
+  });
+
+  app.openapi(unlinkWhatsAppRoute, async (c) => {
+    const userId = c.get("userId");
+
+    const [identity] = await db
+      .select({ id: whatsappIdentities.id, waId: whatsappIdentities.waId })
+      .from(whatsappIdentities)
+      .where(eq(whatsappIdentities.userId, userId));
+
+    const bot = await findUserPrimaryBot(db, userId);
+
+    if (!identity) {
+      const hasBot = await hasConfiguredBot(db, userId);
+      return c.json(
+        {
+          linked: false,
+          waId: null,
+          officialPhoneNumber: getOfficialWhatsAppPhoneNumber(),
+          officialWaLink: getOfficialWhatsAppWaLink(),
+          hasBotConfigured: hasBot,
+        },
+        200,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(whatsappIdentities)
+        .where(eq(whatsappIdentities.id, identity.id));
+
+      if (bot) {
+        const whatsappChannels = await tx
+          .select({ id: botChannels.id })
+          .from(botChannels)
+          .where(
+            and(
+              eq(botChannels.botId, bot.id),
+              eq(botChannels.channelType, "whatsapp"),
+            ),
+          );
+
+        for (const channel of whatsappChannels) {
+          await tx
+            .delete(webhookRoutes)
+            .where(eq(webhookRoutes.botChannelId, channel.id));
+
+          await tx
+            .delete(channelCredentials)
+            .where(eq(channelCredentials.botChannelId, channel.id));
+        }
+
+        await tx
+          .delete(botChannels)
+          .where(
+            and(
+              eq(botChannels.botId, bot.id),
+              eq(botChannels.channelType, "whatsapp"),
+            ),
+          );
+      }
+    });
+
+    if (bot?.poolId) {
+      await publishSnapshotSafely(bot.poolId, bot.id);
+    }
+
+    const hasBot = await hasConfiguredBot(db, userId);
+
+    return c.json(
+      {
+        linked: false,
+        waId: null,
+        officialPhoneNumber: getOfficialWhatsAppPhoneNumber(),
+        officialWaLink: getOfficialWhatsAppWaLink(),
+        hasBotConfigured: hasBot,
+      },
+      200,
+    );
   });
 
   // -- List channels --

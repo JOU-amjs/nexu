@@ -4,7 +4,6 @@ import type {
   DiscordAccountConfig,
   OpenClawConfig,
   SlackAccountConfig,
-  WhatsAppAccountConfig,
 } from "@nexu/shared";
 import { openclawConfigSchema } from "@nexu/shared";
 import { eq } from "drizzle-orm";
@@ -134,9 +133,7 @@ export async function generatePoolConfig(
 
   const slackAccounts: Record<string, SlackAccountConfig> = {};
   const discordAccounts: Record<string, DiscordAccountConfig> = {};
-  const whatsappAccounts: Record<string, WhatsAppAccountConfig> = {};
   const bindingsList: BindingConfig[] = [];
-  const whatsappAccessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
 
   for (const ch of channelsWithBots) {
     if (ch.channelType === "slack") {
@@ -195,62 +192,7 @@ export async function generatePoolConfig(
           accountId: ch.accountId,
         },
       });
-    } else if (ch.channelType === "whatsapp") {
-      let phoneNumberId = "";
-      let displayPhoneNumber: string | undefined;
-      try {
-        const parsedConfig = JSON.parse(ch.channelConfig ?? "{}");
-        if (
-          typeof parsedConfig === "object" &&
-          parsedConfig !== null &&
-          "phoneNumberId" in parsedConfig
-        ) {
-          const rawPhoneNumberId = parsedConfig.phoneNumberId;
-          if (typeof rawPhoneNumberId === "string") {
-            phoneNumberId = rawPhoneNumberId;
-          }
-        }
-
-        if (
-          typeof parsedConfig === "object" &&
-          parsedConfig !== null &&
-          "displayPhoneNumber" in parsedConfig
-        ) {
-          const rawDisplayPhoneNumber = parsedConfig.displayPhoneNumber;
-          if (typeof rawDisplayPhoneNumber === "string") {
-            displayPhoneNumber = rawDisplayPhoneNumber;
-          }
-        }
-      } catch {
-        phoneNumberId = "";
-      }
-
-      if (!phoneNumberId && ch.accountId.startsWith("whatsapp-")) {
-        phoneNumberId = ch.accountId.slice("whatsapp-".length);
-      }
-
-      whatsappAccounts[ch.accountId] = {
-        enabled: true,
-        phoneNumberId,
-        accessToken: whatsappAccessToken,
-        displayPhoneNumber,
-        groupPolicy: "open",
-      };
-
-      bindingsList.push({
-        agentId: ch.botSlug,
-        match: {
-          channel: "whatsapp",
-          accountId: ch.accountId,
-        },
-      });
     }
-  }
-
-  if (Object.keys(whatsappAccounts).length > 0 && !whatsappAccessToken) {
-    throw new Error(
-      "WHATSAPP_ACCESS_TOKEN is required when WhatsApp channels are connected",
-    );
   }
 
   // Collect unique model IDs across all active bots for LiteLLM provider config
@@ -332,15 +274,6 @@ export async function generatePoolConfig(
       groupPolicy: "open",
       dmPolicy: "open",
       accounts: discordAccounts,
-    };
-  }
-
-  if (Object.keys(whatsappAccounts).length > 0) {
-    config.channels.whatsapp = {
-      enabled: true,
-      groupPolicy: "open",
-      dmPolicy: "open",
-      accounts: whatsappAccounts,
     };
   }
 

@@ -88,17 +88,19 @@ const discordChannelSchema = z.object({
 });
 
 const whatsappAccountSchema = z.object({
-  enabled: z.boolean().default(true),
-  phoneNumberId: z.string(),
-  accessToken: z.string(),
-  displayPhoneNumber: z.string().optional(),
-  groupPolicy: z.enum(["open", "allowlist", "disabled"]).default("open"),
+  enabled: z.boolean().optional(),
+  dmPolicy: z.enum(["pairing", "allowlist", "open", "disabled"]).optional(),
+  allowFrom: z.array(z.string()).optional(),
+  groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
+  groupAllowFrom: z.array(z.string()).optional(),
 });
 
 const whatsappChannelSchema = z.object({
   enabled: z.boolean().optional(),
+  allowFrom: z.array(z.string()).optional(),
   groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
-  dmPolicy: z.enum(["pairing", "allowlist", "open"]).optional(),
+  dmPolicy: z.enum(["pairing", "allowlist", "open", "disabled"]).optional(),
+  groupAllowFrom: z.array(z.string()).optional(),
   accounts: z.record(z.string(), whatsappAccountSchema),
 });
 
@@ -111,6 +113,12 @@ const channelsConfigSchema = z.object({
 const bindingMatchSchema = z.object({
   channel: z.string(),
   accountId: z.string().optional(),
+  peer: z
+    .object({
+      kind: z.enum(["direct", "group", "channel"]),
+      id: z.string(),
+    })
+    .optional(),
 });
 
 const bindingSchema = z.object({

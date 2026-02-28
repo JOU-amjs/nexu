@@ -237,6 +237,32 @@ export async function migrate(dbUrl?: string) {
     CREATE INDEX IF NOT EXISTS sessions_status_idx ON sessions(status);
     CREATE INDEX IF NOT EXISTS sessions_created_at_idx ON sessions(created_at);
     CREATE INDEX IF NOT EXISTS sessions_channel_type_idx ON sessions(channel_type);
+
+    CREATE TABLE IF NOT EXISTS whatsapp_identities (
+      pk SERIAL PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      wa_id TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL UNIQUE,
+      status TEXT DEFAULT 'linked',
+      linked_at TEXT NOT NULL,
+      last_seen_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS whatsapp_identities_user_id_idx ON whatsapp_identities(user_id);
+    CREATE INDEX IF NOT EXISTS whatsapp_identities_wa_id_idx ON whatsapp_identities(wa_id);
+
+    CREATE TABLE IF NOT EXISTS whatsapp_link_tokens (
+      pk SERIAL PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      token TEXT NOT NULL UNIQUE,
+      wa_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS whatsapp_link_tokens_wa_id_idx ON whatsapp_link_tokens(wa_id);
   `);
 
   // Migrations

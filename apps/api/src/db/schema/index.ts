@@ -259,3 +259,47 @@ export const sessions = pgTable(
     index("sessions_channel_type_idx").on(table.channelType),
   ],
 );
+
+export const whatsappIdentities = pgTable(
+  "whatsapp_identities",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    waId: text("wa_id").notNull().unique(),
+    userId: text("user_id").notNull().unique(),
+    status: text("status").default("linked"),
+    linkedAt: text("linked_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    lastSeenAt: text("last_seen_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index("whatsapp_identities_user_id_idx").on(table.userId),
+    index("whatsapp_identities_wa_id_idx").on(table.waId),
+  ],
+);
+
+export const whatsappLinkTokens = pgTable(
+  "whatsapp_link_tokens",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    token: text("token").notNull().unique(),
+    waId: text("wa_id").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [index("whatsapp_link_tokens_wa_id_idx").on(table.waId)],
+);

@@ -10,6 +10,8 @@ import { createId } from "@paralleldrive/cuid2";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bots, gatewayAssignments, gatewayPools } from "../db/schema/index.js";
+import { whatsappIdentities } from "../db/schema/index.js";
+import { ensureWhatsAppChannelForBot } from "../lib/whatsapp-linking.js";
 import { publishPoolConfigSnapshot } from "../services/runtime/pool-config-service.js";
 
 import type { AppBindings } from "../types.js";
@@ -257,6 +259,15 @@ export function registerBotRoutes(app: OpenAPIHono<AppBindings>) {
         poolId,
         assignedAt: now,
       });
+
+      const [identity] = await tx
+        .select({ waId: whatsappIdentities.waId })
+        .from(whatsappIdentities)
+        .where(eq(whatsappIdentities.userId, userId));
+
+      if (identity?.waId) {
+        await ensureWhatsAppChannelForBot(tx, botId, identity.waId);
+      }
     });
 
     try {

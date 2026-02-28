@@ -23,9 +23,32 @@ export const connectDiscordSchema = z.object({
   guildName: z.string().optional(),
 });
 
-export const connectWhatsAppSchema = z.object({
-  phoneNumberId: z.string().min(1),
-  displayPhoneNumber: z.string().optional(),
+export const connectWhatsAppSchema = z
+  .object({
+    phoneNumberId: z.string().min(1).optional(),
+    phoneNumber: z.string().min(1).optional(),
+    displayPhoneNumber: z.string().optional(),
+  })
+  .refine(
+    (input) =>
+      typeof input.phoneNumberId === "string" ||
+      typeof input.phoneNumber === "string",
+    {
+      message: "Either phoneNumberId or phoneNumber is required",
+      path: ["phoneNumber"],
+    },
+  );
+
+export const claimWhatsAppLinkSchema = z.object({
+  token: z.string().min(1),
+});
+
+export const whatsappLinkStatusResponseSchema = z.object({
+  linked: z.boolean(),
+  waId: z.string().nullable(),
+  officialPhoneNumber: z.string().nullable(),
+  officialWaLink: z.string().nullable(),
+  hasBotConfigured: z.boolean(),
 });
 
 export const channelResponseSchema = z.object({
@@ -53,5 +76,9 @@ export type ChannelStatus = z.infer<typeof channelStatusSchema>;
 export type ConnectSlackInput = z.infer<typeof connectSlackSchema>;
 export type ConnectDiscordInput = z.infer<typeof connectDiscordSchema>;
 export type ConnectWhatsAppInput = z.infer<typeof connectWhatsAppSchema>;
+export type ClaimWhatsAppLinkInput = z.infer<typeof claimWhatsAppLinkSchema>;
 export type ChannelResponse = z.infer<typeof channelResponseSchema>;
 export type SlackOAuthUrlResponse = z.infer<typeof slackOAuthUrlResponseSchema>;
+export type WhatsAppLinkStatusResponse = z.infer<
+  typeof whatsappLinkStatusResponseSchema
+>;

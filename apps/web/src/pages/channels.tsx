@@ -13,16 +13,19 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ExternalLink, Hash, Loader2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import "@/lib/api";
 import {
   deleteV1ChannelsByChannelId,
   getV1Channels,
   getV1ChannelsSlackOauthUrl,
+  getV1ChannelsWhatsappLinkStatus,
   postV1ChannelsDiscordConnect,
   postV1ChannelsSlackConnect,
-  postV1ChannelsWhatsappConnect,
+  postV1ChannelsWhatsappClaimLink,
+  postV1ChannelsWhatsappUnlink,
 } from "../../lib/api/sdk.gen";
 
 export function ChannelsPage() {
@@ -39,7 +42,6 @@ export function ChannelsPage() {
   const channels = channelsData?.channels ?? [];
   const slackChannel = channels.find((ch) => ch.channelType === "slack");
   const discordChannel = channels.find((ch) => ch.channelType === "discord");
-  const whatsappChannel = channels.find((ch) => ch.channelType === "whatsapp");
 
   return (
     <div className="max-w-2xl">
@@ -78,14 +80,7 @@ export function ChannelsPage() {
         </TabsContent>
 
         <TabsContent value="whatsapp" className="mt-4">
-          {whatsappChannel ? (
-            <WhatsAppConnectedView
-              channel={whatsappChannel}
-              queryClient={queryClient}
-            />
-          ) : (
-            <WhatsAppSetupView queryClient={queryClient} />
-          )}
+          <WhatsAppLinkView queryClient={queryClient} />
         </TabsContent>
       </Tabs>
     </div>
@@ -530,140 +525,158 @@ function DiscordSetupView({
   );
 }
 
-function WhatsAppConnectedView({
-  channel,
+function WhatsAppLinkView({
   queryClient,
 }: {
-  channel: {
-    id: string;
-    accountId: string;
-    teamName: string | null;
-    status: string;
-  };
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
-  const disconnectMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await deleteV1ChannelsByChannelId({
-        path: { channelId: channel.id },
-      });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] });
-      toast.success("WhatsApp disconnected");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const waLinkToken = searchParams.get("wa_link") ?? "";
+  const [manualToken, setManualToken] = useState(waLinkToken);
+
+  const { data: linkStatus } = useQuery({
+    queryKey: ["whatsapp-link-status"],
+    queryFn: async () => {
+      const { data, error } = await getV1ChannelsWhatsappLinkStatus();
+      if (error) throw new Error("Failed to load WhatsApp link status");
+      return data;
     },
   });
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Hash className="h-5 w-5" />
-            <div>
-              <CardTitle>{channel.teamName ?? channel.accountId}</CardTitle>
-              <CardDescription>{channel.accountId}</CardDescription>
-            </div>
-          </div>
-          <Badge variant="success">
-            <CheckCircle className="mr-1 h-3 w-3" />
-            Connected
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Separator className="mb-4" />
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => disconnectMutation.mutate()}
-          disabled={disconnectMutation.isPending}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Disconnect
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function WhatsAppSetupView({
-  queryClient,
-}: {
-  queryClient: ReturnType<typeof useQueryClient>;
-}) {
-  const [phoneNumberId, setPhoneNumberId] = useState("");
-  const [displayPhoneNumber, setDisplayPhoneNumber] = useState("");
-
-  const connectMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await postV1ChannelsWhatsappConnect({
-        body: {
-          phoneNumberId,
-          displayPhoneNumber: displayPhoneNumber || undefined,
-        },
+  const claimMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const { data, error } = await postV1ChannelsWhatsappClaimLink({
+        body: { token },
       });
       if (error) throw new Error(error.message);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] });
-      toast.success("WhatsApp connected successfully!");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-link-status"] });
+      toast.success("WhatsApp linked successfully");
+      if (waLinkToken) {
+        searchParams.delete("wa_link");
+        setSearchParams(searchParams, { replace: true });
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message);
     },
   });
 
+  const unlinkMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await postV1ChannelsWhatsappUnlink();
+      if (error) throw new Error("Failed to unlink WhatsApp");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-link-status"] });
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      toast.success("WhatsApp unlinked");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const autoClaimedRef = useRef(false);
+  useEffect(() => {
+    if (!waLinkToken || autoClaimedRef.current || claimMutation.isPending) {
+      return;
+    }
+
+    autoClaimedRef.current = true;
+    claimMutation.mutate(waLinkToken);
+  }, [waLinkToken, claimMutation]);
+
+  const linked = linkStatus?.linked ?? false;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connect WhatsApp</CardTitle>
+        <CardTitle>WhatsApp Link</CardTitle>
         <CardDescription>
-          Bind a WhatsApp Cloud API phone number to your bot.
+          Send a message to the official WhatsApp bot first, then use the link
+          token here to bind your account.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            connectMutation.mutate();
-          }}
-        >
-          <div className="space-y-2">
-            <Label htmlFor="whatsapp-phone-number-id">Phone Number ID</Label>
-            <Input
-              id="whatsapp-phone-number-id"
-              placeholder="123456789012345"
-              value={phoneNumberId}
-              onChange={(e) => setPhoneNumberId(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="whatsapp-display-phone-number">
-              Display Phone Number (Optional)
-            </Label>
-            <Input
-              id="whatsapp-display-phone-number"
-              placeholder="+1 555 123 4567"
-              value={displayPhoneNumber}
-              onChange={(e) => setDisplayPhoneNumber(e.target.value)}
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={connectMutation.isPending}
+      <CardContent className="space-y-4">
+        <div className="rounded-md border p-3 text-sm">
+          <p>
+            Official number:{" "}
+            {linkStatus?.officialPhoneNumber ?? "Not configured"}
+          </p>
+          {linkStatus?.officialWaLink && (
+            <p>
+              Open chat:{" "}
+              <a
+                href={linkStatus.officialWaLink}
+                className="text-primary underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {linkStatus.officialWaLink}
+              </a>
+            </p>
+          )}
+          <p className="mt-2">
+            Link status: {linked ? "Linked" : "Not linked"}
+          </p>
+          {linked && <p>wa_id: {linkStatus?.waId}</p>}
+          {linked && !linkStatus?.hasBotConfigured && (
+            <p className="mt-2 text-amber-600">
+              WhatsApp linked. Create your bot in Nexu to start receiving
+              replies.
+            </p>
+          )}
+
+          {linked && (
+            <div className="mt-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => unlinkMutation.mutate()}
+                disabled={unlinkMutation.isPending}
+              >
+                {unlinkMutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Unlink WhatsApp
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {!linked && (
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!manualToken.trim()) {
+                toast.error("Please enter a link token");
+                return;
+              }
+              claimMutation.mutate(manualToken.trim());
+            }}
           >
-            {connectMutation.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Connect
-          </Button>
-        </form>
+            <div className="space-y-2">
+              <Label htmlFor="wa-link-token">WhatsApp Link Token</Label>
+              <Input
+                id="wa-link-token"
+                placeholder="Paste token received in WhatsApp"
+                value={manualToken}
+                onChange={(event) => setManualToken(event.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={claimMutation.isPending}>
+              {claimMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Link WhatsApp
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );
