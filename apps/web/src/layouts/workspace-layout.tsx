@@ -230,7 +230,9 @@ export function WorkspaceLayout() {
                     type="button"
                     key={s.id}
                     onClick={() => {
-                      track("workspace_channel_click", { channel_type: s.channelType ?? "web" });
+                      track("workspace_channel_click", {
+                        channel_type: s.channelType ?? "web",
+                      });
                       navigate(`/workspace/sessions/${s.id}`);
                     }}
                     title={collapsed ? (s.title ?? undefined) : undefined}

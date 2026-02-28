@@ -8,9 +8,7 @@ export function track(
   amplitude.track(event, properties);
 }
 
-export function identify(
-  properties: Record<string, unknown>,
-): void {
+export function identify(properties: Record<string, unknown>): void {
   const id = new Identify();
   for (const [key, value] of Object.entries(properties)) {
     id.set(key, value as string);

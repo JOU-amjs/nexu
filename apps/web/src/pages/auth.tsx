@@ -179,7 +179,10 @@ export function AuthPage() {
     sessionStorage.removeItem("nexu_auth_mode");
     sessionStorage.removeItem("nexu_auth_provider");
     if (provider) {
-      const event = mode === "login" ? `login_${provider}_success` : `signup_${provider}_success`;
+      const event =
+        mode === "login"
+          ? `login_${provider}_success`
+          : `signup_${provider}_success`;
       track(event);
       identify({
         auth_method: provider,

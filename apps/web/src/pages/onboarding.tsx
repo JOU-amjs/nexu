@@ -1,7 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { identify, track } from "@/lib/tracking";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import "@/lib/api";
@@ -1847,9 +1853,12 @@ export function OnboardingPage() {
       if (currentStep < STEPS.length - 1) setCurrentStep(newStep);
       saveProgress(newStep, newData);
       // Identify user properties per step
-      if (currentStep === 0 && newData.role) identify({ user_role: newData.role });
-      if (currentStep === 1 && newData.useCases) identify({ use_cases: newData.useCases });
-      if (currentStep === 2 && newData.referralSource) identify({ referral_source: newData.referralSource });
+      if (currentStep === 0 && newData.role)
+        identify({ user_role: newData.role });
+      if (currentStep === 1 && newData.useCases)
+        identify({ use_cases: newData.useCases });
+      if (currentStep === 2 && newData.referralSource)
+        identify({ referral_source: newData.referralSource });
     },
     [currentStep, data],
   );
@@ -1866,7 +1875,8 @@ export function OnboardingPage() {
     (stepData?: Partial<OnboardingData>) => {
       const finalData = { ...data, ...stepData } as OnboardingData;
       setData(finalData);
-      if (finalData.selectedAvatar) identify({ avatar_choice: finalData.selectedAvatar });
+      if (finalData.selectedAvatar)
+        identify({ avatar_choice: finalData.selectedAvatar });
       completeMutation.mutate(finalData);
     },
     [data, completeMutation],
