@@ -72,4 +72,4 @@ See `ARCHITECTURE.md` for the full bird's-eye view. Key points:
 | Security posture | `docs/SECURITY.md` |
 | Reliability | `docs/RELIABILITY.md` |
 | DB schema reference | `docs/generated/db-schema.md` |
-| Doc sync command | `.claude/commands/sync-docs.md` |
+| Doc sync | `.nexu-dev/skills/sync-docs/SKILL.md` |

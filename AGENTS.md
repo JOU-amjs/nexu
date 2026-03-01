@@ -80,7 +80,7 @@ pnpm generate-types                   # OpenAPI spec → frontend SDK
 | Product specs | `docs/product-specs/` |
 | Execution plans | `docs/exec-plans/` |
 | DB schema reference | `docs/generated/db-schema.md` |
-| Documentation sync | `.claude/commands/sync-docs.md` |
+| Documentation sync | `.nexu-dev/skills/sync-docs/SKILL.md` |
 
 ## Documentation maintenance
 
@@ -117,7 +117,7 @@ git diff --name-only $(git merge-base HEAD origin/main)...HEAD
 - Preserve original language (English/Chinese)
 - Do not auto-commit; present changes for review
 
-Full command reference: `.claude/commands/sync-docs.md`
+Full reference: `.nexu-dev/skills/sync-docs/SKILL.md`
 
 ## Cross-project sync rules
 

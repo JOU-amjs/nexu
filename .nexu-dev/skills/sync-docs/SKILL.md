@@ -1,20 +1,19 @@
 ---
 name: sync-docs
-description: Review code changes and update project documentation for consistency.
-argument-hint: "[delta|full|db|api|frontend|commands|architecture|security|links|guides|designs|exec-plans|product-specs]"
+description: Use when code changes may have made documentation outdated, when reviewing docs for consistency, or when the user asks to sync or audit documentation.
 ---
 
 # Documentation Sync
 
 Review code changes and update project documentation for consistency.
 
-## Mode: `$ARGUMENTS`
+## Mode
 
-| Argument | Behavior |
-|----------|----------|
-| *(empty)* or `delta` | Diff against merge-base with `origin/main` + working tree changes |
-| `full` | Complete audit of all docs against current codebase |
-| Scope keyword | Targeted check (see Scope Filters below) |
+| Mode | How to activate | Behavior |
+|------|----------------|----------|
+| `delta` (default) | No argument, or say "delta" | Diff against merge-base with `origin/main` + working tree changes |
+| `full` | Say "full audit" or "full sync" | Complete audit of all docs against current codebase |
+| Scope keyword | Say the keyword (e.g. "db", "api") | Targeted check (see Scope Filters below) |
 
 ## Delta Mode Baseline
 
@@ -65,7 +64,7 @@ Always verify consistency between these paired docs:
 
 ## Scope Filters
 
-When `$ARGUMENTS` is a scope keyword, limit the check to that area:
+When the user specifies a scope keyword, limit the check to that area:
 
 | Keyword | What it checks |
 |---|---|
@@ -91,7 +90,7 @@ When `$ARGUMENTS` is a scope keyword, limit the check to that area:
 
 ## Workflow
 
-1. Determine mode from `$ARGUMENTS` (default: delta).
+1. Determine mode from user request (default: delta).
 2. If delta mode: run the git diff commands above, collect changed files.
 3. Map changed files to affected docs using the Impact Mapping.
 4. Read each affected doc and compare against current code.
