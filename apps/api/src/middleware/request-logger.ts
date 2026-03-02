@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
+import { LogSampleRules } from "../lib/log-sample-rules.js";
 import { logger } from "../lib/logger.js";
 
 const slowRequestThresholdMs = Number.parseInt(
@@ -7,19 +8,48 @@ const slowRequestThresholdMs = Number.parseInt(
   10,
 );
 
-function shouldSkipPath(path: string, status: number): boolean {
-  if (status >= 400) return false;
-  if (path === "/health") return true;
-  if (path === "/api/internal/pools/heartbeat") return true;
-  if (
-    path.startsWith("/api/internal/pools/") &&
-    path.endsWith("/config/latest")
-  ) {
-    return true;
-  }
-
-  return false;
-}
+const logSampleRules = new LogSampleRules(
+  [
+    {
+      path: "/health",
+      sample: { rate: 0 },
+      skipBelowMs: slowRequestThresholdMs,
+    },
+    {
+      path: "/api/internal/pools/heartbeat",
+      sample: { rate: 0 },
+      skipBelowMs: slowRequestThresholdMs,
+    },
+    {
+      path: "/api/internal/pools/:poolId/config/latest",
+      sample: { rate: 0 },
+      skipBelowMs: slowRequestThresholdMs,
+    },
+    {
+      path: "/api/internal/skills/latest",
+      sample: { rate: 0.05 },
+      skipBelowMs: slowRequestThresholdMs,
+    },
+    {
+      path: "/api/internal/sessions/sync-discord",
+      sample: { rate: 0.2 },
+      skipBelowMs: slowRequestThresholdMs,
+    },
+    {
+      path: "/api/*",
+      sample: { rate: 1 },
+    },
+    {
+      path: "/*",
+      sample: { rate: 1 },
+    },
+  ],
+  {
+    sample: { rate: 1 },
+    skipBelowMs: 0,
+    sampleStatusAllowlist: [200, 201, 204],
+  },
+);
 
 export const requestLoggerMiddleware: MiddlewareHandler = async (c, next) => {
   const startedAt = Date.now();
@@ -34,8 +64,9 @@ export const requestLoggerMiddleware: MiddlewareHandler = async (c, next) => {
   const method = c.req.method;
   const path = c.req.path;
   const status = c.res.status;
+  const decision = logSampleRules.get(path, status, latencyMs);
 
-  if (shouldSkipPath(path, status) && latencyMs < slowRequestThresholdMs) {
+  if (!decision.shouldLog) {
     return;
   }
 

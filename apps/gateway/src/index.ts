@@ -12,7 +12,7 @@ import { createRuntimeState } from "./state.js";
 const state = createRuntimeState();
 
 async function main(): Promise<void> {
-  await bootstrapGateway();
+  await bootstrapGateway(state);
 
   runGatewayHealthLoops(state);
   void runHeartbeatLoop(state);

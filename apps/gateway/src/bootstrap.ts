@@ -4,6 +4,8 @@ import { env, envWarnings } from "./env.js";
 import { waitGatewayReady } from "./gateway-health.js";
 import { log } from "./log.js";
 import { startManagedOpenclawGateway } from "./openclaw-process.js";
+import { pollLatestSkills } from "./skills.js";
+import type { RuntimeState } from "./state.js";
 import { runWithRetry } from "./utils.js";
 
 async function registerPoolWithRetry(): Promise<void> {
@@ -36,7 +38,22 @@ async function fetchInitialConfigWithRetry(): Promise<void> {
   );
 }
 
-export async function bootstrapGateway(): Promise<void> {
+async function syncInitialSkillsWithRetry(state: RuntimeState): Promise<void> {
+  return runWithRetry(
+    () => pollLatestSkills(state).then(() => undefined),
+    ({ attempt, retryDelayMs, error }) => {
+      log("initial skills sync failed; retrying", {
+        attempt,
+        poolId: env.RUNTIME_POOL_ID,
+        retryDelayMs,
+        error: error instanceof Error ? error.message : "unknown_error",
+      });
+    },
+    env.RUNTIME_MAX_BACKOFF_MS,
+  );
+}
+
+export async function bootstrapGateway(state: RuntimeState): Promise<void> {
   if (envWarnings.usedHostnameAsRuntimePoolId) {
     log("warning: RUNTIME_POOL_ID is unset; using hostname fallback", {
       nodeEnv: env.NODE_ENV,
@@ -81,6 +98,8 @@ export async function bootstrapGateway(): Promise<void> {
   log("pool registered", { poolId: env.RUNTIME_POOL_ID });
 
   await fetchInitialConfigWithRetry();
+  await syncInitialSkillsWithRetry(state);
+  log("initial skills synced", { poolId: env.RUNTIME_POOL_ID });
 
   if (env.RUNTIME_MANAGE_OPENCLAW_PROCESS) {
     startManagedOpenclawGateway();

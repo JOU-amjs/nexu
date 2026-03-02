@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS=--conditions=development tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +22,7 @@
     "dd-trace": "^5.87.0",
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.41.0",
+    "find-my-way": "^9.5.0",
     "hono": "^4.7.5",
     "pg": "^8.13.1",
     "pino": "^10.3.1",

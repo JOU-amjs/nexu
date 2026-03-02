@@ -72,7 +72,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
-          command: deploy --name ${{ steps.slug.outputs.worker_name }} --compatibility-date 2024-01-01
+          command: deploy --name ${{ steps.slug.outputs.worker_name }}
           workingDirectory: apps/web
 
       - name: Comment preview URL on PR
@@ -80,7 +80,7 @@ jobs:
         with:
           script: |
             const workerName = '${{ steps.slug.outputs.worker_name }}';
-            const previewUrl = `https://${workerName}.refly-ai.workers.dev`;
+            const previewUrl = `https://${workerName}.powerformer.workers.dev`;
             const body = `## Preview Deployment
 
             | App | URL |
