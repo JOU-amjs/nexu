@@ -1815,25 +1815,32 @@ function AvatarStep({
         </button>
       </div>
 
-      <div className="flex justify-center gap-1.5 mt-4">
-        {AVATAR_OPTIONS.map((a, i) => (
-          <button
-            type="button"
-            key={a.id}
-            onClick={() => setCurrentIndex(i)}
-            className="relative cursor-pointer"
-          >
-            <div
-              className={`w-[6px] h-[6px] rounded-full transition-all ${i === currentIndex ? "scale-[1.5]" : "bg-border-hover"}`}
-              style={
-                i === currentIndex ? { backgroundColor: avatar.color } : {}
-              }
-            />
-            {selected === a.id && i !== currentIndex && (
-              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-success" />
-            )}
-          </button>
-        ))}
+      <div className="mt-4 flex items-center justify-center gap-1.5">
+        {AVATAR_OPTIONS.map((a, i) => {
+          const isCurrent = i === currentIndex;
+          const isSelected = selected === a.id;
+          return (
+            <button
+              type="button"
+              key={a.id}
+              onClick={() => setCurrentIndex(i)}
+              className="relative flex h-4 w-4 items-center justify-center rounded-full cursor-pointer"
+            >
+              <div
+                className={`h-[6px] w-[6px] rounded-full transition-all ${
+                  isCurrent ? "scale-[1.5]" : ""
+                }`}
+                style={{
+                  backgroundColor: isCurrent
+                    ? avatar.color
+                    : isSelected
+                      ? "var(--color-success)"
+                      : "var(--color-border-hover)",
+                }}
+              />
+            </button>
+          );
+        })}
       </div>
 
       {selected && (
