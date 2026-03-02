@@ -52,8 +52,8 @@ jobs:
           BRANCH="${{ github.head_ref }}"
           # Slugify: lowercase, replace / and _ with -, remove non-alphanumeric except -, trim dashes
           SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[\/\_]/-/g' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-          # Cloudflare Worker names have a 63 char limit
-          SLUG="${SLUG:0:50}"
+          # Worker name = "nexu-app-preview-" (18 chars) + SLUG; CF limits previews to 54 chars total
+          SLUG="${SLUG:0:36}"
           echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
           echo "worker_name=nexu-app-preview-${SLUG}" >> "$GITHUB_OUTPUT"
           echo "preview_hostname=${SLUG}.${{ env.PREVIEW_DOMAIN_SUFFIX }}" >> "$GITHUB_OUTPUT"
