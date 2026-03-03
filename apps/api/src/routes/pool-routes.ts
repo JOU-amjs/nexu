@@ -188,7 +188,15 @@ const putPoolSecretsRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            secrets: z.record(z.string()),
+            secrets: z.record(
+              z.union([
+                z.string(),
+                z.object({
+                  value: z.string(),
+                  scope: z.string().default("pool"),
+                }),
+              ]),
+            ),
           }),
         },
       },
@@ -307,7 +315,9 @@ export function registerPoolRoutes(app: OpenAPIHono<AppBindings>) {
 
     const now = new Date().toISOString();
     let count = 0;
-    for (const [name, value] of Object.entries(secrets)) {
+    for (const [name, entry] of Object.entries(secrets)) {
+      const value = typeof entry === "string" ? entry : entry.value;
+      const scope = typeof entry === "string" ? "pool" : entry.scope;
       const encryptedValue = encrypt(value);
       await db
         .insert(poolSecrets)
@@ -316,12 +326,13 @@ export function registerPoolRoutes(app: OpenAPIHono<AppBindings>) {
           poolId,
           secretName: name,
           encryptedValue,
+          scope,
           createdAt: now,
           updatedAt: now,
         })
         .onConflictDoUpdate({
           target: [poolSecrets.poolId, poolSecrets.secretName],
-          set: { encryptedValue, updatedAt: now },
+          set: { encryptedValue, scope, updatedAt: now },
         });
       count++;
     }
