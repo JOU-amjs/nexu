@@ -280,6 +280,9 @@ export async function generatePoolConfig(
     cron: {
       enabled: true,
     },
+    session: {
+      dmScope: "per-peer",
+    },
     channels: {},
     bindings: bindingsList,
   };
@@ -309,11 +312,10 @@ export async function generatePoolConfig(
   }
 
   if (Object.keys(slackAccounts).length > 0) {
-    // Top-level signingSecret + mode required by OpenClaw gateway validation
-    const firstAccount = Object.values(slackAccounts)[0];
+    // Single-app mode: all workspaces share one Slack App → one signing secret
     config.channels.slack = {
       mode: "http",
-      signingSecret: firstAccount?.signingSecret ?? "",
+      signingSecret: process.env.SLACK_SIGNING_SECRET ?? "",
       enabled: true,
       groupPolicy: "open",
       requireMention: false,
@@ -336,7 +338,10 @@ export async function generatePoolConfig(
   if (Object.keys(feishuAccounts).length > 0) {
     config.channels.feishu = {
       enabled: true,
-      connectionMode: "websocket",
+      connectionMode: "webhook",
+      webhookPort: 3100,
+      webhookPath: "/feishu/events",
+      verificationToken: process.env.FEISHU_VERIFICATION_TOKEN ?? "",
       dmPolicy: "open",
       groupPolicy: "open",
       requireMention: true,

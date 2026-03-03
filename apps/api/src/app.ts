@@ -27,7 +27,10 @@ import {
 } from "./routes/session-routes.js";
 import { registerSkillRoutes } from "./routes/skill-routes.js";
 import { registerSlackEvents } from "./routes/slack-events.js";
+import { registerFeishuEvents } from "./routes/feishu-events.js";
 import { registerUserRoutes } from "./routes/user-routes.js";
+import { registerAuthCheckRoutes } from "./routes/auth-check-routes.js";
+import { registerLinkRoutes } from "./routes/link-routes.js";
 
 import type { AppBindings } from "./types.js";
 
@@ -48,6 +51,8 @@ export function createApp() {
   registerAuthRoutes(app);
   registerSlackOAuthCallback(app);
   registerSlackEvents(app);
+  registerFeishuEvents(app);
+  registerAuthCheckRoutes(app);
   registerArtifactInternalRoutes(app);
   registerSessionInternalRoutes(app);
   registerSkillRoutes(app);
@@ -63,6 +68,7 @@ export function createApp() {
   registerPoolRoutes(app);
   registerArtifactRoutes(app);
   registerSessionRoutes(app);
+  registerLinkRoutes(app);
 
   app.doc("/openapi.json", {
     openapi: "3.1.0",

@@ -15,6 +15,7 @@ import {
   bots,
   channelCredentials,
   oauthStates,
+  slackInstallations,
   webhookRoutes,
 } from "../db/schema/index.js";
 import { findOrCreateDefaultBot } from "../lib/bot-helpers.js";
@@ -22,8 +23,10 @@ import { encrypt } from "../lib/crypto.js";
 import { BaseError, ServiceError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
 import { publishPoolConfigSnapshot } from "../services/runtime/pool-config-service.js";
+import { provisionWorkspaceAgent } from "../services/slack-provisioning.js";
 
 import type { AppBindings } from "../types.js";
+import { createUserLink } from "./link-routes.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers & schemas
@@ -381,7 +384,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     const bot = await findOrCreateDefaultBot(userId);
     const botId = bot.id;
 
-    const accountId = `slack-${appId}`;
+    const accountId = `slack-${appId}-${teamId}`;
     const slackExternalId = `${teamId}:${appId}`;
 
     // Check if this Slack app is already connected (by externalId)
@@ -815,39 +818,46 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
       );
     }
 
-    if (!code || !state) {
-      return redirectWithError("Missing authorization code or state parameter");
+    if (!code) {
+      return redirectWithError("Missing authorization code");
     }
 
     // --- 2. Validate state token (CSRF protection) ---
-    const [stateRow] = await db
-      .select()
-      .from(oauthStates)
-      .where(eq(oauthStates.state, state));
+    // state may be absent for Slack App Directory direct installs
+    let userId: string | null = null;
+    let returnTo: string | null = null;
 
-    if (!stateRow) {
-      return redirectWithError(
-        "Invalid or expired authorization. Please try again.",
-      );
+    if (state) {
+      const [stateRow] = await db
+        .select()
+        .from(oauthStates)
+        .where(eq(oauthStates.state, state));
+
+      if (!stateRow) {
+        return redirectWithError(
+          "Invalid or expired authorization. Please try again.",
+        );
+      }
+
+      if (stateRow.usedAt) {
+        return redirectWithError(
+          "This authorization link has already been used.",
+        );
+      }
+
+      if (new Date(stateRow.expiresAt) < new Date()) {
+        return redirectWithError("Authorization expired. Please try again.");
+      }
+
+      // --- 3. Mark state as used (prevent replay) ---
+      await db
+        .update(oauthStates)
+        .set({ usedAt: new Date().toISOString() })
+        .where(eq(oauthStates.id, stateRow.id));
+
+      userId = stateRow.userId;
+      returnTo = stateRow.returnTo;
     }
-
-    if (stateRow.usedAt) {
-      return redirectWithError(
-        "This authorization link has already been used.",
-      );
-    }
-
-    if (new Date(stateRow.expiresAt) < new Date()) {
-      return redirectWithError("Authorization expired. Please try again.");
-    }
-
-    // --- 3. Mark state as used (prevent replay) ---
-    await db
-      .update(oauthStates)
-      .set({ usedAt: new Date().toISOString() })
-      .where(eq(oauthStates.id, stateRow.id));
-
-    const { userId } = stateRow;
 
     // --- 4. Exchange code for token with Slack ---
     const clientId = process.env.SLACK_CLIENT_ID;
@@ -885,158 +895,115 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
     const teamId = tokenResponse.team.id;
     const teamName = tokenResponse.team.name;
     const botToken = tokenResponse.access_token;
+    const appId = tokenResponse.app_id;
+    const now = new Date().toISOString();
 
-    const signingSecret = process.env.SLACK_SIGNING_SECRET;
-    if (!signingSecret) {
+    // --- 5. Upsert slack_installations ---
+    const [existingInstall] = await db
+      .select()
+      .from(slackInstallations)
+      .where(eq(slackInstallations.teamId, teamId));
+
+    let installationId: string;
+
+    if (existingInstall) {
+      installationId = existingInstall.id;
+      await db
+        .update(slackInstallations)
+        .set({
+          teamName,
+          botToken: encrypt(botToken),
+          botUserId: tokenResponse.bot_user_id,
+          authedUserId: tokenResponse.authed_user.id,
+          scope: tokenResponse.scope,
+          nexuUserId: userId,
+          status: "active",
+          updatedAt: now,
+        })
+        .where(eq(slackInstallations.id, installationId));
+    } else {
+      installationId = createId();
+      await db.insert(slackInstallations).values({
+        id: installationId,
+        teamId,
+        teamName,
+        appId,
+        botToken: encrypt(botToken),
+        botUserId: tokenResponse.bot_user_id,
+        authedUserId: tokenResponse.authed_user.id,
+        scope: tokenResponse.scope,
+        nexuUserId: userId,
+        installedAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // --- 6. Provision workspace agent (bot + channel + credentials + route) ---
+    const [installation] = await db
+      .select()
+      .from(slackInstallations)
+      .where(eq(slackInstallations.id, installationId));
+
+    if (!installation) {
+      return redirectWithError("Failed to save installation");
+    }
+
+    try {
+      await provisionWorkspaceAgent(db, installation);
+    } catch (err) {
+      logger.error({
+        message: "slack_oauth_provision_failed",
+        team_id: teamId,
+        error: String(err),
+      });
       return redirectWithError(
-        "SLACK_SIGNING_SECRET is not configured on this server",
+        "Installation saved but workspace setup failed. Please try again.",
       );
     }
 
-    const appId = tokenResponse.app_id;
-    const accountId = `slack-${appId}`;
-    const slackExternalId = `${teamId}:${appId}`;
-
-    // --- 5. Find or create the user's default bot ---
-    const bot = await findOrCreateDefaultBot(userId);
-    const botId = bot.id;
-
-    // --- 6. Create or update the channel connection ---
-    const [existing] = await db
-      .select()
-      .from(botChannels)
-      .where(
-        and(
-          eq(botChannels.botId, botId),
-          eq(botChannels.channelType, "slack"),
-          eq(botChannels.accountId, accountId),
-        ),
-      );
-
-    const now = new Date().toISOString();
-    let channelId: string;
-
-    if (existing) {
-      // Reconnect: update existing channel credentials
-      channelId = existing.id;
-
-      await db
-        .update(botChannels)
-        .set({
-          status: "connected",
-          channelConfig: JSON.stringify({ teamId, teamName, appId }),
-          updatedAt: now,
-        })
-        .where(eq(botChannels.id, channelId));
-
-      // Replace credentials (delete + re-insert)
-      await db
-        .delete(channelCredentials)
-        .where(eq(channelCredentials.botChannelId, channelId));
-
-      await db.insert(channelCredentials).values([
-        {
-          id: createId(),
-          botChannelId: channelId,
-          credentialType: "botToken",
-          encryptedValue: encrypt(botToken),
-          createdAt: now,
-        },
-        {
-          id: createId(),
-          botChannelId: channelId,
-          credentialType: "signingSecret",
-          encryptedValue: encrypt(signingSecret),
-          createdAt: now,
-        },
-      ]);
-
-      if (bot.poolId) {
-        await db
-          .update(webhookRoutes)
-          .set({
-            poolId: bot.poolId,
-            accountId,
-            botId,
-            updatedAt: now,
-          })
-          .where(eq(webhookRoutes.botChannelId, channelId));
-      }
-    } else {
-      // New connection — check global uniqueness first
-      const [globalExisting] = await db
-        .select()
-        .from(webhookRoutes)
-        .where(
-          and(
-            eq(webhookRoutes.channelType, "slack"),
-            eq(webhookRoutes.externalId, slackExternalId),
-          ),
+    // --- 7. Auto-link installer to channelUserLinks ---
+    if (userId) {
+      try {
+        await createUserLink(
+          "slack",
+          teamId,
+          tokenResponse.authed_user.id,
+          userId,
         );
-
-      if (globalExisting) {
-        return redirectWithError(
-          "This Slack app is already connected to another bot",
-        );
-      }
-
-      channelId = createId();
-
-      await db.insert(botChannels).values({
-        id: channelId,
-        botId,
-        channelType: "slack",
-        accountId,
-        status: "connected",
-        channelConfig: JSON.stringify({ teamId, teamName, appId }),
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await db.insert(channelCredentials).values([
-        {
-          id: createId(),
-          botChannelId: channelId,
-          credentialType: "botToken",
-          encryptedValue: encrypt(botToken),
-          createdAt: now,
-        },
-        {
-          id: createId(),
-          botChannelId: channelId,
-          credentialType: "signingSecret",
-          encryptedValue: encrypt(signingSecret),
-          createdAt: now,
-        },
-      ]);
-
-      if (bot.poolId) {
-        await db.insert(webhookRoutes).values({
-          id: createId(),
-          channelType: "slack",
-          externalId: slackExternalId,
-          poolId: bot.poolId,
-          botChannelId: channelId,
-          botId,
-          accountId,
-          updatedAt: now,
-          createdAt: now,
+        logger.info({
+          message: "slack_oauth_installer_auto_linked",
+          team_id: teamId,
+          slack_user_id: tokenResponse.authed_user.id,
+          nexu_user_id: userId,
+        });
+      } catch (err) {
+        logger.warn({
+          message: "slack_oauth_installer_link_failed",
+          team_id: teamId,
+          error: String(err),
         });
       }
     }
 
-    await publishSnapshotSafely(bot.poolId, botId);
-
-    // --- 7. Cleanup expired states (opportunistic) ---
+    // --- 8. Cleanup expired states (opportunistic) ---
     await db.delete(oauthStates).where(lt(oauthStates.expiresAt, now));
 
-    // --- 8. Redirect to frontend success page ---
+    // --- 9. Redirect to frontend ---
+    if (!userId) {
+      // App Directory direct install — no Nexu account yet
+      // Redirect to registration page with workspace info
+      const registerUrl = new URL("/register", webUrl);
+      registerUrl.searchParams.set("from", "slack");
+      registerUrl.searchParams.set("teamName", teamName);
+      registerUrl.searchParams.set("teamId", teamId);
+      return c.redirect(registerUrl.toString(), 302);
+    }
+
     const successUrl = new URL("/workspace/channels/slack/callback", webUrl);
     successUrl.searchParams.set("success", "true");
-    successUrl.searchParams.set("channelId", channelId);
     successUrl.searchParams.set("teamName", teamName);
-    if (stateRow.returnTo) {
-      successUrl.searchParams.set("returnTo", stateRow.returnTo);
+    if (returnTo) {
+      successUrl.searchParams.set("returnTo", returnTo);
     }
     return c.redirect(successUrl.toString(), 302);
   });

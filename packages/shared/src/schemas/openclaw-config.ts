@@ -98,6 +98,9 @@ const feishuAccountSchema = z.object({
 const feishuChannelSchema = z.object({
   enabled: z.boolean().optional(),
   connectionMode: z.enum(["websocket", "webhook"]).optional(),
+  webhookPort: z.number().optional(),
+  webhookPath: z.string().optional(),
+  verificationToken: z.string().optional(),
   dmPolicy: z.enum(["pairing", "allowlist", "open"]).optional(),
   groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
   requireMention: z.boolean().optional(),
@@ -223,6 +226,14 @@ const cronConfigSchema = z
   })
   .passthrough();
 
+const sessionConfigSchema = z
+  .object({
+    dmScope: z
+      .enum(["main", "per-peer", "per-channel-peer", "per-account-channel-peer"])
+      .optional(),
+  })
+  .passthrough();
+
 export const openclawConfigSchema = z.object({
   gateway: gatewayConfigSchema,
   models: modelsConfigSchema.optional(),
@@ -233,6 +244,7 @@ export const openclawConfigSchema = z.object({
   bindings: z.array(bindingSchema),
   commands: commandsConfigSchema.optional(),
   cron: cronConfigSchema.optional(),
+  session: sessionConfigSchema.optional(),
 });
 
 export type OpenClawConfig = z.infer<typeof openclawConfigSchema>;

@@ -242,6 +242,87 @@ export const inviteCodes = pgTable("invite_codes", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const slackInstallations = pgTable(
+  "slack_installations",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    teamId: text("team_id").notNull().unique(),
+    teamName: text("team_name").notNull(),
+    appId: text("app_id").notNull(),
+    botToken: text("bot_token").notNull(), // encrypted
+    botUserId: text("bot_user_id").notNull(),
+    authedUserId: text("authed_user_id").notNull(), // Slack user who installed
+    scope: text("scope").notNull(),
+    nexuUserId: text("nexu_user_id"), // FK → users.id; NULL if not yet registered
+    poolId: text("pool_id"),
+    botId: text("bot_id"), // FK → bots.id; set after provisioning
+    status: text("status").notNull().default("active"), // active / revoked / suspended
+    installedAt: text("installed_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [index("slack_installations_app_id_idx").on(table.appId)],
+);
+
+// ── Multi-channel user linking ──────────────────────────────────────────
+
+export const channelUserLinks = pgTable(
+  "channel_user_links",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    channelType: text("channel_type").notNull(), // "slack" | "feishu" | "discord"
+    channelTeamId: text("channel_team_id"), // Slack: teamId / Feishu: tenant_key / Discord: guildId
+    channelUserId: text("channel_user_id").notNull(), // Slack: U... / Feishu: open_id / Discord: userId
+    nexuUserId: text("nexu_user_id"), // FK → users.id; filled after linking
+    displayName: text("display_name"),
+    status: text("status").notNull().default("pending"), // pending → active
+    linkedAt: text("linked_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex("channel_user_links_uniq_idx").on(
+      table.channelType,
+      table.channelTeamId,
+      table.channelUserId,
+    ),
+    index("channel_user_links_nexu_user_idx").on(table.nexuUserId),
+  ],
+);
+
+export const linkTokens = pgTable(
+  "link_tokens",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    token: text("token").notNull().unique(),
+    channelType: text("channel_type").notNull(), // "slack" | "feishu" | "discord"
+    channelTeamId: text("channel_team_id"), // same semantics as channelUserLinks
+    channelUserId: text("channel_user_id").notNull(),
+    expiresAt: text("expires_at").notNull(), // ISO string, TTL 30 minutes
+    usedAt: text("used_at"), // marked when consumed
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index("link_tokens_channel_user_idx").on(
+      table.channelType,
+      table.channelTeamId,
+      table.channelUserId,
+    ),
+  ],
+);
+
 export const artifacts = pgTable("artifacts", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
