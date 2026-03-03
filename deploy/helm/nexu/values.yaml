@@ -36,6 +36,7 @@ secret:
   LITELLM_BASE_URL: ""
   LITELLM_API_KEY: ""
   RESEND_API_KEY: ""
+  FEISHU_FEEDBACK_WEBHOOK_URL: ""
 
 api:
   replicas: 2

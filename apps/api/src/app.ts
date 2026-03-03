@@ -17,6 +17,7 @@ import {
   registerChannelRoutes,
   registerSlackOAuthCallback,
 } from "./routes/channel-routes.js";
+import { registerFeedbackRoutes } from "./routes/feedback-routes.js";
 import { registerInviteRoutes } from "./routes/invite-routes.js";
 import { registerModelRoutes } from "./routes/model-routes.js";
 import { registerOnboardingRoutes } from "./routes/onboarding-routes.js";
@@ -51,6 +52,7 @@ export function createApp() {
   registerArtifactInternalRoutes(app);
   registerSessionInternalRoutes(app);
   registerSkillRoutes(app);
+  registerFeedbackRoutes(app);
 
   app.use("/api/v1/*", authMiddleware);
 
