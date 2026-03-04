@@ -76,3 +76,4 @@ See `ARCHITECTURE.md` for the full bird's-eye view. Key points:
 | Doc sync | `.nexu-dev/skills/sync-docs/SKILL.md` |
 | E2E gateway testing | `.nexu-dev/skills/nexu-e2e-test/SKILL.md` |
 | Production operations | `.nexu-dev/skills/prod-ops/SKILL.md` |
+| Nano Banana (image gen) | `.nexu-dev/skills/nano-banana/SKILL.md` |
