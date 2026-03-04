@@ -168,11 +168,7 @@ export async function generatePoolConfig(
         // OpenClaw Slack plugin's isConfigured requires appToken even in HTTP mode.
         // Provide a placeholder so the account passes the configured check.
         appToken: "xapp-placeholder-not-used-in-http-mode",
-        // Disable preview streaming to avoid duplicate messages.
-        // When streaming is "partial" (default), OpenClaw sends a draft preview
-        // message then a final reply — but without a thread context the draft
-        // cannot be finalized via edit, resulting in two visible messages.
-        streaming: "off",
+        streaming: "partial",
       };
 
       bindingsList.push({
@@ -302,6 +298,11 @@ export async function generatePoolConfig(
     cron: {
       enabled: true,
     },
+    messages: {
+      ackReaction: "eyes",
+      ackReactionScope: "all",
+      removeAckAfterReply: true,
+    },
     channels: {},
     bindings: bindingsList,
   };
@@ -341,6 +342,7 @@ export async function generatePoolConfig(
       requireMention: false,
       dmPolicy: "open",
       allowFrom: ["*"],
+      ackReaction: "eyes",
       accounts: slackAccounts,
     };
   }
