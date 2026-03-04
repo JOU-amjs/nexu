@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -36,6 +38,8 @@ jobs:
         id: migration-sync
         continue-on-error: true
         env:
+          DB_MIGRATION_EVENT_NAME: ${{ github.event_name }}
+          DB_MIGRATION_BASE_REF: ${{ github.base_ref }}
           DB_MIGRATION_SYNC_REPORT_PATH: ${{ runner.temp }}/db-migration-sync-report.md
         run: pnpm --filter @nexu/api db:check-sync
 
