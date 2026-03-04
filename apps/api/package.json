@@ -12,6 +12,8 @@
     "generate-openapi": "tsx scripts/generate-openapi.ts",
     "db:generate": "drizzle-kit generate",
     "db:check-sync": "tsx scripts/check-migration-sync.ts",
+    "db:check-sync:missing": "DB_MIGRATION_SYNC_MODE=missing tsx scripts/check-migration-sync.ts",
+    "db:check-sync:mismatch": "DB_MIGRATION_SYNC_MODE=mismatch tsx scripts/check-migration-sync.ts",
     "db:check-dangerous": "tsx scripts/check-migration-dangerous.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed-dev.ts"
