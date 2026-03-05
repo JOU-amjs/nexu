@@ -278,7 +278,7 @@ export async function generatePoolConfig(
           ? {
               memorySearch: {
                 enabled: true,
-                sources: ["memory"],
+                sources: ["memory", "sessions"],
                 provider: "openai",
                 model: "google/gemini-embedding-001",
                 remote: {
