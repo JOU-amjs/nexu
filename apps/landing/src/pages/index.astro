@@ -17,65 +17,66 @@ import {
 } from "lucide-react";
 import DemoSection from "../components/DemoSection";
 import FAQSection from "../components/FAQSection";
+import LobsterCursorEffect from "../components/LobsterCursorEffect";
 
 const capabilities = [
-  { Icon: Code2, label: "Build websites & tools" },
-  { Icon: BarChart3, label: "Data analysis" },
-  { Icon: PenTool, label: "Content writing" },
-  { Icon: Search, label: "Research" },
-  { Icon: Workflow, label: "Automation" },
+  { Icon: Rocket, label: "1-minute launch" },
+  { Icon: Brain, label: "Persistent memory" },
+  { Icon: Workflow, label: "1,000+ built-in tools" },
+  { Icon: MessageSquare, label: "Runs in team chat" },
+  { Icon: Clock, label: "24/7 execution" },
 ];
 
 const features = [
   {
     Icon: Code2,
-    title: "Build websites & tools",
-    desc: '"Build me a flashcard game for learning English" — your lobster writes the code, deploys it, and gives you a link.',
+    title: "Build & ship from chat",
+    desc: '"Build me a flashcard game for learning English" and your lobster writes the code, deploys it, and returns a live link.',
   },
   {
     Icon: BarChart3,
-    title: "Analyze data & reports",
-    desc: "Drop in an Excel file and your lobster finds trends, builds charts, and delivers insights. Half a day of work, done in seconds.",
+    title: "Analyze data in minutes",
+    desc: "Drop in a spreadsheet and your lobster finds trends, builds charts, and delivers recommendations with source notes.",
   },
   {
     Icon: PenTool,
-    title: "Write & publish content",
-    desc: "Product blogs, weekly updates, Twitter Threads, investor emails — give it your materials and get polished content back.",
+    title: "Write content that ships",
+    desc: "Turn changelogs and meeting notes into launch posts, customer updates, and investor emails without switching tools.",
   },
   {
     Icon: MessageSquare,
-    title: "Lives in your chat app",
-    desc: "No new app to download. Your lobster lives directly in Slack / Discord / Telegram / WhatsApp. Just type and it starts working.",
+    title: "Lives where your team talks",
+    desc: "No extra app to train. nexu runs directly in Slack, Discord, Telegram, and WhatsApp with one shared memory layer.",
   },
   {
     Icon: Workflow,
-    title: "Scheduled automation",
-    desc: '"Every Friday, summarize our Slack and send a newsletter" — set it once, your lobster runs it every week.',
+    title: "Automates recurring work",
+    desc: 'Set routines like "every Friday summarize Slack and send a newsletter" once, then let your lobster run them automatically.',
   },
   {
     Icon: Brain,
-    title: "Gets smarter over time",
-    desc: "Your lobster remembers your preferences and context — no need to repeat yourself. The more you use it, the better it gets.",
+    title: "Compounds team context",
+    desc: "It remembers decisions, preferences, and project history so your team keeps momentum even when people rotate.",
   },
 ];
 
 const steps = [
   {
     step: "01",
-    title: "Sign up",
-    desc: "Create an account with your email. Takes 30 seconds.",
+    title: "Create workspace",
+    desc: "Start with email and name your workspace. You are ready in under a minute.",
     Icon: Rocket,
   },
   {
     step: "02",
-    title: "Add to your IM",
-    desc: "Connect Slack / Discord / Telegram / WhatsApp in 3 minutes. Your 🦞 moves right in.",
+    title: "Connect team chat",
+    desc: "Add nexu to Slack, Discord, Telegram, or WhatsApp. Your lobster joins where work already happens.",
     Icon: Blocks,
   },
   {
     step: "03",
-    title: "Start talking",
-    desc: "@Nexu in your chat — tell it what you need, and 🦞 builds it for you.",
+    title: "Run real work",
+    desc: "Ask in plain language. nexu executes tasks, posts updates, and keeps memory for the next request.",
     Icon: Terminal,
   },
 ];
@@ -134,18 +135,18 @@ const useCases = [
 ];
 
 const stats = [
-  { num: "3 min", label: "To get started", sub: "Add a bot and you're ready" },
+  { num: "1 min", label: "To launch", sub: "Connect and go live" },
   {
-    num: "10h+",
-    label: "Saved per week",
-    sub: "Let your lobster do the grunt work",
+    num: "24/7",
+    label: "Execution window",
+    sub: "Your lobster never sleeps",
   },
   {
-    num: "4",
-    label: "IM platforms",
-    sub: "Slack · Discord · Telegram · WhatsApp",
+    num: "1,000+",
+    label: "Built-in tools",
+    sub: "Code, data, content, automation",
   },
-  { num: "0", label: "Things to install", sub: "Just type and it works" },
+  { num: "0", label: "Ops overhead", sub: "Hosted by default" },
 ];
 ---
 
@@ -170,13 +171,14 @@ const stats = [
         media.addListener(updateFavicon);
       })();
     </script>
-    <title>Nexu - Your Digital Clone, Powered by OpenClaw</title>
-    <meta name="description" content="Your lobster lives in Slack, Discord, Telegram, WhatsApp — not just chatting, but delivering results. Build apps, analyze data, write content, run automations." />
+    <title>Nexu - Your team chat AI workspace</title>
+    <meta name="description" content="Turn team chat into execution. Launch in 1 minute, run 1,000+ built-in tools, and keep persistent memory in Slack, Discord, Telegram, and WhatsApp." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <LobsterCursorEffect client:load />
     <div class="min-h-full bg-surface-0 relative">
 
       {/* Nav */}
@@ -208,15 +210,15 @@ const stats = [
         <div class="absolute inset-0 opacity-15" style="background-image: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size: 56px 56px;"></div>
         <div class="relative px-4 sm:px-6 pt-16 sm:pt-20 md:pt-24 pb-14 sm:pb-16 md:pb-20 mx-auto max-w-4xl text-center">
           <div class="inline-flex gap-2 items-center px-3 py-1 mb-8 text-xs font-medium rounded-full border border-accent/20 text-accent bg-accent/5">
-            <Zap size={12} /> Nexu · Digital clone powered by OpenClaw
+            <Zap size={12} /> Live beta · no setup tax
           </div>
           <h1 class="text-[32px] sm:text-[40px] md:text-[42px] font-bold text-text-primary mb-5 sm:mb-6 leading-[1.15] tracking-tight">
-            For your lobster 🦞<br />
-            <span class="text-accent">A cyber office where humans and clones coexist</span>
+            Your team chat just became your AI workspace<br />
+            <span class="text-accent">1-minute launch. Persistent team memory.</span>
           </h1>
           <p class="mx-auto mb-7 sm:mb-8 max-w-2xl text-base sm:text-lg leading-relaxed text-text-tertiary">
-            Your lobster lives in Slack / Discord / Telegram / WhatsApp, etc. —<br class="hidden sm:block" />
-            not just chatting, but delivering results. Build apps, analyze data, write content, run automations.
+            nexu puts OpenClaw into the place your team already works: Slack, Discord, Telegram, and WhatsApp.<br class="hidden sm:block" />
+            No YAML, no context resets, no tool sprawl. Ask in chat and your lobster gets it done.
           </p>
           <div class="flex flex-wrap gap-2 justify-center mb-10">
             {capabilities.map((cap) => (
@@ -232,7 +234,7 @@ const stats = [
             </a>
           </div>
           <div class="flex items-center justify-center text-[13px] text-text-muted">
-            <span>3-minute setup · Unlimited free Claude models</span>
+            <span>Built for teams that move fast and hate workflow fragmentation.</span>
           </div>
         </div>
       </section>
@@ -244,8 +246,8 @@ const stats = [
       <section id="features" class="px-4 sm:px-6 py-16 sm:py-20 md:py-24 mx-auto max-w-4xl">
         <div class="mb-14 text-center">
           <div class="text-[11px] font-semibold text-accent mb-3 tracking-widest uppercase">Capabilities</div>
-          <h2 class="text-2xl font-bold tracking-tight text-text-primary">You share the idea. 🦞 delivers the result.</h2>
-          <p class="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-text-tertiary">No tools to learn. No prompts to craft. Open your IM, say what you need, and your lobster builds it.</p>
+          <h2 class="text-2xl font-bold tracking-tight text-text-primary">OpenClaw power without OpenClaw friction.</h2>
+          <p class="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-text-tertiary">From task execution to reporting, nexu runs beside your team in chat with memory and production-ready defaults.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5 lg:mb-10">
           {features.slice(0, 3).map((f) => (
@@ -277,7 +279,7 @@ const stats = [
       <section id="how" class="px-4 sm:px-6 py-16 sm:py-20 md:py-24 mx-auto max-w-4xl">
         <div class="mb-14 text-center">
           <div class="text-[11px] font-semibold text-accent mb-3 tracking-widest uppercase">How it works</div>
-          <h2 class="text-2xl font-bold tracking-tight text-text-primary">3 steps to get 🦞 working</h2>
+          <h2 class="text-2xl font-bold tracking-tight text-text-primary">Go from zero to daily value in 3 steps.</h2>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {steps.map((s, i) => (
@@ -300,7 +302,7 @@ const stats = [
       <section class="px-4 sm:px-6 py-16 sm:py-20 md:py-24 mx-auto max-w-5xl">
         <div class="mb-14 text-center">
           <div class="text-[11px] font-semibold text-accent mb-3 tracking-widest uppercase">Use cases</div>
-          <h2 class="text-2xl font-bold tracking-tight text-text-primary">You describe it. Your 🦞 delivers it.</h2>
+          <h2 class="text-2xl font-bold tracking-tight text-text-primary">You chat. nexu executes.</h2>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {useCases.map((c) => (
@@ -347,8 +349,8 @@ const stats = [
       <section class="overflow-hidden relative">
         <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(var(--color-accent-rgb,99,102,241),0.05)_0%,transparent_60%)]"></div>
         <div class="relative px-4 sm:px-6 py-16 sm:py-20 md:py-24 mx-auto max-w-3xl text-center">
-          <h2 class="mb-4 text-3xl font-bold tracking-tight text-text-primary">Stop doing it yourself. Let 🦞 handle it.</h2>
-          <p class="mb-8 text-base text-text-tertiary">Get started for free — say what you need, your lobster builds it.</p>
+          <h2 class="mb-4 text-3xl font-bold tracking-tight text-text-primary">Give your lobster a real workplace.</h2>
+          <p class="mb-8 text-base text-text-tertiary">Start free, connect your channels, and turn daily chat into reusable team leverage.</p>
           <div class="flex gap-3 justify-center">
             <a href="/auth" class="flex gap-2 items-center px-6 sm:px-8 py-3 text-sm font-semibold rounded-lg transition-all bg-accent hover:bg-accent-hover text-accent-fg hover:shadow-lg hover:shadow-accent/20">
               Get started free <ArrowRight size={14} />
