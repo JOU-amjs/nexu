@@ -10,7 +10,7 @@ import {
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { artifacts, bots } from "../db/schema/index.js";
+import { artifacts, bots, sessions } from "../db/schema/index.js";
 import { ServiceError } from "../lib/error.js";
 import { requireSkillToken } from "../middleware/internal-auth.js";
 import type { AppBindings } from "../types.js";
@@ -122,11 +122,34 @@ export function registerArtifactInternalRoutes(app: OpenAPIHono<AppBindings>) {
     const now = new Date().toISOString();
     const id = createId();
 
+    // Resolve session key: if the provided key doesn't look like a Nexu session
+    // key (agent:...), look up the bot's most recently active session instead.
+    let resolvedSessionKey = input.sessionKey;
+    if (resolvedSessionKey && !resolvedSessionKey.startsWith("agent:")) {
+      const [latestSession] = await db
+        .select({ sessionKey: sessions.sessionKey })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.botId, input.botId),
+            eq(sessions.status, "active"),
+          ),
+        )
+        .orderBy(
+          sql`${sessions.lastMessageAt} DESC NULLS LAST`,
+          desc(sessions.createdAt),
+        )
+        .limit(1);
+      if (latestSession) {
+        resolvedSessionKey = latestSession.sessionKey;
+      }
+    }
+
     await db.insert(artifacts).values({
       id,
       botId: input.botId,
       title: input.title,
-      sessionKey: input.sessionKey,
+      sessionKey: resolvedSessionKey,
       channelType: input.channelType,
       channelId: input.channelId,
       artifactType: input.artifactType,
