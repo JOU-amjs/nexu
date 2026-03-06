@@ -177,7 +177,7 @@ export function WorkspaceLayout() {
   const mobileTitle = isChannelsPage
     ? "Channels"
     : isStatsPage
-      ? "Statistics"
+      ? "统计"
       : selectedSession?.title || "Conversations";
   const mobileSubtitle = isChannelsPage
     ? "Configure your channels"
@@ -332,7 +332,7 @@ export function WorkspaceLayout() {
             <div className="border-t border-border pt-2" />
             <Link
               to="/workspace/stats"
-              title={collapsed ? "Statistics" : undefined}
+              title={collapsed ? "统计" : undefined}
               onClick={() => track("workspace_stats_click")}
               className={cn(
                 "flex items-center gap-2 w-full rounded-lg text-[12px] font-medium transition-colors cursor-pointer mt-1",
@@ -343,7 +343,7 @@ export function WorkspaceLayout() {
               )}
             >
               <BarChart3 size={14} />
-              {!collapsed && "Statistics"}
+              {!collapsed && "统计"}
             </Link>
             <Link
               to="/workspace/channels"
@@ -568,7 +568,7 @@ export function WorkspaceLayout() {
                     )}
                   >
                     <BarChart3 size={14} />
-                    Statistics
+                    统计
                   </Link>
                   <Link
                     to="/workspace/channels"
