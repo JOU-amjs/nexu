@@ -49,6 +49,11 @@ jobs:
           if [[ ${#sql_files[@]} -eq 0 ]]; then
             echo "No changed migration SQL files found against origin/${BASE_REF}. Skip."
             echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## DB Migrate"
+              echo "- Result: skipped (no changed migration SQL files)"
+              echo "- Baseline: \`origin/${BASE_REF}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -105,6 +110,18 @@ jobs:
           echo "has_migrations=true" >> "$GITHUB_OUTPUT"
           echo "manifest_path=${manifest_path}" >> "$GITHUB_OUTPUT"
 
+          {
+            echo "## DB Migrate"
+            echo "- Result: migration files detected"
+            echo "- Baseline: \`origin/${BASE_REF}\`"
+            echo "- Files: ${#sql_files[@]}"
+            echo ""
+            echo "### Migration Files"
+            for file in "${sql_files[@]}"; do
+              echo "- \`${file}\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Apply DB migrations
         if: steps.detect-migrations.outputs.has_migrations == 'true'
         shell: bash
@@ -125,9 +142,42 @@ jobs:
             -H "x-api-key: ${MIGRATE_API_KEY}" \
             --data "@${manifest_path}")"
 
+          pretty_response_path="$RUNNER_TEMP/migrate-apply-response-pretty.json"
+          node - "${response_path}" <<'NODE' > "${pretty_response_path}"
+          const fs = require("node:fs");
+
+          const responsePath = process.argv[2];
+          const raw = fs.readFileSync(responsePath, "utf8");
+
+          try {
+            process.stdout.write(`${JSON.stringify(JSON.parse(raw), null, 2)}\n`);
+          } catch {
+            process.stdout.write(raw.endsWith("\n") ? raw : `${raw}\n`);
+          }
+          NODE
+
           echo "Migrate apply HTTP status: ${http_status}"
           echo "Migrate apply response body:"
-          cat "${response_path}"
+          cat "${pretty_response_path}"
+
+          apply_result="success"
+          if [[ ! "${http_status}" =~ ^2 ]]; then
+            apply_result="failed"
+          fi
+
+          {
+            echo "### Migrate Apply"
+            echo "- URL: \`${MIGRATE_APPLY_URL}\`"
+            echo "- HTTP status: \`${http_status}\`"
+            echo "- Result: ${apply_result}"
+            echo ""
+            echo "<details><summary>Response body</summary>"
+            echo ""
+            echo "\`\`\`json"
+            cat "${pretty_response_path}"
+            echo "\`\`\`"
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ ! "${http_status}" =~ ^2 ]]; then
             echo "Migrate apply failed with HTTP status ${http_status}."
