@@ -88,6 +88,7 @@ jobs:
             BETTER_AUTH_URL="https://${{ steps.slug.outputs.branch_slug }}.${{ env.PREVIEW_DOMAIN_SUFFIX }}" \
             WEB_URL="https://${{ steps.slug.outputs.branch_slug }}.${{ env.PREVIEW_DOMAIN_SUFFIX }}" \
             RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            AUTO_SEED="true" \
             --app "$APP"
           # flyctl resolves dockerfile relative to fly.toml dir; normalize for old branches
           sed -i 's|dockerfile = "apps/api/Dockerfile.fly"|dockerfile = "Dockerfile.fly"|' apps/api/fly.toml
