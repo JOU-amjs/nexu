@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { DiscordSetupView } from "@/components/channel-setup/discord-setup-view";
 import { SlackOAuthView } from "@/components/channel-setup/slack-oauth-view";
 import { identify, track } from "@/lib/tracking";
@@ -1593,9 +1594,7 @@ export function OnboardingPage() {
       {/* Left panel — dark sidebar */}
       <div className="hidden lg:flex w-[400px] shrink-0 bg-[#111111] flex-col justify-between p-8 relative overflow-hidden">
         <div className="flex items-center gap-2.5">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-white/15">
-            <span className="text-xs font-bold text-white">N</span>
-          </div>
+          <BrandMark className="w-7 h-7 shrink-0" />
           <span className="text-[14px] font-semibold text-white/90">Nexu</span>
         </div>
 
@@ -1633,9 +1632,7 @@ export function OnboardingPage() {
       <div className="flex-1 flex flex-col bg-surface-0">
         {/* Mobile logo */}
         <div className="flex items-center gap-2.5 px-4 sm:px-6 h-14 border-b border-border lg:hidden">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent">
-            <span className="text-xs font-bold text-accent-foreground">N</span>
-          </div>
+          <BrandMark className="w-7 h-7 shrink-0" />
           <span className="text-sm font-semibold tracking-tight text-text-primary">
             Nexu
           </span>

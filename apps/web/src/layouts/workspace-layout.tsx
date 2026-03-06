@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { authClient } from "@/lib/auth-client";
 import { track } from "@/lib/tracking";
 import { cn } from "@/lib/utils";
@@ -196,9 +197,7 @@ export function WorkspaceLayout() {
         >
           {collapsed ? (
             <div className="relative group">
-              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent transition-opacity group-hover:opacity-0">
-                <span className="text-xs font-bold text-accent-fg">N</span>
-              </div>
+              <BrandMark className="w-7 h-7 transition-opacity group-hover:opacity-0" />
               <button
                 type="button"
                 onClick={() => setCollapsed(false)}
@@ -210,9 +209,7 @@ export function WorkspaceLayout() {
             </div>
           ) : (
             <>
-              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent shrink-0">
-                <span className="text-xs font-bold text-accent-fg">N</span>
-              </div>
+              <BrandMark className="w-7 h-7 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-text-primary">
                   Nexu <span className="text-[11px]">🦞</span>
@@ -432,9 +429,7 @@ export function WorkspaceLayout() {
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent shrink-0">
-                    <span className="text-xs font-bold text-accent-fg">N</span>
-                  </div>
+                  <BrandMark className="w-7 h-7 shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-text-primary truncate">
                       Nexu <span className="text-[11px]">🦞</span>

@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,9 +103,7 @@ export function InvitePage() {
       {/* Left panel — dark */}
       <div className="hidden lg:flex w-[400px] shrink-0 bg-[#111111] flex-col justify-between p-8 relative overflow-hidden">
         <div className="flex items-center gap-2.5">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-white/15">
-            <span className="text-xs font-bold text-white">N</span>
-          </div>
+          <BrandMark className="w-7 h-7 shrink-0" />
           <span className="text-[14px] font-semibold text-white/90">Nexu</span>
         </div>
 
@@ -145,9 +144,7 @@ export function InvitePage() {
         <nav>
           <div className="flex items-center justify-between px-4 sm:px-6 h-14">
             <Link to="/" className="flex items-center gap-2.5 lg:invisible">
-              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent">
-                <span className="text-xs font-bold text-accent-fg">N</span>
-              </div>
+              <BrandMark className="w-7 h-7 shrink-0" />
               <span className="text-sm font-semibold tracking-tight text-text-primary">
                 Nexu
               </span>

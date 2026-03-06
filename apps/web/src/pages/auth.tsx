@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { authClient } from "@/lib/auth-client";
 import { identify, setUserId, track } from "@/lib/tracking";
 import { Loader2 } from "lucide-react";
@@ -299,9 +300,7 @@ export function AuthPage() {
         {/* Left panel — dark */}
         <div className="hidden lg:flex w-[400px] shrink-0 bg-[#111111] flex-col justify-between p-8 relative overflow-hidden">
           <div className="flex items-center gap-2.5">
-            <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-white/15">
-              <span className="text-xs font-bold text-white">N</span>
-            </div>
+            <BrandMark className="w-7 h-7 shrink-0" />
             <span className="text-[14px] font-semibold text-white/90">
               Nexu
             </span>
@@ -341,9 +340,7 @@ export function AuthPage() {
           <nav className="border-b border-border lg:hidden">
             <div className="flex items-center px-4 sm:px-6 h-14">
               <Link to="/" className="flex items-center gap-2.5">
-                <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent">
-                  <span className="text-xs font-bold text-accent-fg">N</span>
-                </div>
+                <BrandMark className="w-7 h-7 shrink-0" />
                 <span className="text-sm font-semibold tracking-tight text-text-primary">
                   Nexu
                 </span>
@@ -447,9 +444,7 @@ export function AuthPage() {
       <div className="hidden lg:flex w-[400px] shrink-0 bg-[#111111] flex-col justify-between p-8 relative overflow-hidden">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-white/15">
-            <span className="text-xs font-bold text-white">N</span>
-          </div>
+          <BrandMark className="w-7 h-7 shrink-0" />
           <span className="text-[14px] font-semibold text-white/90">Nexu</span>
         </div>
 
@@ -494,9 +489,7 @@ export function AuthPage() {
         <nav className="border-b border-border lg:hidden">
           <div className="flex items-center px-4 sm:px-6 h-14">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-accent">
-                <span className="text-xs font-bold text-accent-fg">N</span>
-              </div>
+              <BrandMark className="w-7 h-7 shrink-0" />
               <span className="text-sm font-semibold tracking-tight text-text-primary">
                 Nexu
               </span>
