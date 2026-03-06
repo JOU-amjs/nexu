@@ -14,6 +14,9 @@ const validateInviteRoute = createRoute({
   method: "post",
   path: "/api/v1/invite/validate",
   tags: ["Invite"],
+  summary: "Validate invite code",
+  description:
+    "Validate an invite code and, if valid, record the acceptance for the current user and increment the usage count. Returns valid=false with an explanatory message for expired or exhausted codes.",
   request: {
     body: {
       content: { "application/json": { schema: validateInviteSchema } },

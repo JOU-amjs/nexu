@@ -40,6 +40,9 @@ const getPoolConfigRoute = createRoute({
   method: "get",
   path: "/api/internal/pools/{poolId}/config",
   tags: ["Internal"],
+  summary: "Get pool OpenClaw config",
+  description:
+    "Dynamically generates and returns the full OpenClaw configuration for the given pool, including all active bot agents, channel accounts, and routing bindings. Used by the Gateway sidecar to perform hot-reload. Requires internal token authentication.",
   request: {
     params: poolIdParam,
   },
@@ -59,6 +62,9 @@ const poolRegisterRoute = createRoute({
   method: "post",
   path: "/api/internal/pools/register",
   tags: ["Internal"],
+  summary: "Register Gateway pool node",
+  description:
+    "Called by a Gateway sidecar on startup to register itself with the API. Stores the node's pool ID and pod IP, enabling the API to discover running Gateway instances. Requires internal token authentication.",
   request: {
     body: {
       content: { "application/json": { schema: runtimePoolRegisterSchema } },
@@ -78,6 +84,9 @@ const poolHeartbeatRoute = createRoute({
   method: "post",
   path: "/api/internal/pools/heartbeat",
   tags: ["Internal"],
+  summary: "Pool node heartbeat",
+  description:
+    "Sent periodically by the Gateway sidecar to signal liveness. The payload includes the node's current config version; the API uses this to determine whether a config hot-reload should be triggered. Requires internal token authentication.",
   request: {
     body: {
       content: { "application/json": { schema: runtimePoolHeartbeatSchema } },
@@ -97,6 +106,9 @@ const getPoolConfigLatestRoute = createRoute({
   method: "get",
   path: "/api/internal/pools/{poolId}/config/latest",
   tags: ["Internal"],
+  summary: "Get latest pool config snapshot",
+  description:
+    "Returns the most recently published config snapshot for the pool, including version number and config hash. Used by the Gateway sidecar to pull the latest configuration during hot-reload. Requires internal token authentication.",
   request: {
     params: poolIdParam,
   },
@@ -118,6 +130,9 @@ const getPoolConfigByVersionRoute = createRoute({
   method: "get",
   path: "/api/internal/pools/{poolId}/config/versions/{version}",
   tags: ["Internal"],
+  summary: "Get pool config snapshot by version",
+  description:
+    "Returns a specific historical config snapshot by version number. Useful for config diff, rollback analysis, or auditing past configurations. Requires internal token authentication.",
   request: {
     params: poolConfigVersionParam,
   },
@@ -182,13 +197,19 @@ const putPoolSecretsRoute = createRoute({
   method: "put",
   path: "/api/internal/pools/{poolId}/secrets",
   tags: ["Internal"],
+  summary: "Set pool secrets",
+  description:
+    "Store or replace the secret key/value pairs for a pool. Secrets are encrypted at rest and injected into the OpenClaw config at generation time. Requires internal token authentication.",
   request: {
     params: poolIdParam,
     body: {
       content: {
         "application/json": {
           schema: z.object({
-            secrets: z.record(z.string()),
+            secrets: z.record(z.string()).openapi({
+              description:
+                "Map of secret name to plaintext value. Existing secrets are replaced entirely.",
+            }),
           }),
         },
       },

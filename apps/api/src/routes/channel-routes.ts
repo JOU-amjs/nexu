@@ -132,6 +132,9 @@ const slackRedirectUriRoute = createRoute({
   method: "get",
   path: "/api/v1/channels/slack/redirect-uri",
   tags: ["Channels"],
+  summary: "Get Slack OAuth redirect URI",
+  description:
+    "Returns the Slack OAuth callback URI configured on this server. Use this value as the Redirect URL in your Slack App's OAuth & Permissions settings.",
   responses: {
     200: {
       content: {
@@ -148,9 +151,15 @@ const slackOAuthUrlRoute = createRoute({
   method: "get",
   path: "/api/v1/channels/slack/oauth-url",
   tags: ["Channels"],
+  summary: "Get Slack OAuth authorization URL",
+  description:
+    "Generates a Slack OAuth authorization URL with a CSRF state token (10 min TTL). Redirect the user to this URL to begin the Slack App install flow. On completion Slack redirects back to the server's callback endpoint.",
   request: {
     query: z.object({
-      returnTo: z.string().optional(),
+      returnTo: z.string().optional().openapi({
+        description:
+          "Optional URL to redirect the user to after OAuth completes successfully.",
+      }),
     }),
   },
   responses: {
@@ -171,6 +180,9 @@ const connectSlackRoute = createRoute({
   method: "post",
   path: "/api/v1/channels/slack/connect",
   tags: ["Channels"],
+  summary: "Connect Slack channel (manual)",
+  description:
+    "Manually connect a Slack workspace by providing the Bot Token and Signing Secret. This is an alternative to the OAuth flow. The API automatically resolves teamId and appId from the token via Slack's auth.test endpoint if not provided.",
   request: {
     body: { content: { "application/json": { schema: connectSlackSchema } } },
   },
@@ -190,6 +202,9 @@ const listChannelsRoute = createRoute({
   method: "get",
   path: "/api/v1/channels",
   tags: ["Channels"],
+  summary: "List connected channels",
+  description:
+    "Return all channel connections (Slack or Discord) for the current user's bot.",
   responses: {
     200: {
       content: { "application/json": { schema: channelListResponseSchema } },
@@ -202,6 +217,9 @@ const disconnectChannelRoute = createRoute({
   method: "delete",
   path: "/api/v1/channels/{channelId}",
   tags: ["Channels"],
+  summary: "Disconnect channel",
+  description:
+    "Permanently remove a channel connection, its credentials, and its webhook route. The bot is hot-reloaded in the Gateway to remove the account.",
   request: {
     params: channelIdParam,
   },
@@ -223,6 +241,9 @@ const connectDiscordRoute = createRoute({
   method: "post",
   path: "/api/v1/channels/discord/connect",
   tags: ["Channels"],
+  summary: "Connect Discord channel",
+  description:
+    "Connect a Discord bot by providing the Bot Token and Application ID. The API validates the token against the Discord API and verifies the Application ID matches the token's actual application.",
   request: {
     body: {
       content: { "application/json": { schema: connectDiscordSchema } },
@@ -244,6 +265,9 @@ const channelStatusRoute = createRoute({
   method: "get",
   path: "/api/v1/channels/{channelId}/status",
   tags: ["Channels"],
+  summary: "Get channel status",
+  description:
+    "Query the current connection status of a specific channel. Useful for polling after initiating a connect flow.",
   request: {
     params: channelIdParam,
   },

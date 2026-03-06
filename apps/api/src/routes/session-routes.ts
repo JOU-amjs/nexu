@@ -64,6 +64,9 @@ const createSessionRoute = createRoute({
   method: "post",
   path: "/api/internal/sessions",
   tags: ["Sessions (Internal)"],
+  summary: "Create or upsert session (internal)",
+  description:
+    "Called by the Gateway sidecar to create or update a conversation session. Uses sessionKey as the unique key for upsert. Requires internal token authentication.",
   request: {
     body: {
       content: { "application/json": { schema: createSessionSchema } },
@@ -85,6 +88,9 @@ const updateSessionInternalRoute = createRoute({
   method: "patch",
   path: "/api/internal/sessions/{id}",
   tags: ["Sessions (Internal)"],
+  summary: "Update session (internal)",
+  description:
+    "Called by the Gateway sidecar to update session metadata such as title, status, message count, and last message timestamp. Requires internal token authentication.",
   request: {
     params: sessionIdParam,
     body: {
@@ -358,13 +364,33 @@ const listSessionsRoute = createRoute({
   method: "get",
   path: "/api/v1/sessions",
   tags: ["Sessions"],
+  summary: "List sessions",
+  description:
+    "Paginated list of conversation sessions across the current user's bots. Results are ordered by last message time (most recent first). Supports filtering by botId, channelType, and status.",
   request: {
     query: z.object({
-      botId: z.string().optional(),
-      channelType: z.string().optional(),
-      status: z.string().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(20),
-      offset: z.coerce.number().int().min(0).default(0),
+      botId: z.string().optional().openapi({ description: "Filter by bot ID" }),
+      channelType: z.string().optional().openapi({
+        description:
+          'Filter by the channel type that originated the session. Allowed values: "slack", "discord".',
+      }),
+      status: z.string().optional().openapi({
+        description:
+          'Filter by session status. Allowed values: "active", "ended".',
+      }),
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(20)
+        .openapi({ description: "Page size (1–100, default 20)" }),
+      offset: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .default(0)
+        .openapi({ description: "Number of records to skip (default 0)" }),
     }),
   },
   responses: {
@@ -381,6 +407,9 @@ const getSessionRoute = createRoute({
   method: "get",
   path: "/api/v1/sessions/{id}",
   tags: ["Sessions"],
+  summary: "Get session details",
+  description:
+    "Fetch a single conversation session by its ID. Only returns sessions associated with the current user's bots.",
   request: {
     params: sessionIdParam,
   },

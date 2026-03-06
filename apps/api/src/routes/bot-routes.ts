@@ -28,6 +28,9 @@ const createBotRoute = createRoute({
   method: "post",
   path: "/api/v1/bots",
   tags: ["Bots"],
+  summary: "Create a bot",
+  description:
+    "Create a new AI bot in the specified Gateway pool. If no poolId is provided, the default pool is used or created automatically.",
   request: {
     body: { content: { "application/json": { schema: createBotSchema } } },
   },
@@ -55,6 +58,8 @@ const listBotsRoute = createRoute({
   method: "get",
   path: "/api/v1/bots",
   tags: ["Bots"],
+  summary: "List bots",
+  description: "Return all bots belonging to the current authenticated user.",
   responses: {
     200: {
       content: { "application/json": { schema: botListResponseSchema } },
@@ -67,6 +72,8 @@ const getBotRoute = createRoute({
   method: "get",
   path: "/api/v1/bots/{botId}",
   tags: ["Bots"],
+  summary: "Get bot details",
+  description: "Fetch the full details of a single bot by its ID.",
   request: {
     params: botIdParam,
   },
@@ -86,6 +93,9 @@ const updateBotRoute = createRoute({
   method: "patch",
   path: "/api/v1/bots/{botId}",
   tags: ["Bots"],
+  summary: "Update bot",
+  description:
+    "Update the bot's name, system prompt, or AI model. Changes are hot-reloaded into the Gateway.",
   request: {
     params: botIdParam,
     body: { content: { "application/json": { schema: updateBotSchema } } },
@@ -106,6 +116,9 @@ const deleteBotRoute = createRoute({
   method: "delete",
   path: "/api/v1/bots/{botId}",
   tags: ["Bots"],
+  summary: "Delete bot",
+  description:
+    "Soft-delete the bot (status → deleted) and remove it from the Gateway pool.",
   request: {
     params: botIdParam,
   },
@@ -127,6 +140,9 @@ const pauseBotRoute = createRoute({
   method: "post",
   path: "/api/v1/bots/{botId}/pause",
   tags: ["Bots"],
+  summary: "Pause bot",
+  description:
+    "Pause the bot (status → paused). The bot stops responding to Slack/Discord messages until resumed.",
   request: {
     params: botIdParam,
   },
@@ -146,6 +162,9 @@ const resumeBotRoute = createRoute({
   method: "post",
   path: "/api/v1/bots/{botId}/resume",
   tags: ["Bots"],
+  summary: "Resume bot",
+  description:
+    "Resume a paused bot (status → active). The bot re-joins the Gateway and begins processing messages again.",
   request: {
     params: botIdParam,
   },

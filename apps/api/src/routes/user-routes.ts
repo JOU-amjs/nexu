@@ -10,6 +10,9 @@ const getMeRoute = createRoute({
   method: "get",
   path: "/api/v1/me",
   tags: ["User"],
+  summary: "Get current user",
+  description:
+    "Return the authenticated user's profile including email, display name, subscription plan, invite acceptance status, and onboarding completion status.",
   responses: {
     200: {
       content: {

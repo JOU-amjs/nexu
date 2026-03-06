@@ -64,6 +64,9 @@ const createArtifactRoute = createRoute({
   method: "post",
   path: "/api/internal/artifacts",
   tags: ["Artifacts (Internal)"],
+  summary: "Create artifact (internal)",
+  description:
+    "Called by the Gateway sidecar to record an AI-generated artifact (code, content, or deployment). Requires internal token authentication.",
   request: {
     body: {
       content: { "application/json": { schema: createArtifactSchema } },
@@ -85,6 +88,9 @@ const updateArtifactInternalRoute = createRoute({
   method: "patch",
   path: "/api/internal/artifacts/{id}",
   tags: ["Artifacts (Internal)"],
+  summary: "Update artifact (internal)",
+  description:
+    "Called by the Gateway sidecar to update an artifact's status, preview URL, deploy target, or metrics (lines of code, file count, duration). Requires internal token authentication.",
   request: {
     params: artifactIdParam,
     body: {
@@ -221,14 +227,37 @@ const listArtifactsRoute = createRoute({
   method: "get",
   path: "/api/v1/artifacts",
   tags: ["Artifacts"],
+  summary: "List artifacts",
+  description:
+    "Paginated list of artifacts across the current user's bots. Supports filtering by botId, sessionKey, source, and status.",
   request: {
     query: z.object({
-      botId: z.string().optional(),
-      sessionKey: z.string().optional(),
-      source: z.string().optional(),
-      status: z.string().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(20),
-      offset: z.coerce.number().int().min(0).default(0),
+      botId: z.string().optional().openapi({ description: "Filter by bot ID" }),
+      sessionKey: z
+        .string()
+        .optional()
+        .openapi({ description: "Filter by session key" }),
+      source: z.string().optional().openapi({
+        description:
+          'Filter by artifact source. Allowed values: "coding", "content".',
+      }),
+      status: z.string().optional().openapi({
+        description:
+          'Filter by artifact status. Allowed values: "building", "live", "failed", "stopped".',
+      }),
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(20)
+        .openapi({ description: "Page size (1–100, default 20)" }),
+      offset: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .default(0)
+        .openapi({ description: "Number of records to skip (default 0)" }),
     }),
   },
   responses: {
@@ -245,6 +274,9 @@ const artifactStatsRoute = createRoute({
   method: "get",
   path: "/api/v1/artifacts/stats",
   tags: ["Artifacts"],
+  summary: "Get artifact statistics",
+  description:
+    "Aggregate statistics for all artifacts belonging to the current user's bots: total count, counts by status (live, building, failed), counts by source (coding, content), and total lines of code.",
   responses: {
     200: {
       content: {
@@ -259,6 +291,9 @@ const getArtifactRoute = createRoute({
   method: "get",
   path: "/api/v1/artifacts/{id}",
   tags: ["Artifacts"],
+  summary: "Get artifact details",
+  description:
+    "Fetch a single artifact by its ID. Only returns artifacts owned by the current user's bots.",
   request: {
     params: artifactIdParam,
   },
@@ -278,6 +313,9 @@ const deleteArtifactRoute = createRoute({
   method: "delete",
   path: "/api/v1/artifacts/{id}",
   tags: ["Artifacts"],
+  summary: "Delete artifact",
+  description:
+    "Permanently delete an artifact. Only artifacts owned by the current user's bots can be deleted.",
   request: {
     params: artifactIdParam,
   },

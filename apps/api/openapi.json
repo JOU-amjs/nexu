@@ -14,6 +14,8 @@
         "tags": [
           "Artifacts (Internal)"
         ],
+        "summary": "Create artifact (internal)",
+        "description": "Called by the Gateway sidecar to record an AI-generated artifact (code, content, or deployment). Requires internal token authentication.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -224,6 +226,8 @@
         "tags": [
           "Artifacts (Internal)"
         ],
+        "summary": "Update artifact (internal)",
+        "description": "Called by the Gateway sidecar to update an artifact's status, preview URL, deploy target, or metrics (lines of code, file count, duration). Requires internal token authentication.",
         "parameters": [
           {
             "schema": {
@@ -409,6 +413,8 @@
         "tags": [
           "Sessions (Internal)"
         ],
+        "summary": "Create or upsert session (internal)",
+        "description": "Called by the Gateway sidecar to create or update a conversation session. Uses sessionKey as the unique key for upsert. Requires internal token authentication.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -559,6 +565,8 @@
         "tags": [
           "Sessions (Internal)"
         ],
+        "summary": "Update session (internal)",
+        "description": "Called by the Gateway sidecar to update session metadata such as title, status, message count, and last message timestamp. Requires internal token authentication.",
         "parameters": [
           {
             "schema": {
@@ -695,11 +703,191 @@
         }
       }
     },
+    "/api/internal/skills/latest": {
+      "get": {
+        "tags": [
+          "Internal"
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest skills snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "skillsHash": {
+                      "type": "string"
+                    },
+                    "skills": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "skillsHash",
+                    "skills",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/skills/{name}": {
+      "put": {
+        "tags": [
+          "Internal"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Skill upserted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "name",
+                    "version"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
           "User"
         ],
+        "summary": "Get current user",
+        "description": "Return the authenticated user's profile including email, display name, subscription plan, invite acceptance status, and onboarding completion status.",
         "responses": {
           "200": {
             "description": "Current user profile",
@@ -751,6 +939,8 @@
         "tags": [
           "Onboarding"
         ],
+        "summary": "Complete onboarding",
+        "description": "Save the user's onboarding survey responses (role, company, use cases, referral source, selected avatar) and mark the user's onboarding as completed.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -836,6 +1026,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Create a bot",
+        "description": "Create a new AI bot in the specified Gateway pool. If no poolId is provided, the default pool is used or created automatically.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -990,6 +1182,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "List bots",
+        "description": "Return all bots belonging to the current authenticated user.",
         "responses": {
           "200": {
             "description": "Bot list",
@@ -1067,6 +1261,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Get bot details",
+        "description": "Fetch the full details of a single bot by its ID.",
         "parameters": [
           {
             "schema": {
@@ -1159,6 +1355,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Update bot",
+        "description": "Update the bot's name, system prompt, or AI model. Changes are hot-reloaded into the Gateway.",
         "parameters": [
           {
             "schema": {
@@ -1273,6 +1471,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Delete bot",
+        "description": "Soft-delete the bot (status → deleted) and remove it from the Gateway pool.",
         "parameters": [
           {
             "schema": {
@@ -1328,6 +1528,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Pause bot",
+        "description": "Pause the bot (status → paused). The bot stops responding to Slack/Discord messages until resumed.",
         "parameters": [
           {
             "schema": {
@@ -1422,6 +1624,8 @@
         "tags": [
           "Bots"
         ],
+        "summary": "Resume bot",
+        "description": "Resume a paused bot (status → active). The bot re-joins the Gateway and begins processing messages again.",
         "parameters": [
           {
             "schema": {
@@ -1516,6 +1720,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Get Slack OAuth redirect URI",
+        "description": "Returns the Slack OAuth callback URI configured on this server. Use this value as the Redirect URL in your Slack App's OAuth & Permissions settings.",
         "responses": {
           "200": {
             "description": "The OAuth redirect URI configured on this server",
@@ -1543,10 +1749,13 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Get Slack OAuth authorization URL",
+        "description": "Generates a Slack OAuth authorization URL with a CSRF state token (10 min TTL). Redirect the user to this URL to begin the Slack App install flow. On completion Slack redirects back to the server's callback endpoint.",
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Optional URL to redirect the user to after OAuth completes successfully."
             },
             "required": false,
             "name": "returnTo",
@@ -1563,10 +1772,14 @@
                   "properties": {
                     "url": {
                       "type": "string"
+                    },
+                    "redirectUri": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "url"
+                    "url",
+                    "redirectUri"
                   ]
                 }
               }
@@ -1598,6 +1811,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Connect Slack channel (manual)",
+        "description": "Manually connect a Slack workspace by providing the Bot Token and Signing Secret. This is an alternative to the OAuth flow. The API automatically resolves teamId and appId from the token via Slack's auth.test endpoint if not provided.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1648,7 +1863,8 @@
                       "type": "string",
                       "enum": [
                         "slack",
-                        "discord"
+                        "discord",
+                        "feishu"
                       ]
                     },
                     "accountId": {
@@ -1718,6 +1934,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Connect Discord channel",
+        "description": "Connect a Discord bot by providing the Bot Token and Application ID. The API validates the token against the Discord API and verifies the Application ID matches the token's actual application.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1765,7 +1983,8 @@
                       "type": "string",
                       "enum": [
                         "slack",
-                        "discord"
+                        "discord",
+                        "feishu"
                       ]
                     },
                     "accountId": {
@@ -1835,6 +2054,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "List connected channels",
+        "description": "Return all channel connections (Slack or Discord) for the current user's bot.",
         "responses": {
           "200": {
             "description": "Channel list",
@@ -1858,7 +2079,8 @@
                             "type": "string",
                             "enum": [
                               "slack",
-                              "discord"
+                              "discord",
+                              "feishu"
                             ]
                           },
                           "accountId": {
@@ -1916,6 +2138,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Disconnect channel",
+        "description": "Permanently remove a channel connection, its credentials, and its webhook route. The bot is hot-reloaded in the Gateway to remove the account.",
         "parameters": [
           {
             "schema": {
@@ -1971,6 +2195,8 @@
         "tags": [
           "Channels"
         ],
+        "summary": "Get channel status",
+        "description": "Query the current connection status of a specific channel. Useful for polling after initiating a connect flow.",
         "parameters": [
           {
             "schema": {
@@ -1999,7 +2225,8 @@
                       "type": "string",
                       "enum": [
                         "slack",
-                        "discord"
+                        "discord",
+                        "feishu"
                       ]
                     },
                     "accountId": {
@@ -2069,6 +2296,8 @@
         "tags": [
           "Invite"
         ],
+        "summary": "Validate invite code",
+        "description": "Validate an invite code and, if valid, record the acceptance for the current user and increment the usage count. Returns valid=false with an explanatory message for expired or exhausted codes.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2117,6 +2346,8 @@
         "tags": [
           "Models"
         ],
+        "summary": "List available AI models",
+        "description": "Return the list of AI models available on this platform, including their ID, display name, provider, and whether they are the default model for new bots.",
         "responses": {
           "200": {
             "description": "Available models",
@@ -2169,6 +2400,8 @@
         "tags": [
           "Internal"
         ],
+        "summary": "Get pool OpenClaw config",
+        "description": "Dynamically generates and returns the full OpenClaw configuration for the given pool, including all active bot agents, channel accounts, and routing bindings. Used by the Gateway sidecar to perform hot-reload. Requires internal token authentication.",
         "parameters": [
           {
             "schema": {
@@ -2414,6 +2647,28 @@
                                 "enabled": {
                                   "type": "boolean"
                                 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "skills": {
+                      "type": "object",
+                      "properties": {
+                        "load": {
+                          "type": "object",
+                          "properties": {
+                            "watch": {
+                              "type": "boolean"
+                            },
+                            "watchDebounceMs": {
+                              "type": "number"
+                            },
+                            "extraDirs": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
                               }
                             }
                           }
@@ -2666,6 +2921,71 @@
                           "required": [
                             "accounts"
                           ]
+                        },
+                        "feishu": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "connectionMode": {
+                              "type": "string",
+                              "enum": [
+                                "websocket",
+                                "webhook"
+                              ]
+                            },
+                            "dmPolicy": {
+                              "type": "string",
+                              "enum": [
+                                "pairing",
+                                "allowlist",
+                                "open"
+                              ]
+                            },
+                            "groupPolicy": {
+                              "type": "string",
+                              "enum": [
+                                "open",
+                                "allowlist",
+                                "disabled"
+                              ]
+                            },
+                            "requireMention": {
+                              "type": "boolean"
+                            },
+                            "allowFrom": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "accounts": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "enabled": {
+                                    "type": "boolean",
+                                    "default": true
+                                  },
+                                  "appId": {
+                                    "type": "string"
+                                  },
+                                  "appSecret": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "appId",
+                                  "appSecret"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "accounts"
+                          ]
                         }
                       }
                     },
@@ -2772,6 +3092,8 @@
         "tags": [
           "Internal"
         ],
+        "summary": "Register Gateway pool node",
+        "description": "Called by a Gateway sidecar on startup to register itself with the API. Stores the node's pool ID and pod IP, enabling the API to discover running Gateway instances. Requires internal token authentication.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2837,6 +3159,8 @@
         "tags": [
           "Internal"
         ],
+        "summary": "Pool node heartbeat",
+        "description": "Sent periodically by the Gateway sidecar to signal liveness. The payload includes the node's current config version; the API uses this to determine whether a config hot-reload should be triggered. Requires internal token authentication.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2917,11 +3241,95 @@
         }
       }
     },
+    "/api/internal/pools/{poolId}/secrets": {
+      "put": {
+        "tags": [
+          "Internal"
+        ],
+        "summary": "Set pool secrets",
+        "description": "Store or replace the secret key/value pairs for a pool. Secrets are encrypted at rest and injected into the OpenClaw config at generation time. Requires internal token authentication.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "poolId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "secrets": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Map of secret name to plaintext value. Existing secrets are replaced entirely."
+                  }
+                },
+                "required": [
+                  "secrets"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Secrets stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "count"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pool not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/pools/{poolId}/config/latest": {
       "get": {
         "tags": [
           "Internal"
         ],
+        "summary": "Get latest pool config snapshot",
+        "description": "Returns the most recently published config snapshot for the pool, including version number and config hash. Used by the Gateway sidecar to pull the latest configuration during hot-reload. Requires internal token authentication.",
         "parameters": [
           {
             "schema": {
@@ -3186,6 +3594,28 @@
                             }
                           }
                         },
+                        "skills": {
+                          "type": "object",
+                          "properties": {
+                            "load": {
+                              "type": "object",
+                              "properties": {
+                                "watch": {
+                                  "type": "boolean"
+                                },
+                                "watchDebounceMs": {
+                                  "type": "number"
+                                },
+                                "extraDirs": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
                         "agents": {
                           "type": "object",
                           "properties": {
@@ -3432,6 +3862,71 @@
                               "required": [
                                 "accounts"
                               ]
+                            },
+                            "feishu": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "connectionMode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "websocket",
+                                    "webhook"
+                                  ]
+                                },
+                                "dmPolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pairing",
+                                    "allowlist",
+                                    "open"
+                                  ]
+                                },
+                                "groupPolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "open",
+                                    "allowlist",
+                                    "disabled"
+                                  ]
+                                },
+                                "requireMention": {
+                                  "type": "boolean"
+                                },
+                                "allowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "accounts": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                      "enabled": {
+                                        "type": "boolean",
+                                        "default": true
+                                      },
+                                      "appId": {
+                                        "type": "string"
+                                      },
+                                      "appSecret": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "appId",
+                                      "appSecret"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "accounts"
+                              ]
                             }
                           }
                         },
@@ -3509,6 +4004,29 @@
                         "bindings"
                       ]
                     },
+                    "agentMeta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "botId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "botId"
+                        ]
+                      }
+                    },
+                    "poolSecrets": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "secretsHash": {
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "string"
                     }
@@ -3550,6 +4068,8 @@
         "tags": [
           "Internal"
         ],
+        "summary": "Get pool config snapshot by version",
+        "description": "Returns a specific historical config snapshot by version number. Useful for config diff, rollback analysis, or auditing past configurations. Requires internal token authentication.",
         "parameters": [
           {
             "schema": {
@@ -3824,6 +4344,28 @@
                             }
                           }
                         },
+                        "skills": {
+                          "type": "object",
+                          "properties": {
+                            "load": {
+                              "type": "object",
+                              "properties": {
+                                "watch": {
+                                  "type": "boolean"
+                                },
+                                "watchDebounceMs": {
+                                  "type": "number"
+                                },
+                                "extraDirs": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
                         "agents": {
                           "type": "object",
                           "properties": {
@@ -4070,6 +4612,71 @@
                               "required": [
                                 "accounts"
                               ]
+                            },
+                            "feishu": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "connectionMode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "websocket",
+                                    "webhook"
+                                  ]
+                                },
+                                "dmPolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pairing",
+                                    "allowlist",
+                                    "open"
+                                  ]
+                                },
+                                "groupPolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "open",
+                                    "allowlist",
+                                    "disabled"
+                                  ]
+                                },
+                                "requireMention": {
+                                  "type": "boolean"
+                                },
+                                "allowFrom": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "accounts": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                      "enabled": {
+                                        "type": "boolean",
+                                        "default": true
+                                      },
+                                      "appId": {
+                                        "type": "string"
+                                      },
+                                      "appSecret": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "appId",
+                                      "appSecret"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "accounts"
+                              ]
                             }
                           }
                         },
@@ -4147,6 +4754,29 @@
                         "bindings"
                       ]
                     },
+                    "agentMeta": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "botId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "botId"
+                        ]
+                      }
+                    },
+                    "poolSecrets": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "secretsHash": {
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "string"
                     }
@@ -4188,10 +4818,13 @@
         "tags": [
           "Artifacts"
         ],
+        "summary": "List artifacts",
+        "description": "Paginated list of artifacts across the current user's bots. Supports filtering by botId, sessionKey, source, and status.",
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Filter by bot ID"
             },
             "required": false,
             "name": "botId",
@@ -4199,7 +4832,8 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Filter by session key"
             },
             "required": false,
             "name": "sessionKey",
@@ -4207,7 +4841,12 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "coding",
+                "content"
+              ],
+              "description": "Filter by artifact source. \"coding\" = code generated by the AI coding agent; \"content\" = text/document content."
             },
             "required": false,
             "name": "source",
@@ -4215,7 +4854,14 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "building",
+                "live",
+                "failed",
+                "stopped"
+              ],
+              "description": "Filter by artifact status. \"building\" = in-progress; \"live\" = deployed and accessible; \"failed\" = build or deploy error; \"stopped\" = manually stopped."
             },
             "required": false,
             "name": "status",
@@ -4226,7 +4872,8 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 100,
-              "default": 20
+              "default": 20,
+              "description": "Page size (1–100, default 20)"
             },
             "required": false,
             "name": "limit",
@@ -4237,7 +4884,8 @@
               "type": "integer",
               "nullable": true,
               "minimum": 0,
-              "default": 0
+              "default": 0,
+              "description": "Number of records to skip (default 0)"
             },
             "required": false,
             "name": "offset",
@@ -4377,6 +5025,8 @@
         "tags": [
           "Artifacts"
         ],
+        "summary": "Get artifact statistics",
+        "description": "Aggregate statistics for all artifacts belonging to the current user's bots: total count, counts by status (live, building, failed), counts by source (coding, content), and total lines of code.",
         "responses": {
           "200": {
             "description": "Artifact statistics",
@@ -4428,6 +5078,8 @@
         "tags": [
           "Artifacts"
         ],
+        "summary": "Get artifact details",
+        "description": "Fetch a single artifact by its ID. Only returns artifacts owned by the current user's bots.",
         "parameters": [
           {
             "schema": {
@@ -4564,6 +5216,8 @@
         "tags": [
           "Artifacts"
         ],
+        "summary": "Delete artifact",
+        "description": "Permanently delete an artifact. Only artifacts owned by the current user's bots can be deleted.",
         "parameters": [
           {
             "schema": {
@@ -4619,10 +5273,13 @@
         "tags": [
           "Sessions"
         ],
+        "summary": "List sessions",
+        "description": "Paginated list of conversation sessions across the current user's bots. Results are ordered by last message time (most recent first). Supports filtering by botId, channelType, and status.",
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Filter by bot ID"
             },
             "required": false,
             "name": "botId",
@@ -4630,7 +5287,12 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "slack",
+                "discord"
+              ],
+              "description": "Filter by the channel type that originated the session. \"slack\" or \"discord\"."
             },
             "required": false,
             "name": "channelType",
@@ -4638,7 +5300,12 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "active",
+                "ended"
+              ],
+              "description": "Filter by session status. \"active\" = conversation is ongoing; \"ended\" = conversation has concluded."
             },
             "required": false,
             "name": "status",
@@ -4649,7 +5316,8 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 100,
-              "default": 20
+              "default": 20,
+              "description": "Page size (1–100, default 20)"
             },
             "required": false,
             "name": "limit",
@@ -4660,7 +5328,8 @@
               "type": "integer",
               "nullable": true,
               "minimum": 0,
-              "default": 0
+              "default": 0,
+              "description": "Number of records to skip (default 0)"
             },
             "required": false,
             "name": "offset",
@@ -4768,6 +5437,8 @@
         "tags": [
           "Sessions"
         ],
+        "summary": "Get session details",
+        "description": "Fetch a single conversation session by its ID. Only returns sessions associated with the current user's bots.",
         "parameters": [
           {
             "schema": {

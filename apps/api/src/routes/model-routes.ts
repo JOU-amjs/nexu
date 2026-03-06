@@ -9,6 +9,9 @@ const listModelsRoute = createRoute({
   method: "get",
   path: "/api/v1/models",
   tags: ["Models"],
+  summary: "List available AI models",
+  description:
+    "Return the list of AI models available on this platform, including their ID, display name, provider, and whether they are the default model for new bots.",
   responses: {
     200: {
       content: {

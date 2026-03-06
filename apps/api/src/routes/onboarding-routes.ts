@@ -13,6 +13,9 @@ const completeOnboardingRoute = createRoute({
   method: "post",
   path: "/api/v1/onboarding/complete",
   tags: ["Onboarding"],
+  summary: "Complete onboarding",
+  description:
+    "Save the user's onboarding survey responses (role, company, use cases, referral source, selected avatar) and mark the user's onboarding as completed.",
   request: {
     body: {
       content: { "application/json": { schema: onboardingCompleteSchema } },
