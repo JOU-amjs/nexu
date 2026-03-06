@@ -539,6 +539,36 @@ export function SlackOAuthView({
                 </div>
               ))}
             </div>
+            <div className="p-3 rounded-lg border bg-surface-0 border-border space-y-2">
+              <p className="text-[12px] text-text-muted leading-relaxed">
+                If you are using an existing Slack app, set the Request URL at
+                Features →{" "}
+                <span className="font-medium text-text-secondary">
+                  Event Subscriptions
+                </span>
+                .
+              </p>
+              <code className="block p-2 rounded bg-surface-1 border border-border break-all text-[11px] text-text-secondary font-mono">
+                {eventsUrl}
+              </code>
+              <div className="space-y-1.5">
+                {[
+                  "Open api.slack.com/apps, select your app, then go to Features → Event Subscriptions.",
+                  "Turn Enable Events on.",
+                  "Paste the URL above into the Request URL field.",
+                  "Subscribe to bot events: app_mention, message.channels.",
+                ].map((item, idx) => (
+                  <div key={item} className="flex gap-2.5 items-start">
+                    <div className="flex justify-center items-center w-5 h-5 rounded-full bg-surface-3 text-[9px] font-bold text-text-muted shrink-0 mt-0.5">
+                      {idx + 1}
+                    </div>
+                    <span className="text-[12px] text-text-secondary leading-relaxed">
+                      {item}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div>
               <div className="flex items-baseline gap-1.5 mb-1.5">
                 <label
