@@ -1,1 +1,1 @@
--- Mock migration used to validate DB migrate workflow manifest wiring.
+-- Mock migration used to validate DB migrate workflow conflict handling.
