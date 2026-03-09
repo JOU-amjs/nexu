@@ -37,6 +37,7 @@ export const channelResponseSchema = z.object({
   status: channelStatusSchema,
   teamName: z.string().nullable(),
   appId: z.string().nullable().optional(),
+  botUserId: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
