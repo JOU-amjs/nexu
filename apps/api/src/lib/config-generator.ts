@@ -303,6 +303,7 @@ export async function generatePoolConfig(
                   pidsLimit: 128,
                   network: "bridge",
                   capDrop: ["ALL"],
+                  dangerouslyAllowExternalBindSources: true,
                   binds: [
                     `${stateDir}/skills:${stateDir}/skills:ro`,
                     `${stateDir}/media:${stateDir}/media:rw`,
