@@ -297,13 +297,25 @@ export async function generatePoolConfig(
                 mode: "all" as const,
                 scope: "agent" as const,
                 docker: {
-                  image: "node:22-slim",
+                  image: process.env.SANDBOX_IMAGE ?? "nexu-sandbox:latest",
                   memory: "256m",
                   cpus: 0.5,
                   pidsLimit: 128,
                   network: "bridge",
-                  readOnlyRoot: true,
                   capDrop: ["ALL"],
+                  binds: [
+                    `${stateDir}/skills:${stateDir}/skills:ro`,
+                    `${stateDir}/media:${stateDir}/media:rw`,
+                    `${stateDir}/nexu-context.json:${stateDir}/nexu-context.json:ro`,
+                  ],
+                  env: {
+                    OPENCLAW_STATE_DIR: stateDir,
+                    RUNTIME_API_BASE_URL:
+                      process.env.RUNTIME_API_BASE_URL ||
+                      process.env.NEXU_API_URL ||
+                      "",
+                    SKILL_API_TOKEN: process.env.SKILL_API_TOKEN ?? "",
+                  },
                 },
                 prune: {
                   idleHours: 4,

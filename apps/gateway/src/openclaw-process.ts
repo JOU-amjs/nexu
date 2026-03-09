@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -126,10 +127,51 @@ function scheduleRestart(
   }, delayMs);
 }
 
+/**
+ * Kill any orphaned `openclaw gateway` processes left from a previous crash.
+ * Reads /proc to find processes whose cmdline starts with "openclaw" and
+ * contains "gateway", then sends SIGKILL. This prevents EADDRINUSE when
+ * a zombie process holds port 18789 after the sidecar received the exit event.
+ *
+ * Safe because:
+ * - The sidecar itself is `node`, never matches `openclaw`
+ * - Short-lived probe commands (`openclaw health`) being killed is harmless
+ * - Pod PID namespace isolates us from other pods
+ */
+function killOrphanedOpenclawProcesses(): void {
+  try {
+    const procEntries = readdirSync("/proc");
+    for (const entry of procEntries) {
+      if (!/^\d+$/.test(entry)) continue;
+      const pid = Number.parseInt(entry, 10);
+      if (pid === process.pid) continue;
+
+      try {
+        const cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf-8")
+          .replace(/\0/g, " ")
+          .trim();
+        if (cmdline.includes("openclaw") && cmdline.includes("gateway")) {
+          process.kill(pid, "SIGKILL");
+          logger.info(
+            { event: "openclaw_orphan_killed", pid, cmdline },
+            "killed orphaned openclaw gateway process",
+          );
+        }
+      } catch {
+        // process may have exited between readdir and readFile
+      }
+    }
+  } catch {
+    // /proc may not exist (non-Linux); skip
+  }
+}
+
 export function startManagedOpenclawGateway(): void {
   if (openclawGatewayProcess !== null) {
     return;
   }
+
+  killOrphanedOpenclawProcesses();
 
   const args = buildOpenclawGatewayArgs();
   const {
