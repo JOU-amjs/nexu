@@ -373,6 +373,7 @@ class SlackEventsTraceHandler {
         const respBody = await gatewayResp.text();
         logger.info({
           message: "slack_events_gateway_response",
+          operation: "slack_event_gateway_forward",
           event_type: fwdEvent?.type ?? "none",
           status: gatewayResp.status,
           body_length: respBody.length,
@@ -383,11 +384,14 @@ class SlackEventsTraceHandler {
         });
       } catch (err) {
         const unknownError = BaseError.from(err);
-        logger.warn({
+        logger.error({
           message: "slack_events_gateway_forward_failed",
+          operation: "slack_event_gateway_forward",
+          status: "error",
           scope: "slack_events_gateway_forward",
           pool_id: route.poolId,
           account_id: accountId,
+          event_type: fwdEvent?.type ?? "none",
           ...unknownError.toJSON(),
         });
         return c.json({ accepted: true }, 202);
