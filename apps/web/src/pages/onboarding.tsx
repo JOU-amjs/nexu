@@ -787,6 +787,50 @@ function ReferralStep({
   );
 }
 
+function OrgAuthorizedStep({
+  onNext,
+  onBack,
+}: {
+  onNext: (d: Partial<OnboardingData>) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-[22px] font-bold text-text-primary tracking-tight">
+          Slack already authorized by your organization
+        </h2>
+        <p className="mt-1 text-[13px] text-text-secondary">
+          You can continue setup directly. Channel authorization is already
+          completed.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-[12px] text-text-secondary">
+        We detected an organization-level Slack authorization from your claim
+        flow. Your workspace access is ready.
+      </div>
+
+      <div className="mt-6 flex justify-between items-center">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-[13px] text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+        >
+          &larr; Back
+        </button>
+        <button
+          type="button"
+          onClick={() => onNext({ channelVotes: [] })}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-foreground font-medium rounded-md text-[13px] transition-colors cursor-pointer"
+        >
+          Continue <span className="text-[11px]">&rarr;</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Channel connect modal ──────────────────────────────────
 
 function ChannelConnectModal({
@@ -1454,6 +1498,9 @@ export function OnboardingPage() {
       return data;
     },
   });
+  const orgAuthorized =
+    searchParams.get("orgAuthorized") === "true" ||
+    profile?.authSource === "slack_shared_claim";
 
   const completeMutation = useMutation({
     mutationFn: async (payload: OnboardingData) => {
@@ -1541,7 +1588,9 @@ export function OnboardingPage() {
           <ReferralStep {...props} onNext={handleNext} onBack={handleBack} />
         );
       case 3:
-        return (
+        return orgAuthorized ? (
+          <OrgAuthorizedStep onNext={handleNext} onBack={handleBack} />
+        ) : (
           <ChannelsStep {...props} onNext={handleNext} onBack={handleBack} />
         );
       case 4:

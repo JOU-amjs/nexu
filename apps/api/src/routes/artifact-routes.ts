@@ -8,7 +8,7 @@ import {
   updateArtifactSchema,
 } from "@nexu/shared";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { artifacts, bots, sessions } from "../db/schema/index.js";
 import { ServiceError } from "../lib/error.js";
@@ -62,7 +62,11 @@ async function resolveArtifactSessionKey(input: {
 
   const normalizedBotId = input.botId.trim().toLowerCase();
   if (rawChatId.startsWith("user:")) {
-    const base = `agent:${normalizedBotId}:main`;
+    const slackUserId = rawChatId.slice("user:".length).trim().toLowerCase();
+    if (!slackUserId) {
+      return { error: "chatId user id is required" };
+    }
+    const base = `agent:${normalizedBotId}:main:user:${slackUserId}`;
     return {
       sessionKey: normalizedThreadId
         ? `${base}:thread:${normalizedThreadId}`
@@ -168,6 +172,28 @@ async function findArtifactBySessionPreview(input: {
     .orderBy(desc(artifacts.updatedAt), desc(artifacts.createdAt));
 
   return rows[0];
+}
+
+async function resolveArtifactOwnerUserId(input: {
+  botId: string;
+  sessionKey?: string;
+}): Promise<string | undefined> {
+  const sessionKey = input.sessionKey?.trim();
+  if (!sessionKey) {
+    return undefined;
+  }
+  const normalized = normalizeSessionKey(sessionKey);
+  const [row] = await db
+    .select({ ownerUserId: sessions.ownerUserId })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.botId, input.botId),
+        sql`lower(${sessions.sessionKey}) = ${normalized}`,
+      ),
+    )
+    .orderBy(desc(sessions.updatedAt));
+  return row?.ownerUserId ?? undefined;
 }
 
 // --- Helper ---
@@ -433,6 +459,10 @@ export function registerArtifactInternalRoutes(app: OpenAPIHono<AppBindings>) {
       sessionKey: resolved.sessionKey,
       previewUrl: normalizedPreviewUrl,
     });
+    const resolvedOwnerUserId = await resolveArtifactOwnerUserId({
+      botId: input.botId,
+      sessionKey: resolved.sessionKey,
+    });
 
     if (duplicate) {
       await db
@@ -453,6 +483,9 @@ export function registerArtifactInternalRoutes(app: OpenAPIHono<AppBindings>) {
           fileCount: input.fileCount,
           durationMs: input.durationMs,
           metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
+          ...(resolvedOwnerUserId !== undefined && {
+            ownerUserId: resolvedOwnerUserId,
+          }),
           updatedAt: now,
         })
         .where(eq(artifacts.id, duplicate.id));
@@ -462,6 +495,7 @@ export function registerArtifactInternalRoutes(app: OpenAPIHono<AppBindings>) {
         botId: input.botId,
         title: input.title,
         sessionKey: resolved.sessionKey,
+        ownerUserId: resolvedOwnerUserId,
         channelType: input.channelType,
         channelId: input.channelId,
         artifactType: input.artifactType,
@@ -651,18 +685,27 @@ export function registerArtifactRoutes(app: OpenAPIHono<AppBindings>) {
     const { limit, offset } = query;
 
     const botIds = await getUserBotIds(userId);
-    if (botIds.length === 0) {
-      return c.json({ artifacts: [], total: 0, limit, offset }, 200);
-    }
+    const accessClause = query.botId
+      ? botIds.includes(query.botId)
+        ? or(
+            eq(artifacts.botId, query.botId),
+            and(
+              eq(artifacts.ownerUserId, userId),
+              eq(artifacts.botId, query.botId),
+            ),
+          )
+        : and(
+            eq(artifacts.ownerUserId, userId),
+            eq(artifacts.botId, query.botId),
+          )
+      : botIds.length > 0
+        ? or(
+            inArray(artifacts.botId, botIds),
+            eq(artifacts.ownerUserId, userId),
+          )
+        : eq(artifacts.ownerUserId, userId);
 
-    // If botId filter specified, verify ownership
-    if (query.botId && !botIds.includes(query.botId)) {
-      return c.json({ artifacts: [], total: 0, limit, offset }, 200);
-    }
-
-    const targetBotIds = query.botId ? [query.botId] : botIds;
-
-    const conditions = [inArray(artifacts.botId, targetBotIds)];
+    const conditions = [accessClause];
     if (query.sessionKey) {
       conditions.push(eq(artifacts.sessionKey, query.sessionKey));
     }
@@ -704,20 +747,13 @@ export function registerArtifactRoutes(app: OpenAPIHono<AppBindings>) {
     const userId = c.get("userId");
     const botIds = await getUserBotIds(userId);
 
-    if (botIds.length === 0) {
-      return c.json(
-        {
-          totalArtifacts: 0,
-          liveCount: 0,
-          buildingCount: 0,
-          failedCount: 0,
-          codingCount: 0,
-          contentCount: 0,
-          totalLinesOfCode: 0,
-        },
-        200,
-      );
-    }
+    const accessClause =
+      botIds.length > 0
+        ? or(
+            inArray(artifacts.botId, botIds),
+            eq(artifacts.ownerUserId, userId),
+          )
+        : eq(artifacts.ownerUserId, userId);
 
     const [stats] = await db
       .select({
@@ -730,7 +766,7 @@ export function registerArtifactRoutes(app: OpenAPIHono<AppBindings>) {
         totalLinesOfCode: sql<number>`coalesce(sum(lines_of_code), 0)::int`,
       })
       .from(artifacts)
-      .where(inArray(artifacts.botId, botIds));
+      .where(accessClause);
 
     return c.json(stats, 200);
   });
@@ -749,7 +785,11 @@ export function registerArtifactRoutes(app: OpenAPIHono<AppBindings>) {
       return c.json({ message: "Artifact not found" }, 404);
     }
 
-    // Verify ownership via bot
+    if (artifact.ownerUserId === userId) {
+      return c.json(formatArtifact(artifact), 200);
+    }
+
+    // Verify ownership via bot (legacy/owned-bot access)
     const [bot] = await db
       .select({ id: bots.id })
       .from(bots)
@@ -776,7 +816,12 @@ export function registerArtifactRoutes(app: OpenAPIHono<AppBindings>) {
       return c.json({ message: "Artifact not found" }, 404);
     }
 
-    // Verify ownership via bot
+    if (artifact.ownerUserId === userId) {
+      await db.delete(artifacts).where(eq(artifacts.id, id));
+      return c.json({ message: "Artifact deleted" }, 200);
+    }
+
+    // Verify ownership via bot (legacy/owned-bot access)
     const [bot] = await db
       .select({ id: bots.id })
       .from(bots)

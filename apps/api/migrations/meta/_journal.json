@@ -36,6 +36,13 @@
       "when": 1772783973210,
       "tag": "0004_curved_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773042414920,
+      "tag": "0005_normal_bill_hollister",
+      "breakpoints": true
     }
   ]
 }

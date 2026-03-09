@@ -9,3 +9,4 @@ export * from "./schemas/artifact.js";
 export * from "./schemas/session.js";
 export * from "./schemas/user.js";
 export * from "./schemas/onboarding.js";
+export * from "./schemas/shared-slack-claim.js";

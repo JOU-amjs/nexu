@@ -7,7 +7,7 @@ import {
   updateSessionSchema,
 } from "@nexu/shared";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db/index.js";
 import {
@@ -680,18 +680,22 @@ export function registerSessionRoutes(app: OpenAPIHono<AppBindings>) {
     const { limit, offset } = query;
 
     const botIds = await getUserBotIds(userId);
-    if (botIds.length === 0) {
-      return c.json({ sessions: [], total: 0, limit, offset }, 200);
-    }
 
-    // If botId filter specified, verify ownership
-    if (query.botId && !botIds.includes(query.botId)) {
-      return c.json({ sessions: [], total: 0, limit, offset }, 200);
-    }
+    const accessClause = query.botId
+      ? botIds.includes(query.botId)
+        ? or(
+            eq(sessions.botId, query.botId),
+            and(
+              eq(sessions.ownerUserId, userId),
+              eq(sessions.botId, query.botId),
+            ),
+          )
+        : and(eq(sessions.ownerUserId, userId), eq(sessions.botId, query.botId))
+      : botIds.length > 0
+        ? or(inArray(sessions.botId, botIds), eq(sessions.ownerUserId, userId))
+        : eq(sessions.ownerUserId, userId);
 
-    const targetBotIds = query.botId ? [query.botId] : botIds;
-
-    const conditions = [inArray(sessions.botId, targetBotIds)];
+    const conditions = [accessClause];
     if (query.channelType) {
       conditions.push(eq(sessions.channelType, query.channelType));
     }
@@ -742,7 +746,11 @@ export function registerSessionRoutes(app: OpenAPIHono<AppBindings>) {
       return c.json({ message: "Session not found" }, 404);
     }
 
-    // Verify ownership via bot
+    if (session.ownerUserId === userId) {
+      return c.json(formatSession(session), 200);
+    }
+
+    // Verify ownership via bot (legacy/owned-bot access)
     const [bot] = await db
       .select({ id: bots.id })
       .from(bots)

@@ -35,6 +35,17 @@ describe("buildSlackSessionKey", () => {
     ).toBe("agent:bot-test-1:main");
   });
 
+  it("isolates DMs by Slack user id when available", () => {
+    expect(
+      buildSlackSessionKey({
+        botId: "Bot-Test-1",
+        channelId: "D0AJKG60H6D",
+        isIm: true,
+        dmUserId: "U0AHLMC6C8G",
+      }),
+    ).toBe("agent:bot-test-1:main:user:u0ahlmc6c8g");
+  });
+
   it("appends thread ids to DM main session keys", () => {
     expect(
       buildSlackSessionKey({

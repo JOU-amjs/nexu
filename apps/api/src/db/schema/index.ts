@@ -181,6 +181,8 @@ export const users = pgTable("users", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
   authUserId: text("auth_user_id").notNull().unique(),
+  authSource: text("auth_source"),
+  authSourceDetail: text("auth_source_detail"),
   plan: text("plan").default("free"),
   inviteAcceptedAt: text("invite_accepted_at"),
   onboardingRole: text("onboarding_role"),
@@ -305,6 +307,31 @@ export const oauthStates = pgTable("oauth_states", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const slackUserClaims = pgTable(
+  "slack_user_claims",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id").notNull().unique(),
+    teamId: text("team_id").notNull(),
+    teamName: text("team_name"),
+    slackUserId: text("slack_user_id").notNull(),
+    authUserId: text("auth_user_id").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex("slack_user_claims_team_user_idx").on(
+      table.teamId,
+      table.slackUserId,
+    ),
+    index("slack_user_claims_auth_user_idx").on(table.authUserId),
+  ],
+);
+
 export const inviteCodes = pgTable("invite_codes", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
@@ -354,6 +381,7 @@ export const artifacts = pgTable(
     id: text("id").notNull().unique(),
     botId: text("bot_id").notNull(),
     sessionKey: text("session_key"),
+    ownerUserId: text("owner_user_id"),
     channelType: text("channel_type"),
     channelId: text("channel_id"),
     title: text("title").notNull(),
@@ -376,6 +404,7 @@ export const artifacts = pgTable(
   },
   (table) => [
     index("artifacts_bot_id_idx").on(table.botId),
+    index("artifacts_owner_user_id_idx").on(table.ownerUserId),
     index("artifacts_session_key_idx").on(table.sessionKey),
     index("artifacts_status_idx").on(table.status),
     index("artifacts_created_at_idx").on(table.createdAt),
@@ -410,6 +439,7 @@ export const sessions = pgTable(
     id: text("id").notNull().unique(),
     botId: text("bot_id").notNull(),
     sessionKey: text("session_key").notNull().unique(),
+    ownerUserId: text("owner_user_id"),
     channelType: text("channel_type"),
     channelId: text("channel_id"),
     title: text("title").notNull(),
@@ -426,6 +456,7 @@ export const sessions = pgTable(
   },
   (table) => [
     index("sessions_bot_id_idx").on(table.botId),
+    index("sessions_owner_user_id_idx").on(table.ownerUserId),
     index("sessions_status_idx").on(table.status),
     index("sessions_created_at_idx").on(table.createdAt),
     index("sessions_channel_type_idx").on(table.channelType),

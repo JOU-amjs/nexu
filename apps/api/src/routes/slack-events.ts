@@ -10,6 +10,7 @@ import {
   channelCredentials,
   gatewayPools,
   sessions,
+  slackUserClaims,
   webhookRoutes,
 } from "../db/schema/index.js";
 import { decrypt } from "../lib/crypto.js";
@@ -24,12 +25,16 @@ export function buildSlackSessionKey(params: {
   channelId: string;
   threadTs?: string | null;
   isIm: boolean;
+  dmUserId?: string | null;
 }): string {
   const botId = params.botId.trim().toLowerCase();
   const channelId = params.channelId.trim().toLowerCase();
   const threadTs = params.threadTs?.trim().toLowerCase();
+  const dmUserId = params.dmUserId?.trim().toLowerCase();
   const baseKey = params.isIm
-    ? `agent:${botId}:main`
+    ? dmUserId
+      ? `agent:${botId}:main:user:${dmUserId}`
+      : `agent:${botId}:main`
     : `agent:${botId}:slack:channel:${channelId}`;
   return threadTs ? `${baseKey}:thread:${threadTs}` : baseKey;
 }
@@ -84,6 +89,25 @@ class SlackEventsTraceHandler {
         and(
           eq(webhookRoutes.channelType, "slack"),
           eq(webhookRoutes.externalId, compositeKey),
+        ),
+      );
+  }
+
+  @Span("api.slack.events.claim.lookup", {
+    tags: ([teamId, slackUserId]) => ({
+      channel_type: "slack",
+      team_id: teamId,
+      slack_user_id: slackUserId,
+    }),
+  })
+  async lookupClaim(teamId: string, slackUserId: string) {
+    return db
+      .select({ authUserId: slackUserClaims.authUserId })
+      .from(slackUserClaims)
+      .where(
+        and(
+          eq(slackUserClaims.teamId, teamId),
+          eq(slackUserClaims.slackUserId, slackUserId),
         ),
       );
   }
@@ -292,6 +316,7 @@ class SlackEventsTraceHandler {
             : null;
         const now = new Date().toISOString();
         let isIm = false;
+        let dmUserId: string | null = null;
 
         let channelName = channelId;
         const [botTokenRow] = await db
@@ -317,7 +342,10 @@ class SlackEventsTraceHandler {
             if (infoData.ok && infoData.channel) {
               isIm = infoData.channel.is_im === true;
               if (infoData.channel.is_im) {
-                const userId = infoData.channel.user;
+                const eventUserId =
+                  typeof event.user === "string" ? event.user : null;
+                const userId = infoData.channel.user ?? eventUserId;
+                dmUserId = userId ?? null;
                 if (userId) {
                   const userResp = await fetch(
                     `https://slack.com/api/users.info?user=${userId}`,
@@ -352,11 +380,20 @@ class SlackEventsTraceHandler {
           }
         }
 
+        const eventUserId = typeof event.user === "string" ? event.user : null;
+        const ownerSlackUserId = dmUserId ?? eventUserId;
+        let ownerUserId: string | null = null;
+        if (ownerSlackUserId) {
+          const [claim] = await this.lookupClaim(teamId, ownerSlackUserId);
+          ownerUserId = claim?.authUserId ?? null;
+        }
+
         const sessionKey = buildSlackSessionKey({
           botId: channel.botId,
           channelId,
           threadTs,
           isIm,
+          dmUserId,
         });
 
         const title =
@@ -369,6 +406,7 @@ class SlackEventsTraceHandler {
             sessionKey,
             channelType: "slack",
             channelId,
+            ownerUserId,
             title,
             status: "active",
             messageCount: 1,
@@ -381,6 +419,7 @@ class SlackEventsTraceHandler {
             set: {
               botId: channel.botId,
               title,
+              ownerUserId,
               messageCount: sql`${sessions.messageCount} + 1`,
               lastMessageAt: now,
               updatedAt: now,
