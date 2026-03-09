@@ -20,7 +20,7 @@ import {
 } from "../db/schema/index.js";
 import { findOrCreateDefaultBot } from "../lib/bot-helpers.js";
 import { checkBotQuota } from "../lib/bot-quota.js";
-import { encrypt } from "../lib/crypto.js";
+import { decrypt, encrypt } from "../lib/crypto.js";
 import { BaseError, ServiceError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
 import { Span } from "../lib/trace-decorator.js";
@@ -137,6 +137,7 @@ function formatChannel(
       | "error",
     teamName: (config.teamName as string) ?? null,
     appId: (config.appId as string) ?? null,
+    botUserId: (config.botUserId as string) ?? null,
     createdAt: ch.createdAt,
     updatedAt: ch.updatedAt,
   };
@@ -400,6 +401,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     let teamId = input.teamId;
     let appId = input.appId;
     let teamName = input.teamName;
+    let botUserId: string | undefined;
 
     if (!teamId || !appId) {
       const authResp = await channelSpanHandler.slackAuthTest(input.botToken);
@@ -427,6 +429,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
       }
       teamId = teamId || authData.team_id;
       teamName = teamName || authData.team || undefined;
+      botUserId = authData.user_id;
 
       // auth.test returns bot_id but not app_id; use bots.info to resolve the real app_id
       // (app_id must match api_app_id in Slack event payloads for webhook route lookup)
@@ -509,6 +512,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
             teamId,
             teamName: teamName ?? null,
             appId,
+            botUserId: botUserId ?? null,
           }),
           updatedAt: now,
         })
@@ -581,6 +585,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
           teamId,
           teamName: teamName ?? null,
           appId,
+          botUserId: botUserId ?? null,
         }),
         createdAt: now,
         updatedAt: now,
@@ -776,6 +781,65 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
       .from(botChannels)
       .where(eq(botChannels.botId, bot.id));
 
+    // Lazy backfill: resolve botUserId for Slack channels missing it
+    const backfillPromises = channels
+      .filter((ch) => {
+        if (ch.channelType !== "slack") return false;
+        try {
+          const config =
+            typeof ch.channelConfig === "string"
+              ? JSON.parse(ch.channelConfig)
+              : ((ch.channelConfig as unknown as Record<string, unknown>) ??
+                {});
+          return !config?.botUserId;
+        } catch {
+          return false;
+        }
+      })
+      .map(async (ch) => {
+        try {
+          const [cred] = await db
+            .select()
+            .from(channelCredentials)
+            .where(
+              and(
+                eq(channelCredentials.botChannelId, ch.id),
+                eq(channelCredentials.credentialType, "botToken"),
+              ),
+            );
+          if (!cred) return;
+
+          const botToken = decrypt(cred.encryptedValue);
+          const authResp = await channelSpanHandler.slackAuthTest(botToken);
+          const authData = (await authResp.json()) as {
+            ok: boolean;
+            user_id?: string;
+          };
+          if (!authData.ok || !authData.user_id) return;
+
+          const config =
+            typeof ch.channelConfig === "string"
+              ? JSON.parse(ch.channelConfig)
+              : ((ch.channelConfig as unknown as Record<string, unknown>) ??
+                {});
+          const updatedConfig = { ...config, botUserId: authData.user_id };
+
+          await db
+            .update(botChannels)
+            .set({
+              channelConfig: JSON.stringify(updatedConfig),
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(botChannels.id, ch.id));
+
+          ch.channelConfig = JSON.stringify(updatedConfig);
+        } catch {
+          // Non-critical — skip silently, will retry on next page load
+        }
+      });
+
+    await Promise.all(backfillPromises);
+
     return c.json({ channels: channels.map(formatChannel) }, 200);
   });
 
@@ -952,6 +1016,7 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
     const teamId = tokenResponse.team.id;
     const teamName = tokenResponse.team.name;
     const botToken = tokenResponse.access_token;
+    const botUserId = tokenResponse.bot_user_id;
 
     const signingSecret = process.env.SLACK_SIGNING_SECRET;
     if (!signingSecret) {
@@ -992,7 +1057,7 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
         .set({
           status: "connected",
           accountId,
-          channelConfig: JSON.stringify({ teamId, teamName, appId }),
+          channelConfig: JSON.stringify({ teamId, teamName, appId, botUserId }),
           updatedAt: now,
         })
         .where(eq(botChannels.id, channelId));
@@ -1061,7 +1126,7 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
         channelType: "slack",
         accountId,
         status: "connected",
-        channelConfig: JSON.stringify({ teamId, teamName, appId }),
+        channelConfig: JSON.stringify({ teamId, teamName, appId, botUserId }),
         createdAt: now,
         updatedAt: now,
       });

@@ -19,7 +19,7 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import "@/lib/api";
@@ -202,6 +202,7 @@ function ConfiguredView({
     accountId: string;
     teamName: string | null;
     appId?: string | null;
+    botUserId?: string | null;
     status: string;
     createdAt?: string | null;
   };
@@ -231,6 +232,39 @@ function ConfiguredView({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Extract teamId from accountId (format: "slack-{appId}-{teamId}")
+  const slackTeamId =
+    platform === "slack"
+      ? channel.accountId.replace(/^slack-[^-]+-/, "")
+      : null;
+
+  const handleOpenSlack = useCallback(() => {
+    const teamId = slackTeamId;
+    const botUser = channel.botUserId;
+
+    // Build native app and web URLs
+    const nativeUrl =
+      teamId && botUser
+        ? `slack://user?team=${teamId}&id=${botUser}`
+        : teamId
+          ? `slack://open?team=${teamId}`
+          : null;
+    const webUrl =
+      teamId && botUser
+        ? `https://app.slack.com/client/${teamId}/messages/${botUser}`
+        : teamId
+          ? `https://app.slack.com/client/${teamId}`
+          : null;
+
+    if (!nativeUrl || !webUrl) return;
+
+    // Try native app first, fall back to web after timeout
+    window.location.href = nativeUrl;
+    setTimeout(() => {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
+  }, [slackTeamId, channel.botUserId]);
 
   const webhookUrl = `${window.location.origin}/api/${platform}/events`;
   const discordInviteUrl = channel.appId
@@ -287,6 +321,33 @@ function ConfiguredView({
             >
               <ExternalLink size={13} /> Add Bot to Server
             </a>
+          </div>
+        )}
+
+        {/* Slack: Open in Slack */}
+        {platform === "slack" && slackTeamId && (
+          <div className="p-5 rounded-xl border bg-surface-1 border-border">
+            <div className="flex gap-2 items-center mb-4">
+              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-blue-500/10 shrink-0">
+                <ExternalLink size={13} className="text-blue-500" />
+              </div>
+              <h3 className="text-[13px] font-semibold text-text-primary">
+                Open in Slack
+              </h3>
+            </div>
+            <p className="text-[12px] text-text-muted mb-3 leading-relaxed">
+              {channel.botUserId
+                ? "Open a direct message with your bot in Slack."
+                : "Open your Slack workspace."}
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenSlack}
+              className="inline-flex gap-1.5 items-center px-4 py-2 text-[12px] font-medium text-white rounded-lg bg-accent hover:bg-accent-hover transition-all"
+            >
+              <ExternalLink size={13} />{" "}
+              {channel.botUserId ? "Message Bot in Slack" : "Open Workspace"}
+            </button>
           </div>
         )}
 

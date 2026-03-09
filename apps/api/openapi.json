@@ -9,6 +9,118 @@
     "parameters": {}
   },
   "paths": {
+    "/api/internal/artifacts/check-domain": {
+      "post": {
+        "tags": [
+          "Artifacts (Internal)"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "botId": {
+                    "type": "string"
+                  },
+                  "sessionKey": {
+                    "type": "string"
+                  },
+                  "chatId": {
+                    "type": "string"
+                  },
+                  "threadId": {
+                    "type": "string"
+                  },
+                  "channelType": {
+                    "type": "string"
+                  },
+                  "previewUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "botId",
+                  "previewUrl"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain availability result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "sessionKey": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "existingArtifactId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "existingSessionKey": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "sessionKey",
+                    "existingArtifactId",
+                    "existingSessionKey"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Domain already in use by another session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/artifacts": {
       "post": {
         "tags": [
@@ -30,6 +142,12 @@
                     "maxLength": 500
                   },
                   "sessionKey": {
+                    "type": "string"
+                  },
+                  "chatId": {
+                    "type": "string"
+                  },
+                  "threadId": {
                     "type": "string"
                   },
                   "channelType": {
@@ -200,6 +318,24 @@
           },
           "400": {
             "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Preview URL already in use by another session",
             "content": {
               "application/json": {
                 "schema": {
@@ -2279,6 +2415,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "botUserId": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -2397,6 +2537,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "botUserId": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -2488,6 +2632,10 @@
                             "nullable": true
                           },
                           "appId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "botUserId": {
                             "type": "string",
                             "nullable": true
                           },
@@ -2630,6 +2778,10 @@
                       "nullable": true
                     },
                     "appId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "botUserId": {
                       "type": "string",
                       "nullable": true
                     },
@@ -5673,6 +5825,91 @@
                   "required": [
                     "CLOUDFLARE_API_TOKEN",
                     "CLOUDFLARE_ACCOUNT_ID"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pool not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/pools/{poolId}/check-slack-tokens": {
+      "post": {
+        "tags": [
+          "Internal"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "poolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slack token health check results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checked": {
+                      "type": "integer"
+                    },
+                    "invalidated": {
+                      "type": "integer"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "botChannelId": {
+                            "type": "string"
+                          },
+                          "accountId": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "botChannelId",
+                          "accountId",
+                          "ok"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "checked",
+                    "invalidated",
+                    "results"
                   ]
                 }
               }
