@@ -309,6 +309,9 @@ export async function generatePoolConfig(
                     `${stateDir}/skills:${stateDir}/skills:ro`,
                     `${stateDir}/media:${stateDir}/media:rw`,
                     `${stateDir}/nexu-context.json:${stateDir}/nexu-context.json:ro`,
+                    // Map PVC plugin-docs to the OpenClaw extensions path so
+                    // agents can read extension SKILL.md files from sandbox.
+                    `${stateDir}/plugin-docs:${process.env.SANDBOX_EXTENSIONS_TARGET ?? "/usr/local/lib/node_modules/openclaw/extensions"}:ro`,
                   ],
                   env: {
                     OPENCLAW_STATE_DIR: stateDir,

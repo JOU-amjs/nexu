@@ -11,6 +11,7 @@ import {
   enableAutoRestart,
   startManagedOpenclawGateway,
 } from "./openclaw-process.js";
+import { syncPluginDocs } from "./plugin-docs.js";
 import { pollLatestSkills } from "./skills.js";
 import type { RuntimeState } from "./state.js";
 import { runWithRetry, sleep } from "./utils.js";
@@ -310,6 +311,18 @@ export async function bootstrapGateway(state: RuntimeState): Promise<void> {
   await fetchInitialConfigWithRetry();
   await syncInitialSkillsWithRetry(state);
   logger.info({ poolId: env.RUNTIME_POOL_ID }, "initial skills synced");
+
+  // Copy extension SKILL.md files to PVC so sandbox containers can read them.
+  // Runs after skills sync to avoid interfering with managed skills.
+  try {
+    await syncPluginDocs();
+  } catch (error) {
+    const baseError = BaseError.from(error);
+    logger.warn(
+      { reason: baseError.message },
+      "plugin docs sync failed; continuing with startup",
+    );
+  }
 
   await syncInitialWorkspaceTemplatesWithRetry(state);
   logger.info(
