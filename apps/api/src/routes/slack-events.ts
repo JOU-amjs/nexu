@@ -9,6 +9,7 @@ import {
   botChannels,
   channelCredentials,
   gatewayPools,
+  sessionParticipants,
   sessions,
   webhookRoutes,
   workspaceMemberships,
@@ -480,9 +481,9 @@ class SlackEventsTraceHandler {
           slackUserId: senderUserId,
         });
 
-        // Resolve nexuUserId for DM sessions
+        // Resolve nexuUserId for all message events (DM + channel)
         let nexuUserId: string | null = null;
-        if (isIm && senderUserId) {
+        if (senderUserId) {
           const [membership] = await db
             .select({ userId: workspaceMemberships.userId })
             .from(workspaceMemberships)
@@ -497,6 +498,18 @@ class SlackEventsTraceHandler {
 
         const title =
           channelName === channelId ? `Slack #${channelId}` : `#${channelName}`;
+
+        // Skip session upsert for DM messages without a sender (bot echoes, message_changed, etc.)
+        // to avoid creating "direct:unknown" sessions
+        if (isIm && !senderUserId) {
+          logger.info({
+            message: "slack_events_skip_dm_session_no_sender",
+            event_type: event?.type,
+            event_subtype: event?.subtype,
+            channel_id: channelId,
+          });
+          // Fall through to gateway forwarding without session upsert
+        } else {
 
         db.insert(sessions)
           .values({
@@ -540,6 +553,27 @@ class SlackEventsTraceHandler {
               ...unknownError.toJSON(),
             });
           });
+
+        // Track channel participants for session visibility
+        if (!isIm && nexuUserId && senderUserId) {
+          db.insert(sessionParticipants)
+            .values({
+              sessionKey,
+              nexuUserId,
+              imUserId: senderUserId,
+              firstSeenAt: now,
+            })
+            .onConflictDoNothing()
+            .catch((err) => {
+              logger.warn({
+                message: "slack_events_participant_upsert_failed",
+                session_key: sessionKey,
+                nexu_user_id: nexuUserId,
+                error: String(err),
+              });
+            });
+        }
+        } // end else (skip DM no sender)
       }
 
       const [pool] = await db

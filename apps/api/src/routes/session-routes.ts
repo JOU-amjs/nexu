@@ -14,6 +14,7 @@ import {
   botChannels,
   bots,
   channelCredentials,
+  sessionParticipants,
   sessions,
 } from "../db/schema/index.js";
 import { decrypt } from "../lib/crypto.js";
@@ -640,19 +641,31 @@ function buildAccessClause(
   table: {
     botId: typeof sessions.botId;
     nexuUserId: typeof sessions.nexuUserId;
+    sessionKey: typeof sessions.sessionKey;
   },
   userId: string,
   botIds: string[],
   queryBotId?: string,
 ) {
+  // Sessions where the user is a participant (group channels)
+  const participantSessions = db
+    .select({ sessionKey: sessionParticipants.sessionKey })
+    .from(sessionParticipants)
+    .where(eq(sessionParticipants.nexuUserId, userId));
+
+  const userAccess = or(
+    eq(table.nexuUserId, userId),
+    inArray(table.sessionKey, participantSessions),
+  );
+
   if (queryBotId) {
     return botIds.includes(queryBotId)
       ? eq(table.botId, queryBotId)
-      : and(eq(table.nexuUserId, userId), eq(table.botId, queryBotId));
+      : and(userAccess, eq(table.botId, queryBotId));
   }
   return botIds.length > 0
-    ? or(inArray(table.botId, botIds), eq(table.nexuUserId, userId))
-    : eq(table.nexuUserId, userId);
+    ? or(inArray(table.botId, botIds), userAccess)
+    : userAccess;
 }
 
 // ============================================================

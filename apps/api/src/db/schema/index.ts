@@ -439,6 +439,23 @@ export const sessions = pgTable(
   ],
 );
 
+// ============ Session Participants ============
+
+export const sessionParticipants = pgTable(
+  "session_participants",
+  {
+    pk: serial("pk").primaryKey(),
+    sessionKey: text("session_key").notNull(),
+    nexuUserId: text("nexu_user_id").notNull(),
+    imUserId: text("im_user_id").notNull(),
+    firstSeenAt: text("first_seen_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sp_session_user_idx").on(table.sessionKey, table.nexuUserId),
+    index("sp_nexu_user_idx").on(table.nexuUserId),
+  ],
+);
+
 // ============ Workspace Memberships ============
 
 export const workspaceMemberships = pgTable(

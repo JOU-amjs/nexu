@@ -150,15 +150,19 @@ const feishuAccountSchema = z.object({
   appSecret: z.string(),
 });
 
-const feishuChannelSchema = z.object({
-  enabled: z.boolean().optional(),
-  connectionMode: z.enum(["websocket", "webhook"]).optional(),
-  dmPolicy: z.enum(["pairing", "allowlist", "open"]).optional(),
-  groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
-  requireMention: z.boolean().optional(),
-  allowFrom: z.array(z.string()).optional(),
-  accounts: z.record(z.string(), feishuAccountSchema),
-});
+const feishuChannelSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    connectionMode: z.enum(["websocket", "webhook"]).optional(),
+    streaming: z.boolean().optional(),
+    renderMode: z.enum(["auto", "raw", "card"]).optional(),
+    dmPolicy: z.enum(["pairing", "allowlist", "open"]).optional(),
+    groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
+    requireMention: z.boolean().optional(),
+    allowFrom: z.array(z.string()).optional(),
+    accounts: z.record(z.string(), feishuAccountSchema),
+  })
+  .passthrough();
 
 const channelsConfigSchema = z
   .object({

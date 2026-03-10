@@ -137,6 +137,46 @@ export function registerClaimRoutes(app: OpenAPIHono<AppBindings>) {
 
     const now = new Date().toISOString();
 
+    // Check if this Nexu account is already linked to a different Slack account in this workspace
+    const [existingByUser] = await db
+      .select({ imUserId: workspaceMemberships.imUserId })
+      .from(workspaceMemberships)
+      .where(
+        and(
+          eq(workspaceMemberships.workspaceKey, claimRow.workspaceKey),
+          eq(workspaceMemberships.userId, userId),
+        ),
+      );
+
+    if (existingByUser && existingByUser.imUserId !== claimRow.imUserId) {
+      return c.json({
+        ok: false,
+        error: "account_already_linked",
+        message:
+          "This Nexu account is already linked to a different Slack account in this workspace.",
+      });
+    }
+
+    // Check if this Slack account is already claimed by a different Nexu account
+    const [existingByIm] = await db
+      .select({ userId: workspaceMemberships.userId })
+      .from(workspaceMemberships)
+      .where(
+        and(
+          eq(workspaceMemberships.workspaceKey, claimRow.workspaceKey),
+          eq(workspaceMemberships.imUserId, claimRow.imUserId),
+        ),
+      );
+
+    if (existingByIm && existingByIm.userId !== userId) {
+      return c.json({
+        ok: false,
+        error: "slack_account_already_claimed",
+        message:
+          "This Slack account is already linked to a different Nexu account.",
+      });
+    }
+
     await db
       .insert(workspaceMemberships)
       .values({
