@@ -344,11 +344,14 @@ export async function generatePoolConfig(
         },
         fetch: { enabled: true },
       },
-      // Disable the sandbox tool allowlist so plugin tools (feishu_doc,
-      // feishu_chat, etc.) are not blocked.  An empty allow list means
-      // "allow everything not in the deny list".
+      // Override sandbox tool policy:
+      // - Empty allow list = "allow everything not in the deny list"
+      //   (unblocks plugin tools like feishu_doc, feishu_chat, etc.)
+      // - Custom deny list = only "gateway" (direct gateway control)
+      //   All other DEFAULT_TOOL_DENY entries (browser, canvas, nodes,
+      //   cron, channel tools) are intentionally unblocked.
       ...(process.env.SANDBOX_ENABLED === "true"
-        ? { sandbox: { tools: { allow: [] } } }
+        ? { sandbox: { tools: { allow: [], deny: ["gateway"] } } }
         : {}),
     },
     session: {
