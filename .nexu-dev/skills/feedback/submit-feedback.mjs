@@ -92,8 +92,8 @@ const ENVELOPE_RE = /^System:\s*\[[^\]]*\]\s+.*?\bfrom\s+[^:]+:\s*([\s\S]+)$/;
  */
 function cleanAssistantText(input) {
   let text = input;
-  // Replace fenced code blocks entirely (not useful in feedback context)
-  text = text.replace(/```[\s\S]*?```/g, "");
+  // Replace fenced code blocks with a short placeholder
+  text = text.replace(/```[\s\S]*?```/g, "[代码片段]");
 
   // Replace inline code that looks like long paths (>40 chars)
   text = text.replace(/`[^`]{40,}`/g, "[...]");
@@ -116,9 +116,9 @@ function cleanAssistantText(input) {
   // Strip numbered/bulleted list noise (long instructional lists)
   text = text.replace(/^\d+\.\s+.{0,20}(联系|通过|直接|建议|或者).*$/gm, "");
 
-  // Strip meta-discussion about skills/versions/paths
+  // Strip lines that look like internal skill/path references (require path-like patterns)
   text = text.replace(
-    /^.*(?:skill|SKILL|版本|version|路径|path|snapshot).*$/gim,
+    /^.*(?:\/[\w._-]+){2,}.*(?:skill|snapshot).*$/gim,
     "",
   );
 
@@ -169,17 +169,30 @@ function parseSession(filePath) {
           text = text.trim();
 
           if (text.startsWith("System:")) {
-            // Only keep System messages that match the envelope pattern (real user messages)
             const envelopeMatch = text.match(ENVELOPE_RE);
-            if (!envelopeMatch) continue; // skip system notifications, exec output, etc.
-            text = envelopeMatch[1]; // extract the actual message content
+            if (envelopeMatch) {
+              text = envelopeMatch[1]; // extract the actual message content
+            } else {
+              // Fallback: strip known system-noise prefixes but keep the rest
+              // Skip exec output, tool results, and pure system notifications
+              if (
+                /^System:\s*\[.*?\]\s*(?:exec|tool_result|notification)\b/i.test(
+                  text,
+                )
+              )
+                continue;
+              // Strip the "System: [timestamp] ..." prefix and keep remaining content
+              text = text.replace(/^System:\s*\[[^\]]*\]\s*/, "");
+            }
           }
 
           // Skip /feedback command invocations (not real conversation)
           if (/^\/feedback\b/i.test(text)) continue;
 
-          // Skip pure JSON payloads (Feishu media keys, file keys, etc.)
-          if (/^\s*[\[{][\s\S]*[\]}]\s*$/.test(text)) continue;
+          // Skip small pure JSON payloads (Feishu media keys, file keys, etc.)
+          // Keep longer JSON that might be user-sent config/data
+          if (/^\s*[\[{][\s\S]*[\]}]\s*$/.test(text) && text.length < 200)
+            continue;
 
           // Strip platform echo lines: [Feishu ...] sender: ... or [Slack ...] ...
           text = text.replace(
@@ -292,11 +305,11 @@ function parseSession(filePath) {
 
           text = text.replace(/To send an image back.*?\n?/g, "");
 
-          // Strip extracted document / PDF content (long multi-line text with CJK + bullet points)
-          // Heuristic: if text has many lines (>15) and looks like extracted document content, drop it
+          // Truncate very long text (e.g. extracted documents, PDFs) instead of dropping
           const lineCount = text.split("\n").filter(Boolean).length;
           if (lineCount > 15 && text.length > 500) {
-            continue; // skip long extracted documents (resumes, PDFs, etc.)
+            const truncatedLines = text.split("\n").filter(Boolean).slice(0, 5);
+            text = `${truncatedLines.join("\n")}…[长文本已截断]`;
           }
 
           // Strip remaining JSON-like fragments inline
@@ -324,10 +337,10 @@ function parseSession(filePath) {
 
         if (!text) continue;
 
-        // Skip bot messages about feedback skill itself
+        // Skip bot messages about feedback skill itself (narrow match)
         if (
           msg.role === "assistant" &&
-          /(?:feedback.*skill|skill.*feedback|Unauthorized|权限|授权问题|已经.*发送|forwarded)/i.test(
+          /(?:feedback.*skill|skill.*feedback|授权问题|已经.*反馈.*发送)/i.test(
             text,
           )
         ) {
