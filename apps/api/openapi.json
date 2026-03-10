@@ -1421,14 +1421,14 @@
                   "teamName": {
                     "type": "string"
                   },
-                  "slackUserId": {
+                  "imUserId": {
                     "type": "string",
                     "minLength": 1
                   }
                 },
                 "required": [
                   "teamId",
-                  "slackUserId"
+                  "imUserId"
                 ]
               }
             }
@@ -1436,7 +1436,7 @@
         },
         "responses": {
           "200": {
-            "description": "Claim key generated",
+            "description": "Claim token generated",
             "content": {
               "application/json": {
                 "schema": {
@@ -1445,7 +1445,7 @@
                     "claimUrl": {
                       "type": "string"
                     },
-                    "key": {
+                    "token": {
                       "type": "string"
                     },
                     "expiresAt": {
@@ -1454,7 +1454,7 @@
                   },
                   "required": [
                     "claimUrl",
-                    "key",
+                    "token",
                     "expiresAt"
                   ]
                 }
@@ -1476,13 +1476,13 @@
               "minLength": 1
             },
             "required": true,
-            "name": "key",
+            "name": "token",
             "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Claim key resolved",
+            "description": "Claim token resolved",
             "content": {
               "application/json": {
                 "schema": {
@@ -1504,7 +1504,7 @@
                       "type": "string",
                       "nullable": true
                     },
-                    "slackUserId": {
+                    "imUserId": {
                       "type": "string"
                     },
                     "isExistingWorkspace": {
@@ -1594,7 +1594,7 @@
                 "properties": {
                   "source": {
                     "type": "string",
-                    "minLength": 1
+                    "enum": ["email", "google", "slack_shared_claim", "IM", "Landing"]
                   },
                   "detail": {
                     "type": "string"
@@ -6122,13 +6122,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "key": {
+                  "token": {
                     "type": "string",
                     "minLength": 1
                   }
                 },
                 "required": [
-                  "key"
+                  "token"
                 ]
               }
             }
