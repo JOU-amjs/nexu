@@ -11,26 +11,41 @@ import {
   gatewayPools,
   sessions,
   webhookRoutes,
+  workspaceMemberships,
 } from "../db/schema/index.js";
 import { decrypt } from "../lib/crypto.js";
 import { BaseError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
+import {
+  getDecryptedBotToken,
+  sendSlackEphemeral,
+  sendSlackMessage,
+} from "../lib/slack-api.js";
+import { buildClaimCardBlocks } from "../lib/slack-blocks.js";
 import { Span } from "../lib/trace-decorator.js";
 import { publishPoolConfigSnapshot } from "../services/runtime/pool-config-service.js";
 import type { AppBindings } from "../types.js";
+import { generateClaimToken } from "./claim-routes.js";
 
 export function buildSlackSessionKey(params: {
   botId: string;
   channelId: string;
   threadTs?: string | null;
   isIm: boolean;
+  slackUserId?: string;
 }): string {
   const botId = params.botId.trim().toLowerCase();
   const channelId = params.channelId.trim().toLowerCase();
   const threadTs = params.threadTs?.trim().toLowerCase();
-  const baseKey = params.isIm
-    ? `agent:${botId}:main`
-    : `agent:${botId}:slack:channel:${channelId}`;
+
+  let baseKey: string;
+  if (params.isIm) {
+    const peerId = (params.slackUserId ?? "unknown").trim().toLowerCase();
+    baseKey = `agent:${botId}:direct:${peerId}`;
+  } else {
+    baseKey = `agent:${botId}:slack:channel:${channelId}`;
+  }
+
   return threadTs ? `${baseKey}:thread:${threadTs}` : baseKey;
 }
 
@@ -267,6 +282,17 @@ class SlackEventsTraceHandler {
           await db
             .delete(webhookRoutes)
             .where(eq(webhookRoutes.botChannelId, route.botChannelId));
+
+          // Clean up workspace memberships for this workspace
+          const workspaceKey = `slack:${teamId}`;
+          await db
+            .delete(workspaceMemberships)
+            .where(eq(workspaceMemberships.workspaceKey, workspaceKey));
+
+          logger.info({
+            message: "slack_events_workspace_members_cleared",
+            workspace_key: workspaceKey,
+          });
         }
 
         // Trigger config reload so the gateway drops the dead account
@@ -279,6 +305,91 @@ class SlackEventsTraceHandler {
         });
 
         return c.json({ ok: true });
+      }
+
+      // ====== Unclaimed user hard interception ======
+      const senderSlackUserId = event?.user as string | undefined;
+      const isUserMessageEvent =
+        senderSlackUserId &&
+        (eventType === "message" || eventType === "app_mention");
+
+      if (isUserMessageEvent && channel?.botId) {
+        const workspaceKey = `slack:${teamId}`;
+
+        const [membership] = await db
+          .select({ userId: workspaceMemberships.userId })
+          .from(workspaceMemberships)
+          .where(
+            and(
+              eq(workspaceMemberships.workspaceKey, workspaceKey),
+              eq(workspaceMemberships.imUserId, senderSlackUserId),
+            ),
+          );
+
+        if (!membership) {
+          logger.info({
+            message: "slack_events_unclaimed_user_intercepted",
+            team_id: teamId,
+            slack_user_id: senderSlackUserId,
+            event_type: eventType,
+          });
+
+          const botToken = await getDecryptedBotToken(route.botChannelId);
+          if (!botToken) {
+            logger.error({
+              message: "slack_events_no_bot_token_for_claim",
+              bot_channel_id: route.botChannelId,
+            });
+            return c.json({ ok: true });
+          }
+
+          const claimResult = await generateClaimToken({
+            workspaceKey,
+            imUserId: senderSlackUserId,
+            botId: route.botId ?? channel.botId,
+          });
+
+          const msgChannelId = event?.channel as string;
+
+          // Check if DM via conversations.info
+          let isImChannel = false;
+          try {
+            const infoResp = await fetch(
+              `https://slack.com/api/conversations.info?channel=${msgChannelId}`,
+              { headers: { Authorization: `Bearer ${botToken}` } },
+            );
+            const infoData = (await infoResp.json()) as {
+              ok: boolean;
+              channel?: { is_im?: boolean };
+            };
+            isImChannel = infoData.ok && infoData.channel?.is_im === true;
+          } catch {
+            // Default to non-IM if lookup fails
+          }
+
+          const blocks = buildClaimCardBlocks(claimResult.claimUrl);
+          const fallbackText =
+            "Welcome to Nexu! Set up your account to get started.";
+
+          if (isImChannel) {
+            await sendSlackMessage({
+              botToken,
+              channel: msgChannelId,
+              text: fallbackText,
+              blocks,
+            });
+          } else {
+            await sendSlackEphemeral({
+              botToken,
+              channel: msgChannelId,
+              user: senderSlackUserId,
+              text: fallbackText,
+              blocks,
+            });
+          }
+
+          return c.json({ ok: true });
+        }
       }
 
       // Upsert session for message events (fire-and-forget)
@@ -352,12 +463,30 @@ class SlackEventsTraceHandler {
           }
         }
 
+        const senderUserId = event?.user as string | undefined;
+
         const sessionKey = buildSlackSessionKey({
           botId: channel.botId,
           channelId,
           threadTs,
           isIm,
+          slackUserId: senderUserId,
         });
+
+        // Resolve nexuUserId for DM sessions
+        let nexuUserId: string | null = null;
+        if (isIm && senderUserId) {
+          const [membership] = await db
+            .select({ userId: workspaceMemberships.userId })
+            .from(workspaceMemberships)
+            .where(
+              and(
+                eq(workspaceMemberships.workspaceKey, `slack:${teamId}`),
+                eq(workspaceMemberships.imUserId, senderUserId),
+              ),
+            );
+          nexuUserId = membership?.userId ?? null;
+        }
 
         const title =
           channelName === channelId ? `Slack #${channelId}` : `#${channelName}`;
@@ -373,6 +502,7 @@ class SlackEventsTraceHandler {
             status: "active",
             messageCount: 1,
             lastMessageAt: now,
+            nexuUserId,
             createdAt: now,
             updatedAt: now,
           })
@@ -383,6 +513,7 @@ class SlackEventsTraceHandler {
               title,
               messageCount: sql`${sessions.messageCount} + 1`,
               lastMessageAt: now,
+              nexuUserId: nexuUserId ?? sql`${sessions.nexuUserId}`,
               updatedAt: now,
             },
           })

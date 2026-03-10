@@ -17,6 +17,7 @@ import {
   channelCredentials,
   oauthStates,
   webhookRoutes,
+  workspaceMemberships,
 } from "../db/schema/index.js";
 import { findOrCreateDefaultBot } from "../lib/bot-helpers.js";
 import { checkBotQuota } from "../lib/bot-quota.js";
@@ -1113,9 +1114,51 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
         );
 
       if (globalExisting) {
-        return redirectWithError(
-          "This Slack app is already connected to another bot",
+        // Shared workspace mode: workspace already has a bot, add current user as member
+        const existingBotId = globalExisting.botId;
+        if (!existingBotId) {
+          return redirectWithError(
+            "Workspace misconfigured: no bot associated",
+          );
+        }
+
+        const workspaceKey = `slack:${teamId}`;
+        await db
+          .insert(workspaceMemberships)
+          .values({
+            id: createId(),
+            workspaceKey,
+            userId,
+            botId: existingBotId,
+            imUserId: tokenResponse.authed_user.id,
+            role: "member",
+            createdAt: now,
+          })
+          .onConflictDoNothing();
+
+        channelId = globalExisting.botChannelId;
+
+        logger.info({
+          message: "slack_oauth_shared_workspace_member_added",
+          user_id: userId,
+          workspace_key: workspaceKey,
+          existing_bot_id: existingBotId,
+        });
+
+        // Skip bot/channel creation, redirect to success
+        await db.delete(oauthStates).where(lt(oauthStates.expiresAt, now));
+
+        const successUrl = new URL(
+          "/workspace/channels/slack/callback",
+          webUrl,
         );
+        successUrl.searchParams.set("success", "true");
+        successUrl.searchParams.set("shared", "true");
+        successUrl.searchParams.set("teamName", teamName);
+        if (stateRow.returnTo) {
+          successUrl.searchParams.set("returnTo", stateRow.returnTo);
+        }
+        return c.redirect(successUrl.toString(), 302);
       }
 
       channelId = createId();
@@ -1126,7 +1169,14 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
         channelType: "slack",
         accountId,
         status: "connected",
-        channelConfig: JSON.stringify({ teamId, teamName, appId, botUserId }),
+        channelConfig: JSON.stringify({
+          teamId,
+          teamName,
+          appId,
+          botUserId,
+          isShared: true,
+          workspaceKey: `slack:${teamId}`,
+        }),
         createdAt: now,
         updatedAt: now,
       });
@@ -1161,6 +1211,18 @@ export function registerSlackOAuthCallback(app: OpenAPIHono<AppBindings>) {
           createdAt: now,
         });
       }
+
+      // First OAuth user: write workspace_memberships as owner
+      const workspaceKey = `slack:${teamId}`;
+      await db.insert(workspaceMemberships).values({
+        id: createId(),
+        workspaceKey,
+        userId,
+        botId,
+        imUserId: tokenResponse.authed_user.id,
+        role: "owner",
+        createdAt: now,
+      });
     }
 
     await publishSnapshotSafely(bot.poolId, botId);

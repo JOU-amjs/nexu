@@ -1,3 +1,4 @@
+import { createId } from "@paralleldrive/cuid2";
 import {
   boolean,
   foreignKey,
@@ -417,6 +418,7 @@ export const sessions = pgTable(
     messageCount: integer("message_count").default(0),
     lastMessageAt: text("last_message_at"),
     metadata: text("metadata"),
+    nexuUserId: text("nexu_user_id"),
     createdAt: text("created_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -429,8 +431,58 @@ export const sessions = pgTable(
     index("sessions_status_idx").on(table.status),
     index("sessions_created_at_idx").on(table.createdAt),
     index("sessions_channel_type_idx").on(table.channelType),
+    index("sessions_nexu_user_id_idx").on(table.nexuUserId),
   ],
 );
+
+// ============ Workspace Memberships ============
+
+export const workspaceMemberships = pgTable(
+  "workspace_memberships",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id")
+      .notNull()
+      .unique()
+      .$defaultFn(() => createId()),
+    workspaceKey: text("workspace_key").notNull(),
+    userId: text("user_id").notNull(),
+    botId: text("bot_id").notNull(),
+    imUserId: text("im_user_id"),
+    role: text("role").default("member"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex("wm_workspace_user_idx").on(table.workspaceKey, table.userId),
+    uniqueIndex("wm_workspace_im_user_idx").on(
+      table.workspaceKey,
+      table.imUserId,
+    ),
+    index("wm_user_idx").on(table.userId),
+  ],
+);
+
+// ============ Claim Tokens ============
+
+export const claimTokens = pgTable("claim_tokens", {
+  pk: serial("pk").primaryKey(),
+  id: text("id")
+    .notNull()
+    .unique()
+    .$defaultFn(() => createId()),
+  token: text("token").notNull().unique(),
+  workspaceKey: text("workspace_key").notNull(),
+  imUserId: text("im_user_id").notNull(),
+  botId: text("bot_id").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  usedByUserId: text("used_by_user_id"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 // Test-only table used to validate post-merge DB migration workflow.
 export const e2eTestMigration = pgTable("e2e_test_migration", {
