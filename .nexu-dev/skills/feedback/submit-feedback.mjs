@@ -117,7 +117,10 @@ function cleanAssistantText(input) {
   text = text.replace(/^\d+\.\s+.{0,20}(联系|通过|直接|建议|或者).*$/gm, "");
 
   // Strip meta-discussion about skills/versions/paths
-  text = text.replace(/^.*(?:skill|SKILL|版本|version|路径|path|snapshot).*$/gim, "");
+  text = text.replace(
+    /^.*(?:skill|SKILL|版本|version|路径|path|snapshot).*$/gim,
+    "",
+  );
 
   // Collapse multiple blank lines into one
   text = text.replace(/\n{3,}/g, "\n\n");
@@ -179,7 +182,10 @@ function parseSession(filePath) {
           if (/^\s*[\[{][\s\S]*[\]}]\s*$/.test(text)) continue;
 
           // Strip platform echo lines: [Feishu ...] sender: ... or [Slack ...] ...
-          text = text.replace(/^\[(?:Feishu|Slack|Discord)\s[^\]]*\][^\n]*\n?/gm, "");
+          text = text.replace(
+            /^\[(?:Feishu|Slack|Discord)\s[^\]]*\][^\n]*\n?/gm,
+            "",
+          );
 
           // Extract media paths before cleaning — classify as image or file
           // Format: [media attached: /path (mime)]
@@ -221,9 +227,18 @@ function parseSession(filePath) {
           );
 
           // Strip injected metadata blocks from message body
-          text = text.replace(/Conversation info \(untrusted metadata\):[\s\S]*?```\n?/g, "");
-          text = text.replace(/Sender \(untrusted metadata\):[\s\S]*?```\n?/g, "");
-          text = text.replace(/Untrusted context[\s\S]*?<<<END_EXTERNAL_UNTRUSTED_CONTENT[^>]*>>>\n?/g, "");
+          text = text.replace(
+            /Conversation info \(untrusted metadata\):[\s\S]*?```\n?/g,
+            "",
+          );
+          text = text.replace(
+            /Sender \(untrusted metadata\):[\s\S]*?```\n?/g,
+            "",
+          );
+          text = text.replace(
+            /Untrusted context[\s\S]*?<<<END_EXTERNAL_UNTRUSTED_CONTENT[^>]*>>>\n?/g,
+            "",
+          );
           text = text.replace(/\[message_id: [^\]]+\]\n?/g, "");
           text = text.replace(/<@[A-Z0-9]+>/g, "");
           text = text.replace(/,?\s*prefer the message tool[^\n]*/i, "");
@@ -285,7 +300,10 @@ function parseSession(filePath) {
           }
 
           // Strip remaining JSON-like fragments inline
-          text = text.replace(/\{"[^"]*":\s*"[^"]*"(?:,\s*"[^"]*":\s*"[^"]*")*\}/g, "");
+          text = text.replace(
+            /\{"[^"]*":\s*"[^"]*"(?:,\s*"[^"]*":\s*"[^"]*")*\}/g,
+            "",
+          );
 
           text = text.trim();
 
@@ -307,7 +325,12 @@ function parseSession(filePath) {
         if (!text) continue;
 
         // Skip bot messages about feedback skill itself
-        if (msg.role === "assistant" && /(?:feedback.*skill|skill.*feedback|Unauthorized|权限|授权问题|已经.*发送|forwarded)/i.test(text)) {
+        if (
+          msg.role === "assistant" &&
+          /(?:feedback.*skill|skill.*feedback|Unauthorized|权限|授权问题|已经.*发送|forwarded)/i.test(
+            text,
+          )
+        ) {
           continue;
         }
 
@@ -315,7 +338,8 @@ function parseSession(filePath) {
         const entry = `${prefix} ${text}`;
 
         // Deduplicate: skip if identical to last message
-        if (messages.length > 0 && messages[messages.length - 1] === entry) continue;
+        if (messages.length > 0 && messages[messages.length - 1] === entry)
+          continue;
 
         messages.push(entry);
       }
