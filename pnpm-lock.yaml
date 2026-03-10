@@ -17,6 +17,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@amplitude/analytics-node':
+        specifier: ^1.5.43
+        version: 1.5.43
       '@hono/node-server':
         specifier: ^1.13.8
         version: 1.19.9(hono@4.12.2)
@@ -267,6 +270,12 @@ packages:
 
   '@amplitude/analytics-core@2.40.2':
     resolution: {integrity: sha512-bKQyB0gFEmYiI1pHJSaCjXlml0NvQsx/S8RXoIVmI+pwh6hb1y6NlsHx4BJaYpUxw8/2ww+1UClSUMkP/aFNjQ==}
+
+  '@amplitude/analytics-core@2.41.3':
+    resolution: {integrity: sha512-UujceP+22zVi/0hl4ccrKEQ94rsCTOVtNZIeM2UxELYLZj24fqjUgdTX+x+gUuzgzOSDRiohkRLwRt6hiBmgmw==}
+
+  '@amplitude/analytics-node@1.5.43':
+    resolution: {integrity: sha512-L19baK7bmITYzsV0tBzL1WAZX0Njrf9oowJ+RnpEfg8dz67Xox54Z+GrjRdNY9PQMyoPA2FJTRPSC2aVzDllhw==}
 
   '@amplitude/analytics-types@1.4.0':
     resolution: {integrity: sha512-RiMPHBqdrJ8ktTqG+Wzj2htnN/PCG9jGZG0SXtTFnWwVvcAJYbYm55/nrP1TTyrx1OlLhvF2VG3lVUP/xGAU8w==}
@@ -3863,7 +3872,7 @@ packages:
   tar@6.2.1:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
     engines: {node: '>=10'}
-    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   thread-stream@4.0.0:
     resolution: {integrity: sha512-4iMVL6HAINXWf1ZKZjIPcz5wYaOdPhtO8ATvZ+Xqp3BTdaqtAwQkNmKORqcIo5YkQqGXq5cwfswDwMqqQNrpJA==}
@@ -4449,6 +4458,9 @@ packages:
   zen-observable-ts@1.1.0:
     resolution: {integrity: sha512-1h4zlLSqI2cRLPJUHJFL8bCWHhkpuXkF+dbGkRaWjgDIG26DmzyshUMrdV/rL3UnR+mhaX4fRq8LPouq0MYYIA==}
 
+  zen-observable@0.10.0:
+    resolution: {integrity: sha512-iI3lT0iojZhKwT5DaFy2Ce42n3yFcLdFyOh01G7H0flMY60P8MJuVFEoJoNwXlmAyQ45GrjL6AcZmmlv8A5rbw==}
+
   zen-observable@0.8.15:
     resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
 
@@ -4499,6 +4511,19 @@ snapshots:
       safe-json-stringify: 1.2.0
       tslib: 2.8.1
       zen-observable-ts: 1.1.0
+
+  '@amplitude/analytics-core@2.41.3':
+    dependencies:
+      '@amplitude/analytics-connector': 1.6.4
+      '@types/zen-observable': 0.8.3
+      safe-json-stringify: 1.2.0
+      tslib: 2.8.1
+      zen-observable: 0.10.0
+
+  '@amplitude/analytics-node@1.5.43':
+    dependencies:
+      '@amplitude/analytics-core': 2.41.3
+      tslib: 2.8.1
 
   '@amplitude/analytics-types@1.4.0': {}
 
@@ -8879,6 +8904,8 @@ snapshots:
     dependencies:
       '@types/zen-observable': 0.8.3
       zen-observable: 0.8.15
+
+  zen-observable@0.10.0: {}
 
   zen-observable@0.8.15: {}
 

@@ -7,7 +7,7 @@ import {
   updateSessionSchema,
 } from "@nexu/shared";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db/index.js";
 import {
@@ -20,6 +20,7 @@ import { decrypt } from "../lib/crypto.js";
 import { BaseError, ServiceError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
 import { Span } from "../lib/trace-decorator.js";
+import { track } from "../lib/tracking.js";
 import { requireInternalToken } from "../middleware/internal-auth.js";
 
 import type { AppBindings } from "../types.js";
@@ -485,9 +486,9 @@ export function registerSessionInternalRoutes(app: OpenAPIHono<AppBindings>) {
     requireInternalToken(c);
     const input = c.req.valid("json");
 
-    // Verify botId exists
+    // Verify botId exists and get owner userId for tracking
     const [bot] = await db
-      .select({ id: bots.id })
+      .select({ id: bots.id, userId: bots.userId })
       .from(bots)
       .where(eq(bots.id, input.botId));
 
@@ -498,6 +499,12 @@ export function registerSessionInternalRoutes(app: OpenAPIHono<AppBindings>) {
     const now = new Date().toISOString();
     const id = createId();
     const normalizedSessionKey = normalizeStoredSessionKey(input.sessionKey);
+
+    // Check if session already exists (to distinguish insert vs update)
+    const [existing] = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.sessionKey, normalizedSessionKey));
 
     // Upsert on sessionKey
     await db
@@ -553,6 +560,13 @@ export function registerSessionInternalRoutes(app: OpenAPIHono<AppBindings>) {
         bot_id: input.botId,
       });
     }
+
+    // Track: new session = session_start, every upsert = task_number
+    const channelType = created.channelType ?? "unknown";
+    if (!existing) {
+      track("session_start", bot.userId, { channel_type: channelType });
+    }
+    track("task_number", bot.userId, { channel_type: channelType });
 
     return c.json(formatSession(created), 201);
   });
@@ -619,6 +633,29 @@ export function registerSessionInternalRoutes(app: OpenAPIHono<AppBindings>) {
 }
 
 // ============================================================
+// Access control helper
+// ============================================================
+
+function buildAccessClause(
+  table: {
+    botId: typeof sessions.botId;
+    nexuUserId: typeof sessions.nexuUserId;
+  },
+  userId: string,
+  botIds: string[],
+  queryBotId?: string,
+) {
+  if (queryBotId) {
+    return botIds.includes(queryBotId)
+      ? eq(table.botId, queryBotId)
+      : and(eq(table.nexuUserId, userId), eq(table.botId, queryBotId));
+  }
+  return botIds.length > 0
+    ? or(inArray(table.botId, botIds), eq(table.nexuUserId, userId))
+    : eq(table.nexuUserId, userId);
+}
+
+// ============================================================
 // User routes (after auth middleware)
 // ============================================================
 
@@ -680,18 +717,15 @@ export function registerSessionRoutes(app: OpenAPIHono<AppBindings>) {
     const { limit, offset } = query;
 
     const botIds = await getUserBotIds(userId);
-    if (botIds.length === 0) {
-      return c.json({ sessions: [], total: 0, limit, offset }, 200);
-    }
 
-    // If botId filter specified, verify ownership
-    if (query.botId && !botIds.includes(query.botId)) {
-      return c.json({ sessions: [], total: 0, limit, offset }, 200);
-    }
+    const accessClause = buildAccessClause(
+      sessions,
+      userId,
+      botIds,
+      query.botId,
+    );
 
-    const targetBotIds = query.botId ? [query.botId] : botIds;
-
-    const conditions = [inArray(sessions.botId, targetBotIds)];
+    const conditions = [accessClause];
     if (query.channelType) {
       conditions.push(eq(sessions.channelType, query.channelType));
     }
@@ -742,7 +776,11 @@ export function registerSessionRoutes(app: OpenAPIHono<AppBindings>) {
       return c.json({ message: "Session not found" }, 404);
     }
 
-    // Verify ownership via bot
+    if (session.nexuUserId === userId) {
+      return c.json(formatSession(session), 200);
+    }
+
+    // Verify ownership via bot (legacy/owned-bot access)
     const [bot] = await db
       .select({ id: bots.id })
       .from(bots)

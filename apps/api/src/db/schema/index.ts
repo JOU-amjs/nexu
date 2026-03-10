@@ -182,6 +182,8 @@ export const users = pgTable("users", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
   authUserId: text("auth_user_id").notNull().unique(),
+  authSource: text("auth_source"),
+  authSourceDetail: text("auth_source_detail"),
   plan: text("plan").default("free"),
   inviteAcceptedAt: text("invite_accepted_at"),
   onboardingRole: text("onboarding_role"),
@@ -413,6 +415,7 @@ export const sessions = pgTable(
     id: text("id").notNull().unique(),
     botId: text("bot_id").notNull(),
     sessionKey: text("session_key").notNull().unique(),
+    nexuUserId: text("nexu_user_id"),
     channelType: text("channel_type"),
     channelId: text("channel_id"),
     title: text("title").notNull(),
@@ -420,7 +423,6 @@ export const sessions = pgTable(
     messageCount: integer("message_count").default(0),
     lastMessageAt: text("last_message_at"),
     metadata: text("metadata"),
-    nexuUserId: text("nexu_user_id"),
     createdAt: text("created_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -430,10 +432,10 @@ export const sessions = pgTable(
   },
   (table) => [
     index("sessions_bot_id_idx").on(table.botId),
+    index("sessions_nexu_user_id_idx").on(table.nexuUserId),
     index("sessions_status_idx").on(table.status),
     index("sessions_created_at_idx").on(table.createdAt),
     index("sessions_channel_type_idx").on(table.channelType),
-    index("sessions_nexu_user_id_idx").on(table.nexuUserId),
   ],
 );
 

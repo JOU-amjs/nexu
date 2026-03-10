@@ -27,6 +27,8 @@ CREATE TABLE "workspace_memberships" (
 --> statement-breakpoint
 ALTER TABLE "artifacts" ADD COLUMN "nexu_user_id" text;--> statement-breakpoint
 ALTER TABLE "sessions" ADD COLUMN "nexu_user_id" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "auth_source" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "auth_source_detail" text;--> statement-breakpoint
 CREATE UNIQUE INDEX "wm_workspace_user_idx" ON "workspace_memberships" USING btree ("workspace_key","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "wm_workspace_im_user_idx" ON "workspace_memberships" USING btree ("workspace_key","im_user_id");--> statement-breakpoint
 CREATE INDEX "wm_user_idx" ON "workspace_memberships" USING btree ("user_id");--> statement-breakpoint

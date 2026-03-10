@@ -428,7 +428,9 @@ class SlackEventsTraceHandler {
             if (infoData.ok && infoData.channel) {
               isIm = infoData.channel.is_im === true;
               if (infoData.channel.is_im) {
-                const userId = infoData.channel.user;
+                const eventUserId =
+                  typeof event.user === "string" ? event.user : null;
+                const userId = infoData.channel.user ?? eventUserId;
                 if (userId) {
                   const userResp = await fetch(
                     `https://slack.com/api/users.info?user=${userId}`,
@@ -498,11 +500,11 @@ class SlackEventsTraceHandler {
             sessionKey,
             channelType: "slack",
             channelId,
+            nexuUserId,
             title,
             status: "active",
             messageCount: 1,
             lastMessageAt: now,
-            nexuUserId,
             createdAt: now,
             updatedAt: now,
           })
