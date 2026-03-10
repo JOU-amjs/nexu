@@ -19,7 +19,7 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import "@/lib/api";
@@ -239,12 +239,32 @@ function ConfiguredView({
       ? channel.accountId.replace(/^slack-[^-]+-/, "")
       : null;
 
-  const slackDmUrl =
-    slackTeamId && channel.botUserId
-      ? `https://app.slack.com/client/${slackTeamId}/messages/${channel.botUserId}`
-      : slackTeamId
-        ? `https://app.slack.com/client/${slackTeamId}`
-        : null;
+  const handleOpenSlack = useCallback(() => {
+    const teamId = slackTeamId;
+    const botUser = channel.botUserId;
+
+    // Build native app and web URLs
+    const nativeUrl =
+      teamId && botUser
+        ? `slack://user?team=${teamId}&id=${botUser}`
+        : teamId
+          ? `slack://open?team=${teamId}`
+          : null;
+    const webUrl =
+      teamId && botUser
+        ? `https://app.slack.com/client/${teamId}/messages/${botUser}`
+        : teamId
+          ? `https://app.slack.com/client/${teamId}`
+          : null;
+
+    if (!nativeUrl || !webUrl) return;
+
+    // Try native app first, fall back to web after timeout
+    window.location.href = nativeUrl;
+    setTimeout(() => {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
+  }, [slackTeamId, channel.botUserId]);
 
   const webhookUrl = `${window.location.origin}/api/${platform}/events`;
   const discordInviteUrl = channel.appId
@@ -305,7 +325,7 @@ function ConfiguredView({
         )}
 
         {/* Slack: Open in Slack */}
-        {platform === "slack" && slackDmUrl && (
+        {platform === "slack" && slackTeamId && (
           <div className="p-5 rounded-xl border bg-surface-1 border-border">
             <div className="flex gap-2 items-center mb-4">
               <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-blue-500/10 shrink-0">
@@ -320,15 +340,14 @@ function ConfiguredView({
                 ? "Open a direct message with your bot in Slack."
                 : "Open your Slack workspace."}
             </p>
-            <a
-              href={slackDmUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={handleOpenSlack}
               className="inline-flex gap-1.5 items-center px-4 py-2 text-[12px] font-medium text-white rounded-lg bg-accent hover:bg-accent-hover transition-all"
             >
               <ExternalLink size={13} />{" "}
               {channel.botUserId ? "Message Bot in Slack" : "Open Workspace"}
-            </a>
+            </button>
           </div>
         )}
 
