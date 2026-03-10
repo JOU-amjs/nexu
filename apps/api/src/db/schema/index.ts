@@ -1,3 +1,4 @@
+import { createId } from "@paralleldrive/cuid2";
 import {
   boolean,
   foreignKey,
@@ -307,52 +308,6 @@ export const oauthStates = pgTable("oauth_states", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
-export const workspaceMemberships = pgTable(
-  "workspace_memberships",
-  {
-    pk: serial("pk").primaryKey(),
-    id: text("id").notNull().unique(),
-    teamId: text("team_id").notNull(),
-    teamName: text("team_name"),
-    imUserId: text("im_user_id").notNull(),
-    authUserId: text("auth_user_id").notNull(),
-    createdAt: text("created_at")
-      .notNull()
-      .$defaultFn(() => new Date().toISOString()),
-    updatedAt: text("updated_at")
-      .notNull()
-      .$defaultFn(() => new Date().toISOString()),
-  },
-  (table) => [
-    uniqueIndex("workspace_memberships_team_user_idx").on(
-      table.teamId,
-      table.imUserId,
-    ),
-    index("workspace_memberships_auth_user_idx").on(table.authUserId),
-  ],
-);
-
-export const claimTokens = pgTable(
-  "claim_tokens",
-  {
-    pk: serial("pk").primaryKey(),
-    id: text("id").notNull().unique(),
-    token: text("token").notNull().unique(),
-    teamId: text("team_id").notNull(),
-    teamName: text("team_name"),
-    imUserId: text("im_user_id").notNull(),
-    expiresAt: text("expires_at").notNull(),
-    usedAt: text("used_at"),
-    claimedBy: text("claimed_by"),
-    createdAt: text("created_at")
-      .notNull()
-      .$defaultFn(() => new Date().toISOString()),
-  },
-  (table) => [
-    index("claim_tokens_team_user_idx").on(table.teamId, table.imUserId),
-  ],
-);
-
 export const inviteCodes = pgTable("invite_codes", {
   pk: serial("pk").primaryKey(),
   id: text("id").notNull().unique(),
@@ -483,6 +438,55 @@ export const sessions = pgTable(
     index("sessions_channel_type_idx").on(table.channelType),
   ],
 );
+
+// ============ Workspace Memberships ============
+
+export const workspaceMemberships = pgTable(
+  "workspace_memberships",
+  {
+    pk: serial("pk").primaryKey(),
+    id: text("id")
+      .notNull()
+      .unique()
+      .$defaultFn(() => createId()),
+    workspaceKey: text("workspace_key").notNull(),
+    userId: text("user_id").notNull(),
+    botId: text("bot_id").notNull(),
+    imUserId: text("im_user_id"),
+    role: text("role").default("member"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex("wm_workspace_user_idx").on(table.workspaceKey, table.userId),
+    uniqueIndex("wm_workspace_im_user_idx").on(
+      table.workspaceKey,
+      table.imUserId,
+    ),
+    index("wm_user_idx").on(table.userId),
+  ],
+);
+
+// ============ Claim Tokens ============
+
+export const claimTokens = pgTable("claim_tokens", {
+  pk: serial("pk").primaryKey(),
+  id: text("id")
+    .notNull()
+    .unique()
+    .$defaultFn(() => createId()),
+  token: text("token").notNull().unique(),
+  workspaceKey: text("workspace_key").notNull(),
+  imUserId: text("im_user_id").notNull(),
+  botId: text("bot_id").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  usedByUserId: text("used_by_user_id"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 // Test-only table used to validate post-merge DB migration workflow.
 export const e2eTestMigration = pgTable("e2e_test_migration", {

@@ -1,5 +1,5 @@
 {
-  "id": "e0303e77-df58-4b58-a09d-b92cdd4f49e6",
+  "id": "6577cff0-cdee-4ad4-975f-4b34a316a2a7",
   "prevId": "8708a8bf-eb6a-476e-a295-0bd9d1e817b4",
   "version": "7",
   "dialect": "postgresql",
@@ -32,8 +32,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "owner_user_id": {
-          "name": "owner_user_id",
+        "nexu_user_id": {
+          "name": "nexu_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -146,11 +146,11 @@
           "method": "btree",
           "with": {}
         },
-        "artifacts_owner_user_id_idx": {
-          "name": "artifacts_owner_user_id_idx",
+        "artifacts_nexu_user_id_idx": {
+          "name": "artifacts_nexu_user_id_idx",
           "columns": [
             {
-              "expression": "owner_user_id",
+              "expression": "nexu_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -820,6 +820,90 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.claim_tokens": {
+      "name": "claim_tokens",
+      "schema": "",
+      "columns": {
+        "pk": {
+          "name": "pk",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_key": {
+          "name": "workspace_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "im_user_id": {
+          "name": "im_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bot_id": {
+          "name": "bot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used_by_user_id": {
+          "name": "used_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "claim_tokens_id_unique": {
+          "name": "claim_tokens_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        },
+        "claim_tokens_token_unique": {
+          "name": "claim_tokens_token_unique",
+          "nullsNotDistinct": false,
+          "columns": ["token"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.e2e_test_migration": {
       "name": "e2e_test_migration",
       "schema": "",
@@ -1376,8 +1460,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "owner_user_id": {
-          "name": "owner_user_id",
+        "nexu_user_id": {
+          "name": "nexu_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1455,11 +1539,11 @@
           "method": "btree",
           "with": {}
         },
-        "sessions_owner_user_id_idx": {
-          "name": "sessions_owner_user_id_idx",
+        "sessions_nexu_user_id_idx": {
+          "name": "sessions_nexu_user_id_idx",
           "columns": [
             {
-              "expression": "owner_user_id",
+              "expression": "nexu_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1662,110 +1746,6 @@
           "name": "skills_snapshots_version_unique",
           "nullsNotDistinct": false,
           "columns": ["version"]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.slack_user_claims": {
-      "name": "slack_user_claims",
-      "schema": "",
-      "columns": {
-        "pk": {
-          "name": "pk",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_name": {
-          "name": "team_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "slack_user_id": {
-          "name": "slack_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "auth_user_id": {
-          "name": "auth_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "slack_user_claims_team_user_idx": {
-          "name": "slack_user_claims_team_user_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "slack_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "slack_user_claims_auth_user_idx": {
-          "name": "slack_user_claims_auth_user_idx",
-          "columns": [
-            {
-              "expression": "auth_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "slack_user_claims_id_unique": {
-          "name": "slack_user_claims_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id"]
         }
       },
       "policies": {},
@@ -2073,6 +2053,132 @@
       "uniqueConstraints": {
         "webhook_routes_id_unique": {
           "name": "webhook_routes_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.workspace_memberships": {
+      "name": "workspace_memberships",
+      "schema": "",
+      "columns": {
+        "pk": {
+          "name": "pk",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_key": {
+          "name": "workspace_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bot_id": {
+          "name": "bot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "im_user_id": {
+          "name": "im_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'member'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "wm_workspace_user_idx": {
+          "name": "wm_workspace_user_idx",
+          "columns": [
+            {
+              "expression": "workspace_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "wm_workspace_im_user_idx": {
+          "name": "wm_workspace_im_user_idx",
+          "columns": [
+            {
+              "expression": "workspace_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "im_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "wm_user_idx": {
+          "name": "wm_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "workspace_memberships_id_unique": {
+          "name": "workspace_memberships_id_unique",
           "nullsNotDistinct": false,
           "columns": ["id"]
         }

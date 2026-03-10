@@ -6,6 +6,7 @@ export const generateClaimKeySchema = z.object({
   teamId: z.string().min(1),
   teamName: z.string().optional(),
   imUserId: z.string().min(1),
+  botId: z.string().optional(),
 });
 
 export type GenerateClaimKeyRequest = z.infer<typeof generateClaimKeySchema>;

@@ -98,9 +98,9 @@ export function registerSharedSlackClaimPublicRoutes(
     await db.insert(claimTokens).values({
       id: createId(),
       token,
-      teamId: input.teamId,
-      teamName: input.teamName ?? null,
+      workspaceKey: input.teamId,
       imUserId: input.imUserId,
+      botId: input.botId ?? "",
       expiresAt,
       createdAt: now.toISOString(),
     });
@@ -137,7 +137,7 @@ export function registerSharedSlackClaimPublicRoutes(
         count: sql<number>`count(*)::int`,
       })
       .from(workspaceMemberships)
-      .where(eq(workspaceMemberships.teamId, row.teamId));
+      .where(eq(workspaceMemberships.workspaceKey, row.workspaceKey));
 
     const memberCount = memberStats?.count ?? 0;
 
@@ -146,8 +146,8 @@ export function registerSharedSlackClaimPublicRoutes(
         valid: true,
         expired: false,
         used: false,
-        teamId: row.teamId,
-        teamName: row.teamName,
+        teamId: row.workspaceKey,
+        teamName: null,
         imUserId: row.imUserId,
         isExistingWorkspace: memberCount > 0,
         memberCount,
@@ -184,7 +184,7 @@ export function registerSharedSlackClaimRoutes(app: OpenAPIHono<AppBindings>) {
     // Mark token as used
     await db
       .update(claimTokens)
-      .set({ usedAt: now, claimedBy: authUserId })
+      .set({ usedAt: now, usedByUserId: authUserId })
       .where(eq(claimTokens.token, input.token));
 
     // Ensure app user exists
@@ -209,15 +209,15 @@ export function registerSharedSlackClaimRoutes(app: OpenAPIHono<AppBindings>) {
 
     // Check if IM identity already claimed by another user
     const [existingClaim] = await db
-      .select({ authUserId: workspaceMemberships.authUserId })
+      .select({ userId: workspaceMemberships.userId })
       .from(workspaceMemberships)
       .where(
         and(
-          eq(workspaceMemberships.teamId, tokenRow.teamId),
+          eq(workspaceMemberships.workspaceKey, tokenRow.workspaceKey),
           eq(workspaceMemberships.imUserId, tokenRow.imUserId),
         ),
       );
-    if (existingClaim && existingClaim.authUserId !== authUserId) {
+    if (existingClaim && existingClaim.userId !== authUserId) {
       throw new HTTPException(409, {
         message: "IM identity already claimed by another user",
       });
@@ -228,21 +228,22 @@ export function registerSharedSlackClaimRoutes(app: OpenAPIHono<AppBindings>) {
       .insert(workspaceMemberships)
       .values({
         id: createId(),
-        teamId: tokenRow.teamId,
-        teamName: tokenRow.teamName,
+        workspaceKey: tokenRow.workspaceKey,
         imUserId: tokenRow.imUserId,
-        authUserId,
+        userId: authUserId,
+        botId: tokenRow.botId,
         createdAt: now,
-        updatedAt: now,
       })
       .onConflictDoNothing({
-        target: [workspaceMemberships.teamId, workspaceMemberships.imUserId],
+        target: [
+          workspaceMemberships.workspaceKey,
+          workspaceMemberships.imUserId,
+        ],
       });
 
     // Update user auth source
     const detail = JSON.stringify({
-      teamId: tokenRow.teamId,
-      teamName: tokenRow.teamName,
+      workspaceKey: tokenRow.workspaceKey,
       imUserId: tokenRow.imUserId,
     });
     await db
@@ -254,14 +255,14 @@ export function registerSharedSlackClaimRoutes(app: OpenAPIHono<AppBindings>) {
       })
       .where(eq(users.authUserId, authUserId));
 
-    // Check if org already authorized (other users in same team)
+    // Check if org already authorized (other users in same workspace)
     const [memberStats] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(workspaceMemberships)
       .where(
         and(
-          eq(workspaceMemberships.teamId, tokenRow.teamId),
-          sql`${workspaceMemberships.authUserId} != ${authUserId}`,
+          eq(workspaceMemberships.workspaceKey, tokenRow.workspaceKey),
+          sql`${workspaceMemberships.userId} != ${authUserId}`,
         ),
       );
 

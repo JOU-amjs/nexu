@@ -40,22 +40,8 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1773042414920,
-      "tag": "0005_normal_bill_hollister",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1773124731958,
-      "tag": "0006_nifty_pixie",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1741612800000,
-      "tag": "0007_im_branch_alignment",
+      "when": 1773137414808,
+      "tag": "0005_dusty_lady_deathstrike",
       "breakpoints": true
     }
   ]

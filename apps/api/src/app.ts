@@ -20,6 +20,10 @@ import {
   registerChannelRoutes,
   registerSlackOAuthCallback,
 } from "./routes/channel-routes.js";
+import {
+  registerClaimPublicRoutes,
+  registerClaimRoutes,
+} from "./routes/claim-routes.js";
 import { registerFeedbackRoutes } from "./routes/feedback-routes.js";
 import { registerInviteRoutes } from "./routes/invite-routes.js";
 import { registerModelRoutes } from "./routes/model-routes.js";
@@ -89,6 +93,7 @@ export function createApp() {
   registerSkillRoutes(app);
   registerWorkspaceTemplateRoutes(app);
   registerFeedbackRoutes(app);
+  registerClaimPublicRoutes(app);
   registerSharedSlackClaimPublicRoutes(app);
 
   app.use("/api/v1/*", authMiddleware);
@@ -103,6 +108,7 @@ export function createApp() {
   registerSharedSlackClaimRoutes(app);
   registerArtifactRoutes(app);
   registerSessionRoutes(app);
+  registerClaimRoutes(app);
 
   app.doc("/openapi.json", {
     openapi: "3.1.0",
