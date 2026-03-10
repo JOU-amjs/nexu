@@ -296,4 +296,5 @@ You run inside a Docker sandbox. Understanding your environment prevents errors.
 - If `read` fails with "Sandbox FS error (ENOENT)", the file doesn't exist yet — create it first
 - Network access works (bridge mode) — you can `curl` external APIs
 - `npm install` works in `/workspace` but NOT in read-only paths
+- **Skills are read-only** — you cannot create or modify skills. Skills are managed by the Nexu team and deployed through CI/CD. If you need a new skill, tell the user to request it via `/feedback`.
 <!-- NEXU-PLATFORM-END -->
