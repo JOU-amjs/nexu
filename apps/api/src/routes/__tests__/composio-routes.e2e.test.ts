@@ -165,6 +165,7 @@ describe("Composio Routes E2E", () => {
   beforeAll(async () => {
     process.env.SKILL_API_TOKEN = SKILL_TOKEN;
     process.env.INTERNAL_API_TOKEN = "e2e-internal-token";
+    process.env.COMPOSIO_API_KEY = "test-composio-api-key";
     setupPool = new pg.Pool({ connectionString: TEST_DB_URL });
     await createTables(setupPool);
   });
@@ -199,6 +200,7 @@ describe("Composio Routes E2E", () => {
     const body = await res.json();
     expect(body.successful).toBe(true);
     expect(executeAction).toHaveBeenCalledWith(
+      "test-composio-api-key",
       "ca_full_flow",
       "user-full",
       "GMAIL_LIST_EMAILS",
@@ -289,6 +291,7 @@ describe("Composio Routes E2E", () => {
     });
     expect(resX.status).toBe(200);
     expect(executeAction).toHaveBeenCalledWith(
+      "test-composio-api-key",
       "ca_user_x",
       "user-x",
       "GMAIL_SEND_EMAIL",
@@ -305,6 +308,7 @@ describe("Composio Routes E2E", () => {
     });
     expect(resY.status).toBe(200);
     expect(executeAction).toHaveBeenCalledWith(
+      "test-composio-api-key",
       "ca_user_y",
       "user-y",
       "GMAIL_SEND_EMAIL",
@@ -327,6 +331,7 @@ describe("Composio Routes E2E", () => {
 
     expect(res.status).toBe(200);
     expect(executeAction).toHaveBeenCalledWith(
+      "test-composio-api-key",
       "ca_e2e_test",
       "e2e-user-1",
       "GOOGLECALENDAR_CREATE_EVENT",
