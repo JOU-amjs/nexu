@@ -16,6 +16,15 @@ import { createRuntimeState } from "./state.js";
 
 const state = createRuntimeState();
 
+function shutdown() {
+  logger.info("shutting down gateway sidecar");
+  stopManagedOpenclawGateway();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
 async function main(): Promise<void> {
   await bootstrapGateway(state);
 

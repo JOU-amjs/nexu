@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_OPTIONS=--conditions=development pnpm --parallel --filter @nexu/api --filter @nexu/web --filter @nexu/landing dev",
+    "dev": "bash -c 'trap \"lsof -ti:3000,5173 2>/dev/null | xargs kill -9 2>/dev/null\" EXIT; NODE_OPTIONS=--conditions=development pnpm --parallel --filter @nexu/api --filter @nexu/web --filter @nexu/landing dev'",
     "dev:landing": "pnpm --filter @nexu/landing dev",
-    "dev:sidecar": "pnpm --filter @nexu/gateway dev",
+    "dev:sidecar": "bash -c 'trap \"lsof -ti:18789 2>/dev/null | xargs kill -9 2>/dev/null\" EXIT; pnpm --filter @nexu/gateway dev'",
     "build": "pnpm -r build",
     "check:esm-imports": "node scripts/check-esm-specifiers.mjs",
     "typecheck": "pnpm -r typecheck",
