@@ -29,6 +29,7 @@ interface ChannelWithBot {
   channelType: string;
   accountId: string;
   status: string | null;
+  connectionMode: string | null;
   botSlug: string;
   botName: string;
   botModelId: string | null;
@@ -97,6 +98,7 @@ export async function generatePoolConfig(
         channelType: channel.channelType,
         accountId: channel.accountId,
         status: channel.status,
+        connectionMode: channel.connectionMode,
         botSlug: bot.slug,
         botName: bot.name,
         botModelId: bot.modelId,
@@ -224,12 +226,23 @@ export async function generatePoolConfig(
 
       const appId = credMap.get("appId") ?? "";
       const appSecret = credMap.get("appSecret") ?? "";
+      const verificationToken = credMap.get("verificationToken") ?? "";
 
-      feishuAccounts[ch.accountId] = {
+      const feishuAccount: FeishuAccountConfig = {
         enabled: true,
         appId,
         appSecret,
       };
+
+      if (ch.connectionMode === "webhook") {
+        feishuAccount.connectionMode = "webhook";
+        feishuAccount.webhookPath = `/feishu/events/${ch.accountId}`;
+        if (verificationToken) {
+          feishuAccount.verificationToken = verificationToken;
+        }
+      }
+
+      feishuAccounts[ch.accountId] = feishuAccount;
 
       bindingsList.push({
         agentId: ch.botId,

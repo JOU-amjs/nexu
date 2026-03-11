@@ -168,22 +168,25 @@ export function FeishuSetupView({
             className="text-left cursor-pointer"
           >
             <div
-              className={`h-1 rounded-full transition-all ${i <= activeStep ? "bg-[#3370FF]" : "bg-border"
-                }`}
+              className={`h-1 rounded-full transition-all ${
+                i <= activeStep ? "bg-[#3370FF]" : "bg-border"
+              }`}
             />
             <div
-              className={`text-[11px] font-semibold mt-2 transition-all ${i === activeStep
+              className={`text-[11px] font-semibold mt-2 transition-all ${
+                i === activeStep
                   ? "text-[#3370FF]"
                   : i < activeStep
                     ? "text-text-secondary"
                     : "text-text-muted/50"
-                }`}
+              }`}
             >
               Step {i + 1}
             </div>
             <div
-              className={`text-[10px] mt-0.5 leading-tight transition-all ${i === activeStep ? "text-text-secondary" : "text-text-muted/40"
-                }`}
+              className={`text-[10px] mt-0.5 leading-tight transition-all ${
+                i === activeStep ? "text-text-secondary" : "text-text-muted/40"
+              }`}
             >
               {s.title}
             </div>

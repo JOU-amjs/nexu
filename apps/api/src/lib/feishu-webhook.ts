@@ -204,12 +204,13 @@ export async function uploadFileToFeishu(
 
 export async function sendFeishuCardMessage(
   card: Record<string, unknown>,
-  chatId: string,
+  receiveId: string,
   tenantToken: string,
+  receiveIdType: "chat_id" | "open_id" = "chat_id",
 ): Promise<string | null> {
   try {
     const resp = await fetch(
-      "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+      `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
       {
         method: "POST",
         headers: {
@@ -217,7 +218,7 @@ export async function sendFeishuCardMessage(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          receive_id: chatId,
+          receive_id: receiveId,
           msg_type: "interactive",
           content: JSON.stringify(card),
         }),

@@ -1089,6 +1089,8 @@ export type PostApiV1ChannelsFeishuConnectData = {
     body?: {
         appId: string;
         appSecret: string;
+        connectionMode?: 'websocket' | 'webhook';
+        verificationToken?: string;
     };
     path?: never;
     query?: never;
@@ -1454,6 +1456,9 @@ export type GetApiInternalPoolsByPoolIdConfigResponses = {
                         enabled?: boolean;
                         appId: string;
                         appSecret: string;
+                        connectionMode?: 'websocket' | 'webhook';
+                        webhookPath?: string;
+                        verificationToken?: string;
                     };
                 };
             };
@@ -1782,6 +1787,9 @@ export type GetApiInternalPoolsByPoolIdConfigLatestResponses = {
                             enabled?: boolean;
                             appId: string;
                             appSecret: string;
+                            connectionMode?: 'websocket' | 'webhook';
+                            webhookPath?: string;
+                            verificationToken?: string;
                         };
                     };
                 };
@@ -2034,6 +2042,9 @@ export type GetApiInternalPoolsByPoolIdConfigVersionsByVersionResponses = {
                             enabled?: boolean;
                             appId: string;
                             appSecret: string;
+                            connectionMode?: 'websocket' | 'webhook';
+                            webhookPath?: string;
+                            verificationToken?: string;
                         };
                     };
                 };

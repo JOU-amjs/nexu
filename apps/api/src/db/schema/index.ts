@@ -118,6 +118,7 @@ export const botChannels = pgTable(
     accountId: text("account_id").notNull(),
     status: text("status").default("pending"),
     channelConfig: text("channel_config").default("{}"),
+    connectionMode: text("connection_mode"),
     createdAt: text("created_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),

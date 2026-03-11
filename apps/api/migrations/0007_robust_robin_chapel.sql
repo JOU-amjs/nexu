@@ -1,0 +1,1 @@
+ALTER TABLE "bot_channels" ADD COLUMN "connection_mode" text;

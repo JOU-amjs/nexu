@@ -25,6 +25,7 @@ import {
   registerClaimRoutes,
 } from "./routes/claim-routes.js";
 import { registerFeedbackRoutes } from "./routes/feedback-routes.js";
+import { registerFeishuEvents } from "./routes/feishu-events.js";
 import { registerInviteRoutes } from "./routes/invite-routes.js";
 import { registerModelRoutes } from "./routes/model-routes.js";
 import { registerOnboardingRoutes } from "./routes/onboarding-routes.js";
@@ -87,6 +88,7 @@ export function createApp() {
   registerAuthRoutes(app);
   registerSlackOAuthCallback(app);
   registerSlackEvents(app);
+  registerFeishuEvents(app);
   registerArtifactInternalRoutes(app);
   registerSessionInternalRoutes(app);
   registerSecretRoutes(app);

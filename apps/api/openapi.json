@@ -2785,6 +2785,16 @@
                   "appSecret": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "connectionMode": {
+                    "type": "string",
+                    "enum": [
+                      "websocket",
+                      "webhook"
+                    ]
+                  },
+                  "verificationToken": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -3905,6 +3915,19 @@
                                     "type": "string"
                                   },
                                   "appSecret": {
+                                    "type": "string"
+                                  },
+                                  "connectionMode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "websocket",
+                                      "webhook"
+                                    ]
+                                  },
+                                  "webhookPath": {
+                                    "type": "string"
+                                  },
+                                  "verificationToken": {
                                     "type": "string"
                                   }
                                 },
@@ -5051,6 +5074,19 @@
                                       },
                                       "appSecret": {
                                         "type": "string"
+                                      },
+                                      "connectionMode": {
+                                        "type": "string",
+                                        "enum": [
+                                          "websocket",
+                                          "webhook"
+                                        ]
+                                      },
+                                      "webhookPath": {
+                                        "type": "string"
+                                      },
+                                      "verificationToken": {
+                                        "type": "string"
                                       }
                                     },
                                     "required": [
@@ -5992,6 +6028,19 @@
                                         "type": "string"
                                       },
                                       "appSecret": {
+                                        "type": "string"
+                                      },
+                                      "connectionMode": {
+                                        "type": "string",
+                                        "enum": [
+                                          "websocket",
+                                          "webhook"
+                                        ]
+                                      },
+                                      "webhookPath": {
+                                        "type": "string"
+                                      },
+                                      "verificationToken": {
                                         "type": "string"
                                       }
                                     },

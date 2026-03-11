@@ -821,18 +821,21 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     const channelId = createId();
     const now = new Date().toISOString();
 
+    const connectionMode = input.connectionMode ?? "websocket";
+
     await db.insert(botChannels).values({
       id: channelId,
       botId,
       channelType: "feishu",
       accountId,
+      connectionMode,
       status: "connected",
       channelConfig: JSON.stringify({ appId: input.appId }),
       createdAt: now,
       updatedAt: now,
     });
 
-    await db.insert(channelCredentials).values([
+    const credentialsToInsert = [
       {
         id: createId(),
         botChannelId: channelId,
@@ -847,7 +850,34 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
         encryptedValue: encrypt(input.appSecret),
         createdAt: now,
       },
-    ]);
+    ];
+
+    if (connectionMode === "webhook" && input.verificationToken) {
+      credentialsToInsert.push({
+        id: createId(),
+        botChannelId: channelId,
+        credentialType: "verificationToken",
+        encryptedValue: encrypt(input.verificationToken),
+        createdAt: now,
+      });
+    }
+
+    await db.insert(channelCredentials).values(credentialsToInsert);
+
+    // Create webhook route for webhook-mode feishu bots
+    if (connectionMode === "webhook" && bot.poolId) {
+      await db.insert(webhookRoutes).values({
+        id: createId(),
+        channelType: "feishu",
+        externalId: input.appId,
+        poolId: bot.poolId,
+        botChannelId: channelId,
+        botId,
+        accountId,
+        updatedAt: now,
+        createdAt: now,
+      });
+    }
 
     await publishSnapshotSafely(bot.poolId, bot.id);
 
