@@ -988,27 +988,24 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     const { channelId } = c.req.valid("param");
     const userId = c.get("userId");
 
-    // Find user's bot
-    const [bot] = await db
+    // Find any bot owned by this user (including deleted for orphan cleanup)
+    const userBots = await db
       .select()
       .from(bots)
-      .where(
-        and(
-          eq(bots.userId, userId),
-          or(eq(bots.status, "active"), eq(bots.status, "paused")),
-        ),
-      );
+      .where(eq(bots.userId, userId));
 
-    if (!bot) {
+    if (userBots.length === 0) {
       return c.json({ message: "Channel not found" }, 404);
     }
+
+    const userBotIds = new Set(userBots.map((b) => b.id));
 
     const [channel] = await db
       .select()
       .from(botChannels)
-      .where(and(eq(botChannels.id, channelId), eq(botChannels.botId, bot.id)));
+      .where(eq(botChannels.id, channelId));
 
-    if (!channel) {
+    if (!channel || !userBotIds.has(channel.botId)) {
       return c.json({ message: `Channel ${channelId} not found` }, 404);
     }
 
@@ -1022,7 +1019,10 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
 
     await db.delete(botChannels).where(eq(botChannels.id, channelId));
 
-    await publishSnapshotSafely(bot.poolId, bot.id);
+    const ownerBot = userBots.find((b) => b.id === channel.botId);
+    if (ownerBot?.poolId) {
+      await publishSnapshotSafely(ownerBot.poolId, ownerBot.id);
+    }
 
     return c.json({ success: true }, 200);
   });
