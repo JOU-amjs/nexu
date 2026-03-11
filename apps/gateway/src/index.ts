@@ -16,10 +16,15 @@ import { createRuntimeState } from "./state.js";
 
 const state = createRuntimeState();
 
+let shuttingDown = false;
+
 function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info("shutting down gateway sidecar");
-  stopManagedOpenclawGateway();
-  process.exit(0);
+  stopManagedOpenclawGateway().then(() => {
+    process.exit(0);
+  });
 }
 
 process.on("SIGINT", shutdown);
