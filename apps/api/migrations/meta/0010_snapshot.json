@@ -1,5 +1,5 @@
 {
-  "id": "a285ff95-0bbe-4621-8257-a5bd63212c66",
+  "id": "b75c76d9-7ba3-4a18-a97d-303605a45c8a",
   "prevId": "538045d6-5f9d-4697-bfcf-7987135907f9",
   "version": "7",
   "dialect": "postgresql",
@@ -185,6 +185,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "nexu_user_id": {
+          "name": "nexu_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "channel_type": {
           "name": "channel_type",
           "type": "text",
@@ -283,6 +289,21 @@
           "columns": [
             {
               "expression": "bot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "artifacts_nexu_user_id_idx": {
+          "name": "artifacts_nexu_user_id_idx",
+          "columns": [
+            {
+              "expression": "nexu_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -697,6 +718,12 @@
           "notNull": false,
           "default": "'{}'"
         },
+        "connection_mode": {
+          "name": "connection_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -952,6 +979,115 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.claim_card_dedup": {
+      "name": "claim_card_dedup",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.claim_tokens": {
+      "name": "claim_tokens",
+      "schema": "",
+      "columns": {
+        "pk": {
+          "name": "pk",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_key": {
+          "name": "workspace_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "im_user_id": {
+          "name": "im_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bot_id": {
+          "name": "bot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used_by_user_id": {
+          "name": "used_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "claim_tokens_id_unique": {
+          "name": "claim_tokens_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        },
+        "claim_tokens_token_unique": {
+          "name": "claim_tokens_token_unique",
+          "nullsNotDistinct": false,
+          "columns": ["token"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.e2e_test_migration": {
       "name": "e2e_test_migration",
       "schema": "",
@@ -961,12 +1097,6 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true
-        },
-        "probe": {
-          "name": "probe",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1343,6 +1473,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "workspace_key": {
+          "name": "workspace_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1563,6 +1699,86 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.session_participants": {
+      "name": "session_participants",
+      "schema": "",
+      "columns": {
+        "pk": {
+          "name": "pk",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_key": {
+          "name": "session_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nexu_user_id": {
+          "name": "nexu_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "im_user_id": {
+          "name": "im_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "sp_session_user_idx": {
+          "name": "sp_session_user_idx",
+          "columns": [
+            {
+              "expression": "session_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nexu_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sp_nexu_user_idx": {
+          "name": "sp_nexu_user_idx",
+          "columns": [
+            {
+              "expression": "nexu_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.sessions": {
       "name": "sessions",
       "schema": "",
@@ -1590,6 +1806,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "nexu_user_id": {
+          "name": "nexu_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "channel_type": {
           "name": "channel_type",
@@ -1654,6 +1876,21 @@
           "columns": [
             {
               "expression": "bot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sessions_nexu_user_id_idx": {
+          "name": "sessions_nexu_user_id_idx",
+          "columns": [
+            {
+              "expression": "nexu_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2325,6 +2562,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "auth_source": {
+          "name": "auth_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "auth_source_detail": {
+          "name": "auth_source_detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "plan": {
           "name": "plan",
           "type": "text",
@@ -2523,6 +2772,132 @@
       "uniqueConstraints": {
         "webhook_routes_id_unique": {
           "name": "webhook_routes_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.workspace_memberships": {
+      "name": "workspace_memberships",
+      "schema": "",
+      "columns": {
+        "pk": {
+          "name": "pk",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_key": {
+          "name": "workspace_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bot_id": {
+          "name": "bot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "im_user_id": {
+          "name": "im_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'member'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "wm_workspace_user_idx": {
+          "name": "wm_workspace_user_idx",
+          "columns": [
+            {
+              "expression": "workspace_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "wm_workspace_im_user_idx": {
+          "name": "wm_workspace_im_user_idx",
+          "columns": [
+            {
+              "expression": "workspace_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "im_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "wm_user_idx": {
+          "name": "wm_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "workspace_memberships_id_unique": {
+          "name": "workspace_memberships_id_unique",
           "nullsNotDistinct": false,
           "columns": ["id"]
         }
