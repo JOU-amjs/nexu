@@ -786,6 +786,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
     const userId = c.get("userId");
     const input = c.req.valid("json");
 
+    // Validate credentials by attempting to get a tenant token
     const tenantToken = await getFeishuTenantToken(
       input.appId,
       input.appSecret,
@@ -801,6 +802,7 @@ export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
 
     const bot = await findOrCreateDefaultBot(userId);
     const botId = bot.id;
+
     const accountId = `feishu-${input.appId}`;
 
     const [existing] = await db

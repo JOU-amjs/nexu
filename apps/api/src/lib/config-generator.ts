@@ -175,15 +175,19 @@ export async function generatePoolConfig(
       const botToken = credMap.get("botToken") ?? "";
       const signingSecret = credMap.get("signingSecret") ?? "";
 
+      // Socket mode for local dev: set SLACK_SOCKET_MODE_APP_TOKEN in .env
+      const socketAppToken = process.env.SLACK_SOCKET_MODE_APP_TOKEN;
+      const useSocket = !!socketAppToken;
+
       slackAccounts[ch.accountId] = {
         enabled: true,
         botToken,
         signingSecret,
-        mode: "http",
-        webhookPath: `/slack/events/${ch.accountId}`,
-        // OpenClaw Slack plugin's isConfigured requires appToken even in HTTP mode.
-        // Provide a placeholder so the account passes the configured check.
-        appToken: "xapp-placeholder-not-used-in-http-mode",
+        mode: useSocket ? "socket" : "http",
+        webhookPath: useSocket ? undefined : `/slack/events/${ch.accountId}`,
+        appToken: useSocket
+          ? socketAppToken
+          : "xapp-placeholder-not-used-in-http-mode",
         streaming: "partial",
         replyToMode: "all",
         typingReaction: "hourglass_flowing_sand",
@@ -441,7 +445,7 @@ export async function generatePoolConfig(
     // Top-level signingSecret + mode required by OpenClaw gateway validation
     const firstAccount = Object.values(slackAccounts)[0];
     config.channels.slack = {
-      mode: "http",
+      mode: process.env.SLACK_SOCKET_MODE_APP_TOKEN ? "socket" : "http",
       signingSecret: firstAccount?.signingSecret ?? "",
       enabled: true,
       groupPolicy: "open",

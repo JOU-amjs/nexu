@@ -40,29 +40,22 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1773137414808,
-      "tag": "0005_dusty_lady_deathstrike",
+      "when": 1772874487868,
+      "tag": "0005_sharp_the_twelve",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1773154607025,
-      "tag": "0006_confused_nico_minoru",
+      "when": 1772898840432,
+      "tag": "0006_pale_firestar",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1773228930428,
-      "tag": "0007_robust_robin_chapel",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1773235783065,
-      "tag": "0008_little_marvel_zombies",
+      "when": 1773062523493,
+      "tag": "0007_ambiguous_maestro",
       "breakpoints": true
     }
   ]

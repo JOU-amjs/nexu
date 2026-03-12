@@ -319,6 +319,123 @@ export type GetApiInternalSecretsBySkillNameResponses = {
 
 export type GetApiInternalSecretsBySkillNameResponse = GetApiInternalSecretsBySkillNameResponses[keyof GetApiInternalSecretsBySkillNameResponses];
 
+export type PostApiInternalComposioExecuteData = {
+    body?: {
+        botId: string;
+        action: string;
+        params?: {
+            [key: string]: unknown;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/internal/composio/execute';
+};
+
+export type PostApiInternalComposioExecuteErrors = {
+    /**
+     * Invalid request
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Unauthorized
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Integration not connected
+     */
+    403: {
+        message: string;
+        connectUrl?: string;
+        authCard?: {
+            slack: string;
+            discord: string;
+            feishu: string;
+        };
+    };
+    /**
+     * Bot not found
+     */
+    404: {
+        message: string;
+    };
+    /**
+     * Upstream service error
+     */
+    502: {
+        message: string;
+    };
+};
+
+export type PostApiInternalComposioExecuteError = PostApiInternalComposioExecuteErrors[keyof PostApiInternalComposioExecuteErrors];
+
+export type PostApiInternalComposioExecuteResponses = {
+    /**
+     * Action execution result
+     */
+    200: {
+        data?: {
+            [key: string]: unknown;
+        };
+        error?: string;
+        successful: boolean;
+    };
+};
+
+export type PostApiInternalComposioExecuteResponse = PostApiInternalComposioExecuteResponses[keyof PostApiInternalComposioExecuteResponses];
+
+export type PostApiInternalComposioDisconnectData = {
+    body?: {
+        botId: string;
+        toolkitSlug: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/internal/composio/disconnect';
+};
+
+export type PostApiInternalComposioDisconnectErrors = {
+    /**
+     * Invalid request
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Unauthorized
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Bot or integration not found
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type PostApiInternalComposioDisconnectError = PostApiInternalComposioDisconnectErrors[keyof PostApiInternalComposioDisconnectErrors];
+
+export type PostApiInternalComposioDisconnectResponses = {
+    /**
+     * Integration disconnected
+     */
+    200: {
+        data?: {
+            [key: string]: unknown;
+        };
+        error?: string;
+        successful: boolean;
+    };
+};
+
+export type PostApiInternalComposioDisconnectResponse = PostApiInternalComposioDisconnectResponses[keyof PostApiInternalComposioDisconnectResponses];
+
 export type GetApiInternalSkillsLatestData = {
     body?: never;
     path?: never;
@@ -1313,6 +1430,10 @@ export type GetApiInternalPoolsByPoolIdConfigResponses = {
                 allowedOrigins?: Array<string>;
                 dangerouslyAllowHostHeaderOriginFallback?: boolean;
             };
+            tools?: {
+                allow?: Array<string>;
+                deny?: Array<string>;
+            };
         };
         models?: {
             mode?: 'merge' | 'replace';
@@ -1458,6 +1579,7 @@ export type GetApiInternalPoolsByPoolIdConfigResponses = {
                         appSecret: string;
                         connectionMode?: 'websocket' | 'webhook';
                         webhookPath?: string;
+                        webhookPort?: number;
                         verificationToken?: string;
                     };
                 };
@@ -1644,6 +1766,10 @@ export type GetApiInternalPoolsByPoolIdConfigLatestResponses = {
                     allowedOrigins?: Array<string>;
                     dangerouslyAllowHostHeaderOriginFallback?: boolean;
                 };
+                tools?: {
+                    allow?: Array<string>;
+                    deny?: Array<string>;
+                };
             };
             models?: {
                 mode?: 'merge' | 'replace';
@@ -1789,6 +1915,7 @@ export type GetApiInternalPoolsByPoolIdConfigLatestResponses = {
                             appSecret: string;
                             connectionMode?: 'websocket' | 'webhook';
                             webhookPath?: string;
+                            webhookPort?: number;
                             verificationToken?: string;
                         };
                     };
@@ -1899,6 +2026,10 @@ export type GetApiInternalPoolsByPoolIdConfigVersionsByVersionResponses = {
                     allowedOrigins?: Array<string>;
                     dangerouslyAllowHostHeaderOriginFallback?: boolean;
                 };
+                tools?: {
+                    allow?: Array<string>;
+                    deny?: Array<string>;
+                };
             };
             models?: {
                 mode?: 'merge' | 'replace';
@@ -2044,6 +2175,7 @@ export type GetApiInternalPoolsByPoolIdConfigVersionsByVersionResponses = {
                             appSecret: string;
                             connectionMode?: 'websocket' | 'webhook';
                             webhookPath?: string;
+                            webhookPort?: number;
                             verificationToken?: string;
                         };
                     };
@@ -2439,6 +2571,386 @@ export type GetApiV1SessionsByIdResponses = {
 };
 
 export type GetApiV1SessionsByIdResponse = GetApiV1SessionsByIdResponses[keyof GetApiV1SessionsByIdResponses];
+
+export type GetApiV1IntegrationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations';
+};
+
+export type GetApiV1IntegrationsResponses = {
+    /**
+     * List of integrations with user status
+     */
+    200: {
+        integrations: Array<{
+            id?: string;
+            toolkit: {
+                slug: string;
+                displayName: string;
+                description: string;
+                iconUrl: string;
+                fallbackIconUrl: string;
+                category: string;
+                authScheme: 'oauth2' | 'api_key_global' | 'api_key_user';
+                authFields?: Array<{
+                    key: string;
+                    label: string;
+                    type: 'text' | 'secret';
+                    placeholder?: string;
+                }>;
+            };
+            status: 'pending' | 'initiated' | 'active' | 'failed' | 'expired' | 'disconnected';
+            connectUrl?: string;
+            connectedAt?: string;
+            credentialHints?: {
+                [key: string]: string;
+            };
+            returnTo?: string;
+            source?: 'page' | 'chat';
+        }>;
+    };
+};
+
+export type GetApiV1IntegrationsResponse = GetApiV1IntegrationsResponses[keyof GetApiV1IntegrationsResponses];
+
+export type PostApiV1IntegrationsConnectData = {
+    body?: {
+        toolkitSlug: string;
+        credentials?: {
+            [key: string]: string;
+        };
+        source?: 'page' | 'chat';
+        returnTo?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/connect';
+};
+
+export type PostApiV1IntegrationsConnectErrors = {
+    /**
+     * Invalid request
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Toolkit not found
+     */
+    404: {
+        message: string;
+    };
+    /**
+     * User bot context is ambiguous
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Integration service not configured
+     */
+    502: {
+        message: string;
+    };
+};
+
+export type PostApiV1IntegrationsConnectError = PostApiV1IntegrationsConnectErrors[keyof PostApiV1IntegrationsConnectErrors];
+
+export type PostApiV1IntegrationsConnectResponses = {
+    /**
+     * Connection initiated
+     */
+    200: {
+        integration: {
+            id?: string;
+            toolkit: {
+                slug: string;
+                displayName: string;
+                description: string;
+                iconUrl: string;
+                fallbackIconUrl: string;
+                category: string;
+                authScheme: 'oauth2' | 'api_key_global' | 'api_key_user';
+                authFields?: Array<{
+                    key: string;
+                    label: string;
+                    type: 'text' | 'secret';
+                    placeholder?: string;
+                }>;
+            };
+            status: 'pending' | 'initiated' | 'active' | 'failed' | 'expired' | 'disconnected';
+            connectUrl?: string;
+            connectedAt?: string;
+            credentialHints?: {
+                [key: string]: string;
+            };
+            returnTo?: string;
+            source?: 'page' | 'chat';
+        };
+        connectUrl?: string;
+        state?: string;
+    };
+};
+
+export type PostApiV1IntegrationsConnectResponse = PostApiV1IntegrationsConnectResponses[keyof PostApiV1IntegrationsConnectResponses];
+
+export type PostApiV1IntegrationsByIntegrationIdRefreshData = {
+    body?: {
+        state?: string;
+    };
+    path: {
+        integrationId: string;
+    };
+    query?: never;
+    url: '/api/v1/integrations/{integrationId}/refresh';
+};
+
+export type PostApiV1IntegrationsByIntegrationIdRefreshErrors = {
+    /**
+     * Invalid request
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * State verification failed
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Integration not found
+     */
+    404: {
+        message: string;
+    };
+    /**
+     * User bot context is ambiguous
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Integration service not configured
+     */
+    502: {
+        message: string;
+    };
+};
+
+export type PostApiV1IntegrationsByIntegrationIdRefreshError = PostApiV1IntegrationsByIntegrationIdRefreshErrors[keyof PostApiV1IntegrationsByIntegrationIdRefreshErrors];
+
+export type PostApiV1IntegrationsByIntegrationIdRefreshResponses = {
+    /**
+     * Integration status refreshed
+     */
+    200: {
+        id?: string;
+        toolkit: {
+            slug: string;
+            displayName: string;
+            description: string;
+            iconUrl: string;
+            fallbackIconUrl: string;
+            category: string;
+            authScheme: 'oauth2' | 'api_key_global' | 'api_key_user';
+            authFields?: Array<{
+                key: string;
+                label: string;
+                type: 'text' | 'secret';
+                placeholder?: string;
+            }>;
+        };
+        status: 'pending' | 'initiated' | 'active' | 'failed' | 'expired' | 'disconnected';
+        connectUrl?: string;
+        connectedAt?: string;
+        credentialHints?: {
+            [key: string]: string;
+        };
+        returnTo?: string;
+        source?: 'page' | 'chat';
+    };
+};
+
+export type PostApiV1IntegrationsByIntegrationIdRefreshResponse = PostApiV1IntegrationsByIntegrationIdRefreshResponses[keyof PostApiV1IntegrationsByIntegrationIdRefreshResponses];
+
+export type DeleteApiV1IntegrationsByIntegrationIdData = {
+    body?: never;
+    path: {
+        integrationId: string;
+    };
+    query?: never;
+    url: '/api/v1/integrations/{integrationId}';
+};
+
+export type DeleteApiV1IntegrationsByIntegrationIdErrors = {
+    /**
+     * Cannot disconnect global toolkit
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Integration not found
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type DeleteApiV1IntegrationsByIntegrationIdError = DeleteApiV1IntegrationsByIntegrationIdErrors[keyof DeleteApiV1IntegrationsByIntegrationIdErrors];
+
+export type DeleteApiV1IntegrationsByIntegrationIdResponses = {
+    /**
+     * Integration disconnected
+     */
+    200: {
+        id?: string;
+        toolkit: {
+            slug: string;
+            displayName: string;
+            description: string;
+            iconUrl: string;
+            fallbackIconUrl: string;
+            category: string;
+            authScheme: 'oauth2' | 'api_key_global' | 'api_key_user';
+            authFields?: Array<{
+                key: string;
+                label: string;
+                type: 'text' | 'secret';
+                placeholder?: string;
+            }>;
+        };
+        status: 'pending' | 'initiated' | 'active' | 'failed' | 'expired' | 'disconnected';
+        connectUrl?: string;
+        connectedAt?: string;
+        credentialHints?: {
+            [key: string]: string;
+        };
+        returnTo?: string;
+        source?: 'page' | 'chat';
+    };
+};
+
+export type DeleteApiV1IntegrationsByIntegrationIdResponse = DeleteApiV1IntegrationsByIntegrationIdResponses[keyof DeleteApiV1IntegrationsByIntegrationIdResponses];
+
+export type GetApiV1SkillsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/skills';
+};
+
+export type GetApiV1SkillsResponses = {
+    /**
+     * List of available skills
+     */
+    200: {
+        skills: Array<{
+            slug: string;
+            name: string;
+            description: string;
+            longDescription?: string;
+            iconName: string;
+            iconUrl?: string;
+            fallbackIconUrl?: string;
+            prompt: string;
+            examples?: Array<string>;
+            tag: 'office-collab' | 'file-knowledge' | 'creative-design' | 'biz-analysis' | 'av-generation' | 'info-content' | 'dev-tools';
+            source: 'official' | 'custom';
+            tools?: Array<{
+                slug: string;
+                name: string;
+                provider: string;
+                iconUrl: string;
+                fallbackIconUrl: string;
+            }>;
+            githubUrl?: string;
+        }>;
+        tags: Array<{
+            id: 'office-collab' | 'file-knowledge' | 'creative-design' | 'biz-analysis' | 'av-generation' | 'info-content' | 'dev-tools';
+            label: string;
+            count: number;
+        }>;
+    };
+};
+
+export type GetApiV1SkillsResponse = GetApiV1SkillsResponses[keyof GetApiV1SkillsResponses];
+
+export type GetApiV1SkillsBySlugData = {
+    body?: never;
+    path: {
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{slug}';
+};
+
+export type GetApiV1SkillsBySlugErrors = {
+    /**
+     * Skill not found
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type GetApiV1SkillsBySlugError = GetApiV1SkillsBySlugErrors[keyof GetApiV1SkillsBySlugErrors];
+
+export type GetApiV1SkillsBySlugResponses = {
+    /**
+     * Skill detail with tool auth status
+     */
+    200: {
+        slug: string;
+        name: string;
+        description: string;
+        longDescription?: string;
+        iconName: string;
+        iconUrl?: string;
+        fallbackIconUrl?: string;
+        prompt: string;
+        examples?: Array<string>;
+        tag: 'office-collab' | 'file-knowledge' | 'creative-design' | 'biz-analysis' | 'av-generation' | 'info-content' | 'dev-tools';
+        source: 'official' | 'custom';
+        tools?: Array<{
+            slug: string;
+            name: string;
+            provider: string;
+            iconUrl: string;
+            fallbackIconUrl: string;
+            authScheme: string;
+            status: 'connected' | 'not_connected' | 'initiated' | 'expired';
+            integrationId?: string;
+        }>;
+        githubUrl?: string;
+        relatedSkills?: Array<{
+            slug: string;
+            name: string;
+            description: string;
+            longDescription?: string;
+            iconName: string;
+            iconUrl?: string;
+            fallbackIconUrl?: string;
+            prompt: string;
+            examples?: Array<string>;
+            tag: 'office-collab' | 'file-knowledge' | 'creative-design' | 'biz-analysis' | 'av-generation' | 'info-content' | 'dev-tools';
+            source: 'official' | 'custom';
+            tools?: Array<{
+                slug: string;
+                name: string;
+                provider: string;
+                iconUrl: string;
+                fallbackIconUrl: string;
+            }>;
+            githubUrl?: string;
+        }>;
+    };
+};
+
+export type GetApiV1SkillsBySlugResponse = GetApiV1SkillsBySlugResponses[keyof GetApiV1SkillsBySlugResponses];
 
 export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});

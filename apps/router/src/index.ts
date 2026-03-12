@@ -26,7 +26,8 @@ export default {
       url.pathname.startsWith("/auth") ||
       url.pathname.startsWith("/claim") ||
       url.pathname.startsWith("/invite") ||
-      url.pathname.startsWith("/assets/")
+      url.pathname.startsWith("/assets/") ||
+      url.pathname.startsWith("/toolkit-icons/")
     ) {
       return env.APP.fetch(request);
     }
