@@ -42,6 +42,7 @@ type CallbackState =
       toolkitIconUrl: string;
       toolkitFallbackIconUrl?: string;
       slackDeeplink?: SlackDeeplink;
+      chatChannels: string[];
     }
   | { phase: "error"; message: string };
 
@@ -136,11 +137,19 @@ export function OAuthCallbackPage() {
 
           const source = refreshed.source;
           if (source === "chat") {
-            // Fetch Slack channel info to build a deeplink back to the DM
+            // Fetch channel info to determine which chat platforms the user has
             let slackDeeplink: SlackDeeplink | undefined;
+            let chatChannels: string[] = [];
             try {
               const { data: channelsData } = await getApiV1Channels();
-              const slackChannel = channelsData?.channels?.find(
+              const channels = channelsData?.channels ?? [];
+              chatChannels = [
+                ...new Set(
+                  channels.map((ch) => ch.channelType).filter((t) => !!t),
+                ),
+              ];
+
+              const slackChannel = channels.find(
                 (ch) => ch.channelType === "slack",
               );
               if (slackChannel) {
@@ -160,7 +169,7 @@ export function OAuthCallbackPage() {
                 }
               }
             } catch {
-              // Best effort — fall back to generic links
+              // Best effort — fall back to showing all buttons
             }
 
             setCallbackState({
@@ -172,6 +181,7 @@ export function OAuthCallbackPage() {
               toolkitIconUrl: refreshed.toolkit.iconUrl,
               toolkitFallbackIconUrl: refreshed.toolkit.fallbackIconUrl,
               slackDeeplink,
+              chatChannels,
             });
           } else {
             // page source or undefined — redirect
@@ -344,49 +354,53 @@ function SuccessCard({
       </div>
 
       <div className="px-6 pb-6">
-        {/* Return buttons for chat source */}
+        {/* Return buttons — only show buttons for channels the user has */}
         {state.source === "chat" && (
           <div className="space-y-2.5 mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                const deeplink = state.slackDeeplink;
-                const nativeUrl = deeplink?.nativeUrl ?? "slack://open";
-                const webUrl = deeplink?.webUrl ?? "https://slack.com/open";
+            {state.chatChannels.includes("slack") && (
+              <button
+                type="button"
+                onClick={() => {
+                  const deeplink = state.slackDeeplink;
+                  const nativeUrl = deeplink?.nativeUrl ?? "slack://open";
+                  const webUrl = deeplink?.webUrl ?? "https://slack.com/open";
 
-                // Try native Slack app first; fall back to web after 3s
-                const fallbackTimer = setTimeout(() => {
-                  window.open(webUrl, "_blank", "noopener,noreferrer");
-                }, 3000);
-                const cancelFallback = () => {
-                  clearTimeout(fallbackTimer);
-                  window.removeEventListener("blur", cancelFallback);
-                };
-                window.addEventListener("blur", cancelFallback);
-                window.location.href = nativeUrl;
-              }}
-              className={cn(
-                "flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl",
-                "bg-[#4A154B] text-white text-[13px] font-medium",
-                "hover:bg-[#3e1240] transition-colors cursor-pointer",
-              )}
-            >
-              <SlackIcon size={16} />
-              Return to Slack
-              <ExternalLink size={12} className="opacity-60" />
-            </button>
-            <a
-              href="https://discord.com/channels/@me"
-              className={cn(
-                "flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl",
-                "border border-border text-text-secondary text-[13px] font-medium",
-                "hover:bg-surface-2 transition-colors",
-              )}
-            >
-              <DiscordIcon size={16} />
-              Return to Discord
-              <ExternalLink size={12} className="opacity-60 ml-0.5" />
-            </a>
+                  // Try native Slack app first; fall back to web after 3s
+                  const fallbackTimer = setTimeout(() => {
+                    window.open(webUrl, "_blank", "noopener,noreferrer");
+                  }, 3000);
+                  const cancelFallback = () => {
+                    clearTimeout(fallbackTimer);
+                    window.removeEventListener("blur", cancelFallback);
+                  };
+                  window.addEventListener("blur", cancelFallback);
+                  window.location.href = nativeUrl;
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl",
+                  "bg-[#4A154B] text-white text-[13px] font-medium",
+                  "hover:bg-[#3e1240] transition-colors cursor-pointer",
+                )}
+              >
+                <SlackIcon size={16} />
+                Return to Slack
+                <ExternalLink size={12} className="opacity-60" />
+              </button>
+            )}
+            {state.chatChannels.includes("discord") && (
+              <a
+                href="https://discord.com/channels/@me"
+                className={cn(
+                  "flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl",
+                  "border border-border text-text-secondary text-[13px] font-medium",
+                  "hover:bg-surface-2 transition-colors",
+                )}
+              >
+                <DiscordIcon size={16} />
+                Return to Discord
+                <ExternalLink size={12} className="opacity-60 ml-0.5" />
+              </a>
+            )}
           </div>
         )}
 
