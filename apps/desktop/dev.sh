@@ -30,6 +30,28 @@ run_logged() {
   "$@" 2>&1 | tee -a "$LOG_FILE"
 }
 
+validate_workspace_layout() {
+  if [ ! -f "$ROOT_DIR/package.json" ] || [ ! -f "$APP_DIR/package.json" ]; then
+    cat >&2 <<EOF
+[desktop-dev] invalid workspace layout detected
+
+Expected:
+- NEXU_WORKSPACE_ROOT -> repo root containing package.json
+- NEXU_DESKTOP_APP_ROOT -> apps/desktop containing package.json
+
+Resolved values:
+- NEXU_WORKSPACE_ROOT=$ROOT_DIR
+- NEXU_DESKTOP_APP_ROOT=$APP_DIR
+
+Try:
+1. Run from the Nexu repo checkout root
+2. Start with: pnpm desktop:start
+3. If launching manually, export both env vars before starting Electron
+EOF
+    exit 1
+  fi
+}
+
 acquire_lock() {
   if [ -d "$LOCK_DIR" ] && [ "${DEV_SH_LOCK_HELD:-0}" = "1" ]; then
     return 0
@@ -96,6 +118,7 @@ start_session() {
 
 start() {
   acquire_lock
+  validate_workspace_layout
   if session_exists; then
     log "tmux session '$SESSION_NAME' already exists"
     return 0
@@ -108,6 +131,7 @@ start() {
 
 stop() {
   acquire_lock
+  validate_workspace_layout
   tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
   kill_residual_processes
   log "stopped '$SESSION_NAME'"
@@ -119,6 +143,7 @@ restart() {
 }
 
 status() {
+  validate_workspace_layout
   if session_exists; then
     log "tmux session '$SESSION_NAME' is running"
   else
