@@ -196,7 +196,7 @@ jobs:
           fi
 
       - name: Apply DB migrations to nexu-prod
-        if: steps.detect-migrations.outputs.has_migrations == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.detect-migrations.outputs.has_migrations == 'true'
         shell: bash
         env:
           TARGET_ENV: nexu-prod
