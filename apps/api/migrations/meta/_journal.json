@@ -71,6 +71,13 @@
       "when": 1773307599187,
       "tag": "0009_e2e_test_migration_probe",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773370278266,
+      "tag": "0010_e2e_test_migration",
+      "breakpoints": true
     }
   ]
 }

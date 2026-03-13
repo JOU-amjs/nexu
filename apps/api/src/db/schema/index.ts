@@ -558,6 +558,7 @@ export const supportedSkills = pgTable("supported_skills", {
 export const e2eTestMigration = pgTable("e2e_test_migration", {
   id: text("id").primaryKey(),
   probe: text("probe"),
+  test1: text("test1"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
