@@ -13,7 +13,7 @@
 - 并发控制：同一分支仅保留最新一次运行（`cancel-in-progress: true`）
 - Test API Endpoint：`vars.NEXU_TEST_DB_MIGRATE_APPLY_URL`
 - Test 认证方式：`secrets.NEXU_TEST_DB_MIGRATE_API_KEY`（仅 Secret 注入，不明文输出）
-- Prod API Endpoint：`https://5jhbys8c46.execute-api.us-east-1.amazonaws.com/migrate/apply`
+- Prod API Endpoint：`vars.NEXU_PROD_DB_MIGRATE_APPLY_URL`
 - Prod 认证方式：`secrets.NEXU_DB_MIGRATE_API_KEY`（沿用原有配置）
 
 ## 执行逻辑

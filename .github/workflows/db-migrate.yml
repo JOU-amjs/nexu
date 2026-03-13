@@ -200,10 +200,13 @@ jobs:
         shell: bash
         env:
           TARGET_ENV: nexu-prod
-          MIGRATE_APPLY_URL: https://5jhbys8c46.execute-api.us-east-1.amazonaws.com/migrate/apply
+          MIGRATE_APPLY_URL: ${{ vars.NEXU_PROD_DB_MIGRATE_APPLY_URL }}
           MIGRATE_API_KEY: ${{ secrets.NEXU_DB_MIGRATE_API_KEY }}
         run: |
           set -euo pipefail
+
+          : "${MIGRATE_APPLY_URL:?NEXU_PROD_DB_MIGRATE_APPLY_URL is required}"
+          : "${MIGRATE_API_KEY:?NEXU_DB_MIGRATE_API_KEY is required}"
 
           manifest_path="${{ steps.detect-migrations.outputs.manifest_path }}"
           response_path="$RUNNER_TEMP/migrate-apply-response.json"
