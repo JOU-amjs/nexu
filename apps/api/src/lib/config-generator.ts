@@ -282,8 +282,8 @@ export async function generatePoolConfig(
   ];
   const defaultModelId = resolveModelId(
     activeBots[0]?.modelId ??
-    process.env.DEFAULT_MODEL_ID ??
-    "anthropic/claude-sonnet-4",
+      process.env.DEFAULT_MODEL_ID ??
+      "anthropic/claude-sonnet-4",
   );
 
   const config: OpenClawConfig = {
@@ -316,64 +316,64 @@ export async function generatePoolConfig(
         },
         ...(process.env.OPENROUTER_API_KEY
           ? {
-            memorySearch: {
-              enabled: true,
-              sources: ["memory", "sessions"],
-              provider: "openai",
-              model: "google/gemini-embedding-001",
-              remote: {
-                baseUrl: "https://openrouter.ai/api/v1/",
-                apiKey: process.env.OPENROUTER_API_KEY,
+              memorySearch: {
+                enabled: true,
+                sources: ["memory", "sessions"],
+                provider: "openai",
+                model: "google/gemini-embedding-001",
+                remote: {
+                  baseUrl: "https://openrouter.ai/api/v1/",
+                  apiKey: process.env.OPENROUTER_API_KEY,
+                },
+                sync: {
+                  intervalMinutes: 5,
+                },
               },
-              sync: {
-                intervalMinutes: 5,
-              },
-            },
-          }
+            }
           : {}),
         ...(process.env.SANDBOX_ENABLED === "true"
           ? {
-            sandbox: {
-              mode: "all" as const,
-              scope: "agent" as const,
-              workspaceAccess: "rw" as const,
-              docker: {
-                image: process.env.SANDBOX_IMAGE ?? "nexu-sandbox:latest",
-                memory: "256m",
-                cpus: 0.5,
-                pidsLimit: 128,
-                network: "bridge",
-                capDrop: ["ALL"],
-                dangerouslyAllowExternalBindSources: true,
-                binds: [
-                  `${stateDir}/skills:${stateDir}/skills:ro`,
-                  `${stateDir}/media:${stateDir}/media:rw`,
-                  `${stateDir}/nexu-context.json:${stateDir}/nexu-context.json:ro`,
-                  // Map PVC plugin-docs to the OpenClaw extensions path so
-                  // agents can read extension SKILL.md files from sandbox.
-                  `${stateDir}/plugin-docs:${process.env.SANDBOX_EXTENSIONS_TARGET ?? "/usr/local/lib/node_modules/openclaw/extensions"}:ro`,
-                ],
-                env: {
-                  OPENCLAW_STATE_DIR: stateDir,
-                  RUNTIME_API_BASE_URL:
-                    process.env.RUNTIME_API_BASE_URL ||
-                    process.env.NEXU_API_URL ||
-                    "",
-                  SKILL_API_TOKEN: process.env.SKILL_API_TOKEN ?? "",
-                  // Ensure skill scripts can resolve globally-installed
-                  // npm packages (e.g. sharp in nano-banana).
-                  NODE_PATH: "/usr/local/lib/node_modules",
+              sandbox: {
+                mode: "all" as const,
+                scope: "agent" as const,
+                workspaceAccess: "rw" as const,
+                docker: {
+                  image: process.env.SANDBOX_IMAGE ?? "nexu-sandbox:latest",
+                  memory: "256m",
+                  cpus: 0.5,
+                  pidsLimit: 128,
+                  network: "bridge",
+                  capDrop: ["ALL"],
+                  dangerouslyAllowExternalBindSources: true,
+                  binds: [
+                    `${stateDir}/skills:${stateDir}/skills:ro`,
+                    `${stateDir}/media:${stateDir}/media:rw`,
+                    `${stateDir}/nexu-context.json:${stateDir}/nexu-context.json:ro`,
+                    // Map PVC plugin-docs to the OpenClaw extensions path so
+                    // agents can read extension SKILL.md files from sandbox.
+                    `${stateDir}/plugin-docs:${process.env.SANDBOX_EXTENSIONS_TARGET ?? "/usr/local/lib/node_modules/openclaw/extensions"}:ro`,
+                  ],
+                  env: {
+                    OPENCLAW_STATE_DIR: stateDir,
+                    RUNTIME_API_BASE_URL:
+                      process.env.RUNTIME_API_BASE_URL ||
+                      process.env.NEXU_API_URL ||
+                      "",
+                    SKILL_API_TOKEN: process.env.SKILL_API_TOKEN ?? "",
+                    // Ensure skill scripts can resolve globally-installed
+                    // npm packages (e.g. sharp in nano-banana).
+                    NODE_PATH: "/usr/local/lib/node_modules",
+                  },
+                },
+                browser: {
+                  enabled: false,
+                },
+                prune: {
+                  idleHours: 4,
+                  maxAgeDays: 3,
                 },
               },
-              browser: {
-                enabled: false,
-              },
-              prune: {
-                idleHours: 4,
-                maxAgeDays: 3,
-              },
-            },
-          }
+            }
           : {}),
       },
       list: agentList,

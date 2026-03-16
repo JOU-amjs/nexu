@@ -20,7 +20,6 @@ export function SlackOAuthCallbackPage() {
   const success = searchParams.get("success") === "true";
   const error = searchParams.get("error");
   const teamName = searchParams.get("teamName");
-  const returnTo = searchParams.get("returnTo");
 
   // Clear OAuth pending flag on both success and error paths
   useEffect(() => {
@@ -49,7 +48,7 @@ export function SlackOAuthCallbackPage() {
       `/workspace/channels?slackManual=true&slackError=${encodedError}`,
       { replace: true },
     );
-  }, [success, error, teamName, queryClient, navigate, returnTo]);
+  }, [success, error, teamName, queryClient, navigate]);
 
   // Only the success path renders UI; error path navigates away immediately
   if (success) {

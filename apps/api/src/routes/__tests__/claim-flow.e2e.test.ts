@@ -155,10 +155,10 @@ describe("Claim Flow E2E", () => {
         .where(eq(schema.claimTokens.token, result.token));
 
       expect(row).toBeDefined();
-      expect(row!.workspaceKey).toBe("slack:T_ACME");
-      expect(row!.imUserId).toBe("U_ALICE");
-      expect(row!.botId).toBe("bot-1");
-      expect(row!.usedAt).toBeNull();
+      expect(row?.workspaceKey).toBe("slack:T_ACME");
+      expect(row?.imUserId).toBe("U_ALICE");
+      expect(row?.botId).toBe("bot-1");
+      expect(row?.usedAt).toBeNull();
     });
 
     it("is idempotent — returns the same token for same params", async () => {
@@ -370,8 +370,8 @@ describe("Claim Flow E2E", () => {
         .where(eq(schema.workspaceMemberships.userId, "test-user-001"));
 
       expect(membership).toBeDefined();
-      expect(membership!.workspaceKey).toBe("slack:T_ACME");
-      expect(membership!.imUserId).toBe("U_ALICE");
+      expect(membership?.workspaceKey).toBe("slack:T_ACME");
+      expect(membership?.imUserId).toBe("U_ALICE");
 
       // Verify token marked as used
       const [usedToken] = await db
@@ -379,8 +379,8 @@ describe("Claim Flow E2E", () => {
         .from(schema.claimTokens)
         .where(eq(schema.claimTokens.id, claimId));
 
-      expect(usedToken!.usedAt).toBeTruthy();
-      expect(usedToken!.usedByUserId).toBe("test-user-001");
+      expect(usedToken?.usedAt).toBeTruthy();
+      expect(usedToken?.usedByUserId).toBe("test-user-001");
     });
 
     it("rejects expired token", async () => {
@@ -488,8 +488,8 @@ describe("Claim Flow E2E", () => {
         .where(eq(schema.sessions.sessionKey, sessionKey));
 
       expect(session).toBeDefined();
-      expect(session!.nexuUserId).toBe("nexu-user-alice");
-      expect(session!.sessionKey).toBe("agent:bot-1:direct:u_alice");
+      expect(session?.nexuUserId).toBe("nexu-user-alice");
+      expect(session?.sessionKey).toBe("agent:bot-1:direct:u_alice");
     });
 
     it("per-peer isolation: different Slack users get different sessions", async () => {
@@ -538,7 +538,7 @@ describe("Claim Flow E2E", () => {
 
       const alice = allSessions.find((s) => s.nexuUserId === "nexu-alice");
       const bob = allSessions.find((s) => s.nexuUserId === "nexu-bob");
-      expect(alice!.sessionKey).not.toBe(bob!.sessionKey);
+      expect(alice?.sessionKey).not.toBe(bob?.sessionKey);
     });
 
     it("session upsert increments messageCount on conflict", async () => {
@@ -591,7 +591,7 @@ describe("Claim Flow E2E", () => {
         .from(schema.sessions)
         .where(eq(schema.sessions.sessionKey, sessionKey));
 
-      expect(session!.messageCount).toBe(2);
+      expect(session?.messageCount).toBe(2);
     });
   });
 
@@ -631,7 +631,7 @@ describe("Claim Flow E2E", () => {
 
       expect(res.status).toBe(200);
       expect(body.token).toBeTruthy();
-      expect(body.claimUrl).toContain(`/claim?token=`);
+      expect(body.claimUrl).toContain("/claim?token=");
       expect(body.expiresAt).toBeTruthy();
 
       // Verify in DB
@@ -640,7 +640,7 @@ describe("Claim Flow E2E", () => {
         .from(schema.claimTokens)
         .where(eq(schema.claimTokens.token, body.token));
       expect(row).toBeDefined();
-      expect(row!.workspaceKey).toBe("T_ACME");
+      expect(row?.workspaceKey).toBe("T_ACME");
     });
 
     it("GET /api/shared-slack/resolve-claim-key resolves valid token", async () => {
@@ -716,16 +716,16 @@ describe("Claim Flow E2E", () => {
         .from(schema.workspaceMemberships)
         .where(eq(schema.workspaceMemberships.workspaceKey, "slack:T_CLAIM"));
       expect(membership).toBeDefined();
-      expect(membership!.userId).toBe("auth-user-001");
-      expect(membership!.imUserId).toBe("U_CLAIMER");
+      expect(membership?.userId).toBe("auth-user-001");
+      expect(membership?.imUserId).toBe("U_CLAIMER");
 
       // Verify token marked used
       const [usedToken] = await db
         .select()
         .from(schema.claimTokens)
         .where(eq(schema.claimTokens.token, token));
-      expect(usedToken!.usedAt).toBeTruthy();
-      expect(usedToken!.usedByUserId).toBe("auth-user-001");
+      expect(usedToken?.usedAt).toBeTruthy();
+      expect(usedToken?.usedByUserId).toBe("auth-user-001");
     });
   });
 
@@ -816,8 +816,8 @@ describe("Claim Flow E2E", () => {
         .from(schema.sessions)
         .where(eq(schema.sessions.sessionKey, sessionKey));
 
-      expect(session!.nexuUserId).toBe("nexu-user-lifecycle");
-      expect(session!.sessionKey).toBe("agent:bot-e2e:direct:u_e2e_user");
+      expect(session?.nexuUserId).toBe("nexu-user-lifecycle");
+      expect(session?.sessionKey).toBe("agent:bot-e2e:direct:u_e2e_user");
 
       // Step 5: token should now be used, status should reflect
       const statusRes2 = await claimApp.request(
