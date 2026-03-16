@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { chmod, mkdir, readdir, rename, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { pruneOpenclawPackage } from "./lib/prune-openclaw-package.mjs";
 import {
   electronRoot,
@@ -130,6 +132,96 @@ async function resolveCodesignIdentity() {
   return match[1];
 }
 
+function getSigningCertificatePath() {
+  const link = process.env.CSC_LINK;
+
+  if (!link) {
+    return null;
+  }
+
+  return link.startsWith("file://") ? fileURLToPath(link) : link;
+}
+
+async function ensureCodesignIdentity() {
+  try {
+    return await resolveCodesignIdentity();
+  } catch {
+    const certificatePath = getSigningCertificatePath();
+    const certificatePassword = process.env.CSC_KEY_PASSWORD;
+
+    if (!certificatePath || !certificatePassword) {
+      throw new Error(
+        "Unable to locate a Developer ID Application signing identity.",
+      );
+    }
+
+    const keychainPath = resolve(tmpdir(), "nexu-openclaw-signing.keychain-db");
+    const keychainPassword = "nexu-openclaw-signing";
+
+    await run("security", [
+      "create-keychain",
+      "-p",
+      keychainPassword,
+      keychainPath,
+    ]).catch(() => null);
+    await run("security", [
+      "set-keychain-settings",
+      "-lut",
+      "21600",
+      keychainPath,
+    ]);
+    await run("security", [
+      "unlock-keychain",
+      "-p",
+      keychainPassword,
+      keychainPath,
+    ]);
+    await run("security", [
+      "import",
+      certificatePath,
+      "-k",
+      keychainPath,
+      "-P",
+      certificatePassword,
+      "-T",
+      "/usr/bin/codesign",
+      "-T",
+      "/usr/bin/security",
+    ]);
+    await run("security", [
+      "set-key-partition-list",
+      "-S",
+      "apple-tool:,apple:,codesign:",
+      "-s",
+      "-k",
+      keychainPassword,
+      keychainPath,
+    ]);
+
+    const { stdout: keychainsOutput } = await runAndCapture("security", [
+      "list-keychains",
+      "-d",
+      "user",
+    ]);
+    const keychains = keychainsOutput
+      .split(/\r?\n/u)
+      .map((line) => line.trim().replace(/^"|"$/gu, ""))
+      .filter(Boolean);
+    if (!keychains.includes(keychainPath)) {
+      await run("security", [
+        "list-keychains",
+        "-d",
+        "user",
+        "-s",
+        keychainPath,
+        ...keychains,
+      ]);
+    }
+
+    return await resolveCodesignIdentity();
+  }
+}
+
 async function signOpenclawNativeBinaries() {
   if (process.platform !== "darwin") {
     return;
@@ -143,7 +235,7 @@ async function signOpenclawNativeBinaries() {
     return;
   }
 
-  const identity = await resolveCodesignIdentity();
+  const identity = await ensureCodesignIdentity();
   const files = await collectFiles(sidecarRoot);
 
   for (const filePath of files) {
