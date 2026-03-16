@@ -3,22 +3,22 @@ import { Identify } from "@amplitude/unified";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import type {
+  DesktopChromeMode,
   DesktopRuntimeConfig,
+  DesktopSurface,
   RuntimeState,
   RuntimeUnitId,
   RuntimeUnitPhase,
   RuntimeUnitState,
 } from "../shared/host";
 import {
-  getApiBaseUrl,
   getRuntimeConfig,
   getRuntimeState,
-  openExternal,
-  startAllUnits,
+  onDesktopCommand,
+  showRuntimeLogFile,
   startUnit,
-  stopAllUnits,
   stopUnit,
 } from "./lib/host-api";
 import "./runtime-page.css";
@@ -62,135 +62,81 @@ function kindLabel(unit: RuntimeUnitState): string {
   return `${unit.kind} / ${unit.launchStrategy}`;
 }
 
-interface CloudStatus {
-  connected: boolean;
-  polling: boolean;
-  userName: string | null;
-  userEmail: string | null;
-  connectedAt: string | null;
+function SurfaceButton({
+  active,
+  disabled,
+  label,
+  meta,
+  onClick,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  label: string;
+  meta: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={active ? "desktop-nav-item is-active" : "desktop-nav-item"}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span>{label}</span>
+      <small>{meta}</small>
+    </button>
+  );
 }
 
-function CloudConnectionCard() {
-  const [apiBase, setApiBase] = useState<string | null>(null);
-  const [status, setStatus] = useState<CloudStatus | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void getApiBaseUrl().then(setApiBase).catch(() => null);
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
-    if (!apiBase) return;
-    try {
-      const res = await fetch(`${apiBase}/api/internal/desktop/cloud-status`);
-      const data = (await res.json()) as CloudStatus;
-      setStatus(data);
-      setError(null);
-    } catch {
-      // API not ready yet
-    }
-  }, [apiBase]);
-
-  useEffect(() => {
-    void fetchStatus();
-    const timer = window.setInterval(() => void fetchStatus(), 3000);
-    return () => window.clearInterval(timer);
-  }, [fetchStatus]);
-
-  const handleConnect = async () => {
-    if (!apiBase) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`${apiBase}/api/internal/desktop/cloud-connect`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setError(body.error ?? "Failed to initiate connection");
-        setBusy(false);
-        return;
-      }
-      const data = (await res.json()) as { browserUrl: string };
-      await openExternal(data.browserUrl);
-      setBusy(false);
-      // Polling state will be picked up by fetchStatus
-    } catch {
-      setError("Failed to connect");
-      setBusy(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!apiBase) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await fetch(`${apiBase}/api/internal/desktop/cloud-disconnect`, {
-        method: "POST",
-      });
-      await fetchStatus();
-    } catch {
-      setError("Failed to disconnect");
-    }
-    setBusy(false);
-  };
-
-  const isConnected = status?.connected ?? false;
-  const isPolling = status?.polling ?? false;
-
+function SummaryCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <article className="cloud-card">
-      <div className="cloud-card-head">
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function SurfaceFrame({
+  title,
+  description,
+  src,
+  version,
+}: {
+  title: string;
+  description: string;
+  src: string | null;
+  version: number;
+}) {
+  return (
+    <section className="surface-frame">
+      <header className="surface-frame-header">
         <div>
-          <div className="runtime-label-row">
-            <strong>Cloud Connection</strong>
-            <span
-              className={`runtime-badge ${isConnected ? "is-running" : isPolling ? "is-busy" : "is-idle"}`}
-            >
-              {isConnected
-                ? "connected"
-                : isPolling
-                  ? "waiting..."
-                  : "disconnected"}
-            </span>
-          </div>
-          {isConnected && status?.userEmail && (
-            <p className="cloud-user-info">
-              {status.userName ? `${status.userName} · ` : ""}
-              {status.userEmail}
-            </p>
-          )}
-          {isPolling && (
-            <p className="cloud-user-info">
-              Waiting for browser login... Check your browser.
-            </p>
-          )}
+          <span className="surface-frame-eyebrow">embedded surface</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
         </div>
-        <div className="runtime-actions">
-          {isConnected ? (
-            <button
-              disabled={busy}
-              onClick={() => void handleDisconnect()}
-              type="button"
-              className="cloud-disconnect-btn"
-            >
-              Disconnect
-            </button>
-          ) : (
-            <button
-              disabled={busy || isPolling}
-              onClick={() => void handleConnect()}
-              type="button"
-            >
-              {isPolling ? "Waiting..." : "Connect"}
-            </button>
-          )}
+        <code>{src ?? "Resolving local runtime URL..."}</code>
+      </header>
+
+      {src ? (
+        <webview
+          className="desktop-web-frame"
+          key={`${src}:${version}`}
+          src={src}
+        />
+      ) : (
+        <div className="surface-frame-empty">
+          Waiting for the local runtime to publish this surface.
         </div>
-      </div>
-      {error && <p className="runtime-error">{error}</p>}
-    </article>
+      )}
+    </section>
   );
 }
 
@@ -213,6 +159,36 @@ function RuntimeUnitCard({
       unit.phase === "failed");
   const canStop =
     isManaged && (unit.phase === "running" || unit.phase === "starting");
+
+  async function handleCopyLogs(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(unit.logTail.join("\n"));
+      toast.success(`Copied recent logs for ${unit.label}.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to copy runtime logs.",
+      );
+    }
+  }
+
+  async function handleExportLogs(): Promise<void> {
+    try {
+      const ok = await showRuntimeLogFile(unit.id);
+
+      if (!ok) {
+        toast.error(`No log file available for ${unit.label}.`);
+        return;
+      }
+
+      toast.success(`Revealed log file for ${unit.label}.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to open runtime log file.",
+      );
+    }
+  }
 
   return (
     <article className="runtime-card">
@@ -270,10 +246,27 @@ function RuntimeUnitCard({
         <p className="runtime-error">{unit.lastError}</p>
       ) : null}
 
+      {unit.binaryPath ? (
+        <div className="runtime-binary-path">
+          <div className="runtime-logs-head">
+            <strong>OPENCLAW_BIN</strong>
+          </div>
+          <code>{unit.binaryPath}</code>
+        </div>
+      ) : null}
+
       <div className="runtime-logs">
         <div className="runtime-logs-head">
           <strong>Tail 200 logs</strong>
-          <span>{unit.logTail.length} lines</span>
+          <div className="runtime-logs-actions">
+            <span>{unit.logTail.length} lines</span>
+            <button onClick={() => void handleCopyLogs()} type="button">
+              Copy
+            </button>
+            <button onClick={() => void handleExportLogs()} type="button">
+              Reveal
+            </button>
+          </div>
         </div>
         <pre className="runtime-log-tail">
           {unit.logTail.length > 0 ? unit.logTail.join("\n") : "No logs yet."}
@@ -365,45 +358,16 @@ function RuntimePage() {
             local runtime units.
           </p>
         </div>
-        <div className="runtime-header-actions">
-          <button
-            disabled={busyId !== null}
-            onClick={() => void runAction("all:start", startAllUnits)}
-            type="button"
-          >
-            Start all
-          </button>
-          <button
-            disabled={busyId !== null}
-            onClick={() => void runAction("all:stop", stopAllUnits)}
-            type="button"
-          >
-            Stop all
-          </button>
-        </div>
       </header>
 
       <section className="runtime-summary">
-        <div>
-          <dt>Started at</dt>
-          <dd>{runtimeState?.startedAt ?? "-"}</dd>
-        </div>
-        <div>
-          <dt>Running</dt>
-          <dd>{summary.running}</dd>
-        </div>
-        <div>
-          <dt>Managed</dt>
-          <dd>{summary.managed}</dd>
-        </div>
-        <div>
-          <dt>Failed</dt>
-          <dd>{summary.failed}</dd>
-        </div>
-      </section>
-
-      <section className="cloud-section">
-        <CloudConnectionCard />
+        <SummaryCard
+          label="Started at"
+          value={runtimeState?.startedAt ?? "-"}
+        />
+        <SummaryCard label="Running" value={summary.running} />
+        <SummaryCard label="Managed" value={summary.managed} />
+        <SummaryCard label="Failed" value={summary.failed} />
       </section>
 
       <p className="runtime-note">
@@ -467,9 +431,9 @@ function EmbeddedControlPlane() {
 }
 
 function DesktopShell() {
-  const [activeSurface, setActiveSurface] = useState<
-    "web" | "openclaw" | "control"
-  >("control");
+  const [activeSurface, setActiveSurface] = useState<DesktopSurface>("control");
+  const [chromeMode, setChromeMode] = useState<DesktopChromeMode>("full");
+  const [webSurfaceVersion, setWebSurfaceVersion] = useState(0);
   const [runtimeConfig, setRuntimeConfig] =
     useState<DesktopRuntimeConfig | null>(null);
 
@@ -479,6 +443,18 @@ function DesktopShell() {
       .catch(() => null);
   }, []);
 
+  useEffect(() => {
+    return onDesktopCommand((command) => {
+      if (command.type === "desktop:auth-session-restored") {
+        setWebSurfaceVersion((current) => current + 1);
+        return;
+      }
+
+      setActiveSurface(command.surface);
+      setChromeMode(command.chromeMode);
+    });
+  }, []);
+
   const desktopWebUrl = runtimeConfig
     ? new URL("/workspace", runtimeConfig.webUrl).toString()
     : null;
@@ -486,60 +462,62 @@ function DesktopShell() {
     "/#token=gw-secret-token",
     "http://127.0.0.1:18789",
   ).toString();
-
   return (
-    <div className="desktop-shell">
+    <div
+      className={
+        chromeMode === "immersive"
+          ? "desktop-shell is-immersive"
+          : "desktop-shell"
+      }
+    >
       <aside className="desktop-sidebar">
         <div className="desktop-sidebar-brand">
           <span className="desktop-shell-eyebrow">nexu desktop</span>
           <h1>Runtime Console</h1>
+          <p>
+            One local shell for bootstrap health, web verification, and gateway
+            inspection.
+          </p>
         </div>
 
         <nav className="desktop-nav" aria-label="Desktop surfaces">
-          <button
-            className={
-              activeSurface === "web"
-                ? "desktop-nav-item is-active"
-                : "desktop-nav-item"
-            }
-            onClick={() => setActiveSurface("web")}
-            type="button"
-          >
-            <span>Web</span>
-            <small>HTTP sidecar</small>
-          </button>
-          <button
-            className={
-              activeSurface === "openclaw"
-                ? "desktop-nav-item is-active"
-                : "desktop-nav-item"
-            }
-            onClick={() => setActiveSurface("openclaw")}
-            type="button"
-          >
-            <span>OpenClaw</span>
-            <small>Gateway Control UI</small>
-          </button>
-          <button
-            className={
-              activeSurface === "control"
-                ? "desktop-nav-item is-active"
-                : "desktop-nav-item"
-            }
+          <SurfaceButton
+            active={activeSurface === "control"}
+            label="Control Plane"
+            meta="Bootstrap status and per-unit intervention"
             onClick={() => setActiveSurface("control")}
-            type="button"
-          >
-            <span>Control Plane</span>
-            <small>Local operator UI</small>
-          </button>
+          />
+          <SurfaceButton
+            active={activeSurface === "web"}
+            disabled={!desktopWebUrl}
+            label="Web"
+            meta="Workspace surface via local HTTP sidecar"
+            onClick={() => setActiveSurface("web")}
+          />
+          <SurfaceButton
+            active={activeSurface === "openclaw"}
+            label="OpenClaw"
+            meta="Gateway control UI with local token routing"
+            onClick={() => setActiveSurface("openclaw")}
+          />
         </nav>
       </aside>
 
       <main className="desktop-shell-stage">
-        {activeSurface === "web" && desktopWebUrl ? (
-          <webview className="desktop-web-frame" src={desktopWebUrl} allowpopups="true" />
-        ) : activeSurface === "openclaw" && desktopOpenClawUrl ? (
-          <webview className="desktop-web-frame" src={desktopOpenClawUrl} allowpopups="true" />
+        {activeSurface === "web" ? (
+          <SurfaceFrame
+            description="Authenticated workspace surface served by the repo-local web sidecar."
+            src={desktopWebUrl}
+            title="Nexu Web"
+            version={webSurfaceVersion}
+          />
+        ) : activeSurface === "openclaw" ? (
+          <SurfaceFrame
+            description="Local OpenClaw gateway UI for inspecting runtime auth, models, and sessions."
+            src={desktopOpenClawUrl}
+            title="OpenClaw Gateway"
+            version={0}
+          />
         ) : (
           <EmbeddedControlPlane />
         )}

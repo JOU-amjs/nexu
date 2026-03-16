@@ -5,16 +5,15 @@ import { InviteGuardLayout } from "./layouts/invite-guard-layout";
 import { WorkspaceLayout } from "./layouts/workspace-layout";
 import { AuthPage } from "./pages/auth";
 import { ChannelsPage } from "./pages/channels";
+import { FeishuBindPage } from "./pages/feishu-bind";
 import { HomePage } from "./pages/home";
 import { IntegrationsPage } from "./pages/integrations";
 import { OAuthCallbackPage } from "./pages/oauth-callback";
-import { OnboardingPage } from "./pages/onboarding";
 import { SessionsPage } from "./pages/sessions";
 import { SkillDetailPage } from "./pages/skill-detail";
-import { ModelsPage } from "./pages/models";
 import { SkillsPage } from "./pages/skills";
+import { SlackClaimPage } from "./pages/slack-claim";
 import { SlackOAuthCallbackPage } from "./pages/slack-oauth-callback";
-import { WelcomePage } from "./pages/welcome";
 
 function DocumentTitleSync() {
   const location = useLocation();
@@ -22,13 +21,12 @@ function DocumentTitleSync() {
   useEffect(() => {
     const titleByPathname: Record<string, string> = {
       "/auth": "Sign In · Nexu",
-      "/welcome": "Get Started · Nexu",
-      "/onboarding": "Get Started · Nexu",
+      "/claim": "Claim · Nexu",
       "/workspace": "Home · Nexu",
       "/workspace/home": "Home · Nexu",
       "/workspace/integrations": "Integrations · Nexu",
-      "/workspace/models": "Models · Nexu",
       "/workspace/skills": "Skills · Nexu",
+      "/feishu/bind": "Link Feishu · Nexu",
     };
 
     if (location.pathname.startsWith("/workspace/oauth-callback")) {
@@ -42,26 +40,17 @@ function DocumentTitleSync() {
   return null;
 }
 
-/**
- * Root redirect: if first-time user (no setup complete flag), go to welcome page.
- * Otherwise, go straight to workspace.
- */
-function RootRedirect() {
-  const setupComplete = localStorage.getItem("nexu_setup_complete") === "1";
-  return <Navigate to={setupComplete ? "/workspace" : "/welcome"} replace />;
-}
-
 export function App() {
   return (
     <>
       <DocumentTitleSync />
       <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/welcome" element={<WelcomePage />} />
+        <Route path="/" element={<Navigate to="/workspace" replace />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/claim" element={<SlackClaimPage />} />
+        <Route path="/feishu/bind" element={<FeishuBindPage />} />
         <Route element={<AuthLayout />}>
           <Route element={<InviteGuardLayout />}>
-            <Route path="/onboarding" element={<OnboardingPage />} />
             {/* OAuth callback — outside WorkspaceLayout for clean full-page card */}
             <Route
               path="/workspace/oauth-callback/:integrationId"
@@ -80,7 +69,6 @@ export function App() {
                 path="/workspace/integrations"
                 element={<IntegrationsPage />}
               />
-              <Route path="/workspace/models" element={<ModelsPage />} />
               <Route path="/workspace/skills" element={<SkillsPage />} />
               <Route
                 path="/workspace/skills/:slug"

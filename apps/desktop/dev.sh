@@ -109,13 +109,8 @@ build_runtime() {
 
 start_session() {
   log "starting tmux session '$SESSION_NAME'"
-  # Forward NEXU_* env vars so manifests.ts can read them inside the tmux session.
-  local extra_exports=""
-  for var in $(env | grep '^NEXU_' | cut -d= -f1); do
-    extra_exports="$extra_exports $var=\"${!var}\""
-  done
   tmux new-session -d -s "$SESSION_NAME" \
-    "cd \"$ROOT_DIR\" && export NEXU_WORKSPACE_ROOT=\"$ROOT_DIR\" NEXU_DESKTOP_APP_ROOT=\"$ELECTRON_DIR\" NEXU_DESKTOP_RUNTIME_ROOT=\"$NEXU_DESKTOP_RUNTIME_ROOT\"$extra_exports; pnpm --dir \"$ROOT_DIR\" --filter @nexu/desktop run start:electron; sleep 2; while pgrep -f \"$ELECTRON_MAIN_MATCH\" >/dev/null; do sleep 1; done"
+    "cd \"$ROOT_DIR\" && export NEXU_WORKSPACE_ROOT=\"$ROOT_DIR\" NEXU_DESKTOP_APP_ROOT=\"$ELECTRON_DIR\" NEXU_DESKTOP_RUNTIME_ROOT=\"$NEXU_DESKTOP_RUNTIME_ROOT\"; pnpm --dir \"$ROOT_DIR\" --filter @nexu/desktop run start:electron; sleep 2; while pgrep -f \"$ELECTRON_MAIN_MATCH\" >/dev/null; do sleep 1; done"
 }
 
 start() {

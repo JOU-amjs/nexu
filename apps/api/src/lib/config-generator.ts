@@ -79,6 +79,7 @@ interface ChannelWithBot {
   channelType: string;
   accountId: string;
   status: string | null;
+  connectionMode: string | null;
   botSlug: string;
   botName: string;
   botModelId: string | null;
@@ -147,6 +148,7 @@ export async function generatePoolConfig(
         channelType: channel.channelType,
         accountId: channel.accountId,
         status: channel.status,
+        connectionMode: channel.connectionMode,
         botSlug: bot.slug,
         botName: bot.name,
         botModelId: bot.modelId,
@@ -195,12 +197,12 @@ export async function generatePoolConfig(
     // Per-agent /tmp bind so the sandbox fs-bridge recognises /tmp as
     // a writable mount.  Without this, the Write tool rejects /tmp paths
     // because tmpfs mounts are invisible to the path-safety guard.
+    // Override tmpfs to exclude /tmp — Docker rejects duplicate mount points
+    // when both a bind mount and tmpfs target the same path.
     if (process.env.SANDBOX_ENABLED === "true") {
       (agent as Record<string, unknown>).sandbox = {
         docker: {
           binds: [`${stateDir}/agents/${bot.id}/.tmp:/tmp:rw`],
-          // Override default tmpfs to exclude /tmp — Docker rejects duplicate
-          // mount points when both a bind mount and tmpfs target the same path.
           tmpfs: ["/var/tmp", "/run"],
         },
       };
@@ -242,6 +244,8 @@ export async function generatePoolConfig(
           ? socketAppToken
           : "xapp-placeholder-not-used-in-http-mode",
         streaming: "partial",
+        replyToMode: "off",
+        typingReaction: "hourglass_flowing_sand",
         // Explicit per-account policies so `openclaw doctor --fix` cannot
         // break routing by moving top-level defaults into accounts.default.
         groupPolicy: "open",
@@ -295,12 +299,27 @@ export async function generatePoolConfig(
 
       const appId = credMap.get("appId") ?? "";
       const appSecret = credMap.get("appSecret") ?? "";
+      const verificationToken = credMap.get("verificationToken") ?? "";
 
-      feishuAccounts[ch.accountId] = {
+      const feishuAccount: FeishuAccountConfig = {
         enabled: true,
         appId,
         appSecret,
       };
+
+      if (ch.connectionMode === "webhook") {
+        feishuAccount.connectionMode = "webhook";
+        feishuAccount.webhookPath = `/feishu/events/${ch.accountId}`;
+        feishuAccount.webhookPort = 18790;
+        feishuAccount.webhookHost = "0.0.0.0";
+        if (verificationToken) {
+          feishuAccount.verificationToken = verificationToken;
+        }
+      } else {
+        feishuAccount.connectionMode = "websocket";
+      }
+
+      feishuAccounts[ch.accountId] = feishuAccount;
 
       bindingsList.push({
         agentId: ch.botId,
@@ -441,7 +460,7 @@ export async function generatePoolConfig(
         : {}),
     },
     session: {
-      dmScope: "per-channel-peer",
+      dmScope: "per-peer",
     },
     cron: {
       enabled: true,
@@ -582,7 +601,6 @@ export async function generatePoolConfig(
   if (Object.keys(feishuAccounts).length > 0) {
     config.channels.feishu = {
       enabled: true,
-      connectionMode: "websocket",
       // Streaming disabled: long responses cause duplicate delivery (streaming
       // card + chunked final cards) because deliveredFinalTexts dedup fails
       // when mergeStreamingText diverges from the final text payload.

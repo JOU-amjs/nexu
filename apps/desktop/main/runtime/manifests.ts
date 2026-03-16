@@ -25,13 +25,18 @@ function getBooleanEnv(name: string, fallback: boolean): boolean {
 export function createRuntimeUnitManifests(
   electronRoot: string,
   userDataPath: string,
+  isPackaged: boolean,
 ): RuntimeUnitManifest[] {
   const repoRoot = getWorkspaceRoot();
-  const nexuRoot = repoRoot;
+  const _nexuRoot = repoRoot;
+  const runtimeSidecarBaseRoot = isPackaged
+    ? resolve(electronRoot, "runtime")
+    : resolve(repoRoot, ".tmp/sidecars");
   const runtimeConfig: DesktopRuntimeConfig = getDesktopRuntimeConfig(
     process.env,
   );
   const runtimeRoot = ensureDir(resolve(userDataPath, "runtime"));
+  const logsDir = ensureDir(resolve(userDataPath, "../logs/runtime-units"));
   const pgliteDataPath = ensureDir(resolve(runtimeRoot, "pglite"));
   const openclawRuntimeRoot = ensureDir(resolve(runtimeRoot, "openclaw"));
   const openclawConfigDir = ensureDir(resolve(openclawRuntimeRoot, "config"));
@@ -40,17 +45,20 @@ export function createRuntimeUnitManifests(
   ensureDir(resolve(openclawStateDir, "skills"));
   ensureDir(resolve(openclawStateDir, "plugin-docs"));
   ensureDir(resolve(openclawStateDir, "agents"));
-  const openclawPackageRoot = resolve(electronRoot, "node_modules/openclaw");
-  const openclawSidecarRoot = resolve(repoRoot, ".tmp/sidecars/openclaw");
+  const openclawSidecarRoot = resolve(runtimeSidecarBaseRoot, "openclaw");
+  const openclawPackageRoot = resolve(
+    openclawSidecarRoot,
+    "node_modules/openclaw",
+  );
   const openclawBinPath = resolve(openclawSidecarRoot, "bin/openclaw");
-  const apiSidecarRoot = resolve(repoRoot, ".tmp/sidecars/api");
+  const apiSidecarRoot = resolve(runtimeSidecarBaseRoot, "api");
   const apiModulePath = resolve(apiSidecarRoot, "dist/index.js");
-  const gatewaySidecarRoot = resolve(repoRoot, ".tmp/sidecars/gateway");
+  const gatewaySidecarRoot = resolve(runtimeSidecarBaseRoot, "gateway");
   const gatewayModulePath = resolve(gatewaySidecarRoot, "dist/index.js");
-  const pgliteSidecarRoot = resolve(repoRoot, ".tmp/sidecars/pglite");
+  const pgliteSidecarRoot = resolve(runtimeSidecarBaseRoot, "pglite");
   const pgliteModulePath = resolve(pgliteSidecarRoot, "index.js");
-  const migrationsDir = resolve(nexuRoot, "apps/api/migrations");
-  const webSidecarRoot = resolve(repoRoot, ".tmp/sidecars/web");
+  const migrationsDir = resolve(pgliteSidecarRoot, "migrations");
+  const webSidecarRoot = resolve(runtimeSidecarBaseRoot, "web");
   const webModulePath = resolve(webSidecarRoot, "index.js");
   const apiPort = runtimeConfig.apiPort;
   const pglitePort = runtimeConfig.pglitePort;
@@ -80,6 +88,7 @@ export function createRuntimeUnitManifests(
       port: webPort,
       startupTimeoutMs: 10_000,
       autoStart: true,
+      logFilePath: resolve(logsDir, "web.log"),
       env: {
         WEB_HOST: "127.0.0.1",
         WEB_PORT: String(webPort),
@@ -93,19 +102,20 @@ export function createRuntimeUnitManifests(
       launchStrategy: "embedded",
       port: null,
       autoStart: true,
+      logFilePath: resolve(logsDir, "control-plane.log"),
     },
     {
       id: "pglite",
       label: "PGlite Socket",
       kind: "service",
       launchStrategy: "managed",
-      runner: "spawn",
-      command: process.execPath,
-      args: [pgliteModulePath],
+      runner: "utility-process",
+      modulePath: pgliteModulePath,
       cwd: pgliteSidecarRoot,
       port: pglitePort,
       startupTimeoutMs: 10_000,
       autoStart: getBooleanEnv("NEXU_DESKTOP_AUTOSTART_PGLITE", true),
+      logFilePath: resolve(logsDir, "pglite.log"),
       env: {
         PGLITE_DATA_DIR: pgliteDataPath,
         PGLITE_HOST: "127.0.0.1",
@@ -124,6 +134,7 @@ export function createRuntimeUnitManifests(
       port: apiPort,
       startupTimeoutMs: 20_000,
       autoStart: getBooleanEnv("NEXU_DESKTOP_AUTOSTART_API", true),
+      logFilePath: resolve(logsDir, "api.log"),
       env: {
         FORCE_COLOR: "1",
         PORT: String(apiPort),
@@ -134,14 +145,6 @@ export function createRuntimeUnitManifests(
         WEB_URL: webUrl,
         INTERNAL_API_TOKEN: internalApiToken,
         SKILL_API_TOKEN: skillApiToken,
-        NEXU_DESKTOP_MODE: "true",
-        ENCRYPTION_KEY:
-          process.env.ENCRYPTION_KEY ??
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        OPENCLAW_STATE_DIR: openclawStateDir,
-        NEXU_CLOUD_URL: process.env.NEXU_CLOUD_URL ?? webUrl,
-        NEXU_LINK_URL:
-          process.env.NEXU_LINK_URL ?? "https://nexu-link.powerformer.net",
       },
     },
     {
@@ -154,6 +157,7 @@ export function createRuntimeUnitManifests(
       cwd: gatewaySidecarRoot,
       port: null,
       autoStart: getBooleanEnv("NEXU_DESKTOP_AUTOSTART_GATEWAY", true),
+      logFilePath: resolve(logsDir, "gateway.log"),
       env: {
         FORCE_COLOR: "1",
         NODE_ENV: "development",
@@ -177,8 +181,10 @@ export function createRuntimeUnitManifests(
       kind: "runtime",
       launchStrategy: "delegated",
       delegatedProcessMatch: "openclaw-gateway",
+      binaryPath: process.env.NEXU_OPENCLAW_BIN ?? openclawBinPath,
       port: null,
       autoStart: true,
+      logFilePath: resolve(logsDir, "openclaw.log"),
     },
   ];
 }

@@ -10,6 +10,8 @@ export const hostInvokeChannels = [
   "runtime:stop-unit",
   "runtime:start-all",
   "runtime:stop-all",
+  "runtime:show-log-file",
+  "desktop:ensure-auth-session",
   "shell:open-external",
 ] as const;
 
@@ -28,6 +30,12 @@ export type HostInvokePayloadMap = {
   };
   "runtime:start-all": undefined;
   "runtime:stop-all": undefined;
+  "runtime:show-log-file": {
+    id: RuntimeUnitId;
+  };
+  "desktop:ensure-auth-session": {
+    force?: boolean;
+  };
   "shell:open-external": {
     url: string;
   };
@@ -44,6 +52,12 @@ export type HostInvokeResultMap = {
   "runtime:stop-unit": RuntimeState;
   "runtime:start-all": RuntimeState;
   "runtime:stop-all": RuntimeState;
+  "runtime:show-log-file": {
+    ok: boolean;
+  };
+  "desktop:ensure-auth-session": {
+    ok: boolean;
+  };
   "shell:open-external": {
     ok: boolean;
   };
@@ -55,6 +69,26 @@ export type AppInfo = {
   platform: NodeJS.Platform;
   isDev: boolean;
 };
+
+export type DesktopSurface = "web" | "openclaw" | "control";
+
+export type DesktopChromeMode = "full" | "immersive";
+
+export type HostDesktopCommand =
+  | {
+      type: "develop:focus-surface";
+      surface: Exclude<DesktopSurface, "control">;
+      chromeMode: DesktopChromeMode;
+    }
+  | {
+      type: "develop:show-shell";
+      surface: DesktopSurface;
+      chromeMode: DesktopChromeMode;
+    }
+  | {
+      type: "desktop:auth-session-restored";
+      surface: "web";
+    };
 
 export type RuntimeUnitId =
   | "web"
@@ -90,6 +124,8 @@ export type RuntimeUnitState = {
   exitCode: number | null;
   lastError: string | null;
   commandSummary: string | null;
+  binaryPath: string | null;
+  logFilePath: string | null;
   logTail: string[];
 };
 
@@ -103,4 +139,5 @@ export type HostBridge = {
     channel: TChannel,
     payload: HostInvokePayloadMap[TChannel],
   ): Promise<HostInvokeResultMap[TChannel]>;
+  onDesktopCommand(listener: (command: HostDesktopCommand) => void): () => void;
 };

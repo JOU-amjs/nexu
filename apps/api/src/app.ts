@@ -20,18 +20,31 @@ import {
   registerChannelRoutes,
   registerSlackOAuthCallback,
 } from "./routes/channel-routes.js";
+import {
+  registerClaimPublicRoutes,
+  registerClaimRoutes,
+} from "./routes/claim-routes.js";
 import { registerComposioRoutes } from "./routes/composio-routes.js";
 import { registerFeedbackRoutes } from "./routes/feedback-routes.js";
+import { registerFeishuEvents } from "./routes/feishu-events.js";
+import {
+  registerFeishuOAuthCallback,
+  registerFeishuOAuthRoutes,
+} from "./routes/feishu-oauth-routes.js";
 import { registerIntegrationRoutes } from "./routes/integration-routes.js";
 import { registerInviteRoutes } from "./routes/invite-routes.js";
 import { registerModelRoutes } from "./routes/model-routes.js";
-import { registerOnboardingRoutes } from "./routes/onboarding-routes.js";
 import { registerPoolRoutes } from "./routes/pool-routes.js";
 import { registerSecretRoutes } from "./routes/secret-routes.js";
 import {
   registerSessionInternalRoutes,
   registerSessionRoutes,
 } from "./routes/session-routes.js";
+import {
+  registerSharedSlackClaimPublicRoutes,
+  registerSharedSlackClaimRoutes,
+} from "./routes/shared-slack-claim-routes.js";
+import { registerFilesystemSkillRoutes } from "./routes/skill-filesystem-routes.js";
 import {
   registerSkillCatalogRoutes,
   registerSkillRoutes,
@@ -100,7 +113,9 @@ export function createApp() {
   registerDesktopDeviceRoutes(app);
   registerAuthRoutes(app);
   registerSlackOAuthCallback(app);
+  registerFeishuOAuthCallback(app);
   registerSlackEvents(app);
+  registerFeishuEvents(app);
   registerArtifactInternalRoutes(app);
   registerSessionInternalRoutes(app);
   registerSecretRoutes(app);
@@ -108,6 +123,8 @@ export function createApp() {
   registerSkillRoutes(app);
   registerWorkspaceTemplateRoutes(app);
   registerFeedbackRoutes(app);
+  registerClaimPublicRoutes(app);
+  registerSharedSlackClaimPublicRoutes(app);
 
   // Desktop mode: skip auth for v1 routes (localhost-only trust boundary)
   if (!isDesktopMode()) {
@@ -116,16 +133,19 @@ export function createApp() {
 
   registerDesktopAuthorizeRoute(app);
   registerUserRoutes(app);
-  registerOnboardingRoutes(app);
   registerBotRoutes(app);
   registerChannelRoutes(app);
   registerInviteRoutes(app);
   registerModelRoutes(app);
   registerPoolRoutes(app);
+  registerSharedSlackClaimRoutes(app);
   registerArtifactRoutes(app);
   registerSessionRoutes(app);
+  registerClaimRoutes(app);
+  registerFeishuOAuthRoutes(app);
   registerIntegrationRoutes(app);
   registerSkillCatalogRoutes(app);
+  registerFilesystemSkillRoutes(app);
 
   app.doc("/openapi.json", {
     openapi: "3.1.0",
