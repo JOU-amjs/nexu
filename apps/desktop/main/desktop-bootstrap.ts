@@ -140,6 +140,14 @@ export async function bootstrapDesktopAuthSession(): Promise<void> {
         now,
       ],
     );
+
+    // Ensure a gateway pool exists for local desktop runtime
+    await pool2.query(
+      `INSERT INTO gateway_pools (id, pool_name, pool_type, max_bots, status, pod_ip, created_at)
+       VALUES ('pool_local_01', 'local-dev', 'shared', 50, 'active', '127.0.0.1', $1)
+       ON CONFLICT (id) DO UPDATE SET pod_ip = '127.0.0.1', status = 'active'`,
+      [now],
+    );
   } finally {
     await pool2.end();
   }

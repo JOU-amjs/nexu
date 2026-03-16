@@ -2875,6 +2875,122 @@
         }
       }
     },
+    "/api/v1/channels/feishu/connect": {
+      "post": {
+        "tags": [
+          "Channels"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "appSecret": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "appId",
+                  "appSecret"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Feishu channel connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "botId": {
+                      "type": "string"
+                    },
+                    "channelType": {
+                      "type": "string",
+                      "enum": [
+                        "slack",
+                        "discord",
+                        "feishu"
+                      ]
+                    },
+                    "accountId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "connected",
+                        "disconnected",
+                        "error"
+                      ]
+                    },
+                    "teamName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "appId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "botUserId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "botId",
+                    "channelType",
+                    "accountId",
+                    "status",
+                    "teamName",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid credentials or already connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/channels": {
       "get": {
         "tags": [
@@ -7457,6 +7573,24 @@
               }
             }
           },
+          "409": {
+            "description": "User bot context is ambiguous",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
           "502": {
             "description": "Integration service not configured",
             "content": {
@@ -7667,6 +7801,24 @@
           },
           "404": {
             "description": "Integration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "User bot context is ambiguous",
             "content": {
               "application/json": {
                 "schema": {

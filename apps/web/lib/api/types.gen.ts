@@ -1128,6 +1128,47 @@ export type PostApiV1ChannelsDiscordConnectResponses = {
 
 export type PostApiV1ChannelsDiscordConnectResponse = PostApiV1ChannelsDiscordConnectResponses[keyof PostApiV1ChannelsDiscordConnectResponses];
 
+export type PostApiV1ChannelsFeishuConnectData = {
+    body?: {
+        appId: string;
+        appSecret: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/channels/feishu/connect';
+};
+
+export type PostApiV1ChannelsFeishuConnectErrors = {
+    /**
+     * Invalid credentials or already connected
+     */
+    409: {
+        message: string;
+    };
+};
+
+export type PostApiV1ChannelsFeishuConnectError = PostApiV1ChannelsFeishuConnectErrors[keyof PostApiV1ChannelsFeishuConnectErrors];
+
+export type PostApiV1ChannelsFeishuConnectResponses = {
+    /**
+     * Feishu channel connected
+     */
+    200: {
+        id: string;
+        botId: string;
+        channelType: 'slack' | 'discord' | 'feishu';
+        accountId: string;
+        status: 'pending' | 'connected' | 'disconnected' | 'error';
+        teamName: string;
+        appId?: string;
+        botUserId?: string;
+        createdAt: string;
+        updatedAt: string;
+    };
+};
+
+export type PostApiV1ChannelsFeishuConnectResponse = PostApiV1ChannelsFeishuConnectResponses[keyof PostApiV1ChannelsFeishuConnectResponses];
+
 export type GetApiV1ChannelsData = {
     body?: never;
     path?: never;
@@ -2493,6 +2534,12 @@ export type PostApiV1IntegrationsConnectErrors = {
         message: string;
     };
     /**
+     * User bot context is ambiguous
+     */
+    409: {
+        message: string;
+    };
+    /**
      * Integration service not configured
      */
     502: {
@@ -2568,6 +2615,12 @@ export type PostApiV1IntegrationsByIntegrationIdRefreshErrors = {
      * Integration not found
      */
     404: {
+        message: string;
+    };
+    /**
+     * User bot context is ambiguous
+     */
+    409: {
         message: string;
     };
     /**
