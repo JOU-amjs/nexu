@@ -34,7 +34,7 @@ type Platform = "slack" | "discord" | "feishu";
 const PLATFORMS: { id: Platform; emoji: string; desc: string }[] = [
   { id: "slack", emoji: "#", desc: "Workspace Bot" },
   { id: "discord", emoji: "\u{1F3AE}", desc: "Server Bot" },
-  { id: "feishu", emoji: "\u{1F426}", desc: "Lark/Feishu Bot" },
+  { id: "feishu", emoji: "\u{1F426}", desc: "Feishu Bot" },
 ];
 
 const PLATFORM_LABELS: Record<Platform, string> = {
@@ -148,7 +148,7 @@ export function ChannelsPage() {
       {/* Coming soon */}
       <div className="flex gap-1.5 items-center mb-4 text-[11px] text-text-muted flex-wrap">
         <Zap size={10} className="text-accent" />
-        Telegram, Microsoft Teams, LINE and more coming soon
+        Telegram, Microsoft Teams, Line and more coming soon
       </div>
 
       {quotaLimited && !isConfigured && <QuotaBanner resetsAt={resetsAt} />}
@@ -173,13 +173,13 @@ export function ChannelsPage() {
             oauthError={slackError}
             disabled={quotaLimited}
           />
-        ) : platform === "feishu" ? (
-          <FeishuSetupView
+        ) : platform === "discord" ? (
+          <DiscordSetupView
             onConnected={handleConnected}
             disabled={quotaLimited}
           />
         ) : (
-          <DiscordSetupView
+          <FeishuSetupView
             onConnected={handleConnected}
             disabled={quotaLimited}
           />
@@ -362,6 +362,31 @@ function ConfiguredView({
               <ExternalLink size={13} />{" "}
               {channel.botUserId ? "Message Bot in Slack" : "Open Workspace"}
             </button>
+          </div>
+        )}
+
+        {/* Feishu: Open in Feishu */}
+        {platform === "feishu" && channel.appId && (
+          <div className="p-5 rounded-xl border bg-surface-1 border-border">
+            <div className="flex gap-2 items-center mb-4">
+              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-[#3370FF]/10 shrink-0">
+                <ExternalLink size={13} className="text-[#3370FF]" />
+              </div>
+              <h3 className="text-[13px] font-semibold text-text-primary">
+                Open in Feishu
+              </h3>
+            </div>
+            <p className="text-[12px] text-text-muted mb-3 leading-relaxed">
+              Open a direct message with your bot in Feishu.
+            </p>
+            <a
+              href={`https://applink.feishu.cn/client/bot/open?appId=${channel.appId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex gap-1.5 items-center px-4 py-2 text-[12px] font-medium text-white rounded-lg bg-[#3370FF] hover:bg-[#2860E6] transition-all"
+            >
+              <ExternalLink size={13} /> Message Bot in Feishu
+            </a>
           </div>
         )}
 

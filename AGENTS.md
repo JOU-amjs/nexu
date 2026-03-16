@@ -8,7 +8,6 @@ Nexu is an OpenClaw multi-tenant platform. Users create AI bots, connect them to
 
 - Monorepo: pnpm workspaces
 - `apps/api` — Hono + Drizzle + Zod OpenAPI (Node ESM)
-- `apps/chat` — Next.js session-chat surface for local OpenClaw probing
 - `apps/desktop` — Electron desktop runtime shell and sidecar orchestrator
 - `apps/gateway` — Nexu gateway sidecar for config/skills sync, runtime probing, and optional OpenClaw process management
 - `apps/web` — React + Ant Design + Vite

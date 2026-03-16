@@ -1,45 +1,33 @@
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq, gte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bots, gatewayAssignments, gatewayPools } from "../db/schema/index.js";
 import { DAILY_BOT_LIMIT, todayMidnightCST } from "./bot-quota.js";
 import { ServiceError } from "./error.js";
 
 export async function findDefaultPool(): Promise<string> {
-  // Find a usable pool — prefer healthy pools with a registered gateway.
+  // Find a usable pool — prefer active, fall back to degraded
   const rows = await db
     .select()
     .from(gatewayPools)
-    .where(
-      or(
-        eq(gatewayPools.status, "active"),
-        eq(gatewayPools.status, "degraded"),
-      ),
-    );
+    .where(inArray(gatewayPools.status, ["active", "degraded"]));
 
+  // Prefer active pool with a registered gateway
   const activeWithGateway = rows.find((r) => r.status === "active" && r.podIp);
-  if (activeWithGateway) {
-    return activeWithGateway.id;
-  }
+  if (activeWithGateway) return activeWithGateway.id;
 
-  const activePool = rows.find((r) => r.status === "active");
-  if (activePool) {
-    return activePool.id;
-  }
+  // Any active pool
+  const active = rows.find((r) => r.status === "active");
+  if (active) return active.id;
 
-  // TODO: Remove degraded-pool fallback once desktop/local startup no longer
-  // depends on bot creation succeeding before the gateway health state settles.
+  // Fall back to degraded pool (still functional, just partial health check failures)
   const degradedWithGateway = rows.find(
     (r) => r.status === "degraded" && r.podIp,
   );
-  if (degradedWithGateway) {
-    return degradedWithGateway.id;
-  }
+  if (degradedWithGateway) return degradedWithGateway.id;
 
-  const degradedPool = rows.find((r) => r.status === "degraded");
-  if (degradedPool) {
-    return degradedPool.id;
-  }
+  const degraded = rows.find((r) => r.status === "degraded");
+  if (degraded) return degraded.id;
 
   throw ServiceError.from("bot-helpers", { code: "default_pool_not_found" });
 }
