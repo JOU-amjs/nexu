@@ -237,12 +237,3 @@ curl -X POST https://<cloud-domain>/api/auth/desktop-device-register \
 # 4. 端到端：桌面端 Connect → 浏览器登录 → 轮询取 Key → 调用 /v1/models
 ```
 
-### 常见问题排查
-
-| 现象 | 原因 | 排查 |
-|------|------|------|
-| Link 401 `invalid_api_key` | key_hash 不是 bcrypt | 查 `SELECT length(key_hash) FROM api_keys`：60=bcrypt ✓, 64=SHA256 ✗ |
-| Link 403 `forbidden_api_key` | Key 非 active / 已过期 | 查 `api_keys` 的 status, expires_at, revoked_at |
-| `/v1/models` 空列表 | 没有 active model | `SELECT * FROM link.models WHERE status='active'` |
-| cloud-connect 502 | Cloud API 未部署 | 检查 DNS 和 Ingress |
-| poll 一直 pending | 浏览器端未完成授权 | 检查 auth 页面是否调用了 desktop-authorize |
