@@ -252,9 +252,21 @@ class SlackEventsTraceHandler {
         .select({
           accountId: botChannels.accountId,
           botId: botChannels.botId,
+          channelConfig: botChannels.channelConfig,
         })
         .from(botChannels)
         .where(eq(botChannels.id, route.botChannelId));
+
+      // Parse channelConfig to check if this is a shared app
+      let isSharedApp = false;
+      try {
+        const config = JSON.parse(channel?.channelConfig ?? "{}") as {
+          isShared?: boolean;
+        };
+        isSharedApp = config.isShared === true;
+      } catch {
+        // Invalid JSON, treat as non-shared
+      }
 
       const accountId = channel?.accountId ?? `slack-${apiAppId}-${teamId}`;
 
@@ -308,18 +320,22 @@ class SlackEventsTraceHandler {
         return c.json({ ok: true });
       }
 
-      // ====== Unclaimed user hard interception ======
-      // Skip bot messages to prevent infinite loops (bot sends claim card → triggers message event → sends again)
-      if (event?.bot_id || event?.subtype === "bot_message") {
-        return c.json({ ok: true });
-      }
+      // ====== Unclaimed user hard interception (shared app only) ======
+      // Only intercept for shared Slack app, skip for user's own apps
+      if (!isSharedApp) {
+        // User's own app — no claim interception, pass through to gateway
+      } else {
+        // Skip bot messages to prevent infinite loops (bot sends claim card → triggers message event → sends again)
+        if (event?.bot_id || event?.subtype === "bot_message") {
+          return c.json({ ok: true });
+        }
 
-      const senderSlackUserId = event?.user as string | undefined;
-      const isUserMessageEvent =
-        senderSlackUserId &&
-        (eventType === "message" || eventType === "app_mention");
+        const senderSlackUserId = event?.user as string | undefined;
+        const isUserMessageEvent =
+          senderSlackUserId &&
+          (eventType === "message" || eventType === "app_mention");
 
-      if (isUserMessageEvent && channel?.botId) {
+        if (isUserMessageEvent && channel?.botId) {
         const workspaceKey = `slack:${teamId}`;
 
         const [membership] = await db
@@ -397,6 +413,7 @@ class SlackEventsTraceHandler {
           return c.json({ ok: true });
         }
       }
+      } // end of isSharedApp else block
 
       // Upsert session for message events (fire-and-forget)
       const isMessageEvent =
