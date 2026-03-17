@@ -64,7 +64,8 @@ export const pruneDependencyTargets = [
   "node_modules/@mariozechner/clipboard-darwin-arm64/clipboard.darwin-arm64.node",
   "node_modules/@mariozechner/clipboard-darwin-universal/clipboard.darwin-universal.node",
   "node_modules/@reflink/reflink-darwin-arm64/reflink.darwin-arm64.node",
-  "node_modules/@snazzah/davey-darwin-arm64/davey.darwin-arm64.node",
+  // Keep davey - required for OpenClaw Discord DAVE protocol
+  // "node_modules/@snazzah/davey-darwin-arm64/davey.darwin-arm64.node",
   "node_modules/sqlite-vec-darwin-arm64/vec0.dylib",
 ];
 
