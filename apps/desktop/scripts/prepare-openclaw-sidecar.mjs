@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { chmod, mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   electronRoot,
@@ -113,7 +113,7 @@ const nativeBinaryNamePattern = /\.(?:node|dylib|so|dll)$/u;
 const nativeBinaryBasenames = new Set(["spawn-helper"]);
 
 function isNativeBinaryCandidate(filePath) {
-  const baseName = path.basename(filePath);
+  const baseName = basename(filePath);
   return (
     nativeBinaryNamePattern.test(baseName) ||
     nativeBinaryBasenames.has(baseName)
