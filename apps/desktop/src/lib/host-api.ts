@@ -73,3 +73,18 @@ export function onDesktopCommand(
 ): () => void {
   return getHostBridge().onDesktopCommand(listener);
 }
+
+export async function checkComponentUpdates(): Promise<{
+  updates: Array<{
+    id: string;
+    currentVersion: string | null;
+    newVersion: string;
+    size: number;
+  }>;
+}> {
+  return getHostBridge().invoke("component:check", undefined);
+}
+
+export async function installComponent(id: string): Promise<{ ok: boolean }> {
+  return getHostBridge().invoke("component:install", { id });
+}

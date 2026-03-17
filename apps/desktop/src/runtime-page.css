@@ -470,6 +470,79 @@ body,
   color: #b33c2f;
 }
 
+.component-update-section {
+  max-width: 1080px;
+  margin: 0 auto 16px;
+  padding: 12px 16px;
+  background: #181e28;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+}
+
+.component-update-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.component-update-head strong {
+  font-size: 13px;
+  color: #c8cdd5;
+}
+
+.component-update-head button {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid #3a4050;
+  border-radius: 4px;
+  background: #232a36;
+  color: #f5f7fb;
+  cursor: pointer;
+}
+
+.component-update-head button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.component-update-message {
+  font-size: 12px;
+  color: #8a8f99;
+  margin: 4px 0;
+}
+
+.component-update-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.component-update-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-top: 1px solid #2a2f3a;
+  font-size: 12px;
+  color: #c8cdd5;
+}
+
+.component-update-list button {
+  padding: 3px 10px;
+  font-size: 11px;
+  border: 1px solid #3a7;
+  border-radius: 4px;
+  background: #1a3028;
+  color: #6fd89a;
+  cursor: pointer;
+}
+
+.component-update-list button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .runtime-note {
   max-width: 1080px;
   margin: 0 auto 16px;

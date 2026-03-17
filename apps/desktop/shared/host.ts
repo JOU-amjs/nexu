@@ -19,6 +19,8 @@ export const hostInvokeChannels = [
   "update:get-current-version",
   "update:set-channel",
   "update:set-source",
+  "component:check",
+  "component:install",
 ] as const;
 
 export type HostInvokeChannel = (typeof hostInvokeChannels)[number];
@@ -51,6 +53,8 @@ export type HostInvokePayloadMap = {
   "update:get-current-version": undefined;
   "update:set-channel": { channel: UpdateChannelName };
   "update:set-source": { source: UpdateSource };
+  "component:check": undefined;
+  "component:install": { id: string };
 };
 
 export type HostInvokeResultMap = {
@@ -79,6 +83,15 @@ export type HostInvokeResultMap = {
   "update:get-current-version": { version: string };
   "update:set-channel": { ok: boolean };
   "update:set-source": { ok: boolean };
+  "component:check": {
+    updates: Array<{
+      id: string;
+      currentVersion: string | null;
+      newVersion: string;
+      size: number;
+    }>;
+  };
+  "component:install": { ok: boolean };
 };
 
 export type AppInfo = {
@@ -160,7 +173,7 @@ export type HostBridge = {
   onDesktopCommand(listener: (command: HostDesktopCommand) => void): () => void;
 };
 
-export type UpdateSource = "oss" | "github";
+export type UpdateSource = "r2" | "github";
 export type UpdateChannelName = "stable" | "beta";
 
 export const updaterEvents = [
