@@ -55,6 +55,31 @@ export function registerIpcHandlers(orchestrator: RuntimeOrchestrator): void {
           return result;
         }
 
+        case "diagnostics:get-info": {
+          const result: HostInvokeResultMap["diagnostics:get-info"] = {
+            crashDumpsPath: app.getPath("crashDumps"),
+            processType: process.type,
+          };
+
+          return result;
+        }
+
+        case "diagnostics:crash-main": {
+          process.crash();
+          return undefined;
+        }
+
+        case "diagnostics:crash-renderer": {
+          const browserWindow = BrowserWindow.fromWebContents(_event.sender);
+
+          if (!browserWindow) {
+            throw new Error("Could not resolve the active browser window.");
+          }
+
+          browserWindow.webContents.forcefullyCrashRenderer();
+          return undefined;
+        }
+
         case "env:get-api-base-url": {
           const apiBaseUrl = getDesktopRuntimeConfig(process.env).urls.apiBase;
 
