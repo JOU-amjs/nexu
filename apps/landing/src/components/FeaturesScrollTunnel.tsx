@@ -13,37 +13,31 @@ const TABS: Tab[] = [
     subtitle: "Agent-Augmented Buying",
     description:
       "Lio turns complex buying into an effortless, guided experience...",
-    image:
-      "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
+    image: "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
   },
   {
     title: "Procurement automated",
     subtitle: "Procurement automated",
     description: "85% reduction in operational workload",
-    image:
-      "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
+    image: "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
   },
   {
     title: "Tame the Tailspend",
     subtitle: "Tame the Tailspend",
     description: "Scale Savings Without Scaling Headcount",
-    image:
-      "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
+    image: "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
   },
   {
     title: "Supercharge your Buyers",
     subtitle: "Supercharge your Buyers",
     description: "Gain 10x efficiency with Lio Agents",
-    image:
-      "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
+    image: "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
   },
   {
     title: "The Agentic Workforce",
     subtitle: "The Agentic Workforce",
-    description:
-      "Manage and scale your personal Agentic Workforce",
-    image:
-      "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
+    description: "Manage and scale your personal Agentic Workforce",
+    image: "/media/pages/home/5de3630f55-1772655982/frame-1216292632.png",
   },
 ];
 
@@ -63,10 +57,7 @@ export default function FeaturesScrollTunnel() {
       const total = wrapper.offsetHeight - window.innerHeight;
       if (total <= 0) return;
       const p = Math.max(0, Math.min(1, -rect.top / total));
-      const tabIndex = Math.min(
-        TABS.length - 1,
-        Math.floor(p * TABS.length),
-      );
+      const tabIndex = Math.min(TABS.length - 1, Math.floor(p * TABS.length));
       setActiveTab(tabIndex);
     }
 
@@ -83,10 +74,7 @@ export default function FeaturesScrollTunnel() {
   }
 
   return (
-    <div
-      ref={wrapperRef}
-      style={{ height: "600vh", position: "relative" }}
-    >
+    <div ref={wrapperRef} style={{ height: "600vh", position: "relative" }}>
       <div
         style={{
           position: "sticky",
@@ -109,7 +97,14 @@ export default function FeaturesScrollTunnel() {
           }}
         >
           {/* Left: tabs */}
-          <div style={{ flex: "0 0 40%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{
+              flex: "0 0 40%",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
+          >
             {TABS.map((tab, i) => (
               <button
                 key={tab.title}

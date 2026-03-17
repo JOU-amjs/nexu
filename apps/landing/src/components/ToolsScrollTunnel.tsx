@@ -45,10 +45,7 @@ export default function ToolsScrollTunnel() {
   }, []);
 
   return (
-    <div
-      ref={wrapperRef}
-      style={{ height: "250vh", position: "relative" }}
-    >
+    <div ref={wrapperRef} style={{ height: "250vh", position: "relative" }}>
       <div
         style={{
           position: "sticky",
@@ -61,17 +58,16 @@ export default function ToolsScrollTunnel() {
         }}
       >
         {/* Center video with radial mask — matches source layout */}
-        <div
-          className="container"
-          style={{ width: "100%" }}
-        >
+        <div className="container" style={{ width: "100%" }}>
           <div
             style={{
               position: "relative",
               paddingTop: "8%",
               paddingBottom: "8%",
-              WebkitMaskImage: "radial-gradient(ellipse at center, black 45%, transparent 78%)",
-              maskImage: "radial-gradient(ellipse at center, black 45%, transparent 78%)",
+              WebkitMaskImage:
+                "radial-gradient(ellipse at center, black 45%, transparent 78%)",
+              maskImage:
+                "radial-gradient(ellipse at center, black 45%, transparent 78%)",
             }}
           >
             <div style={{ width: "55%", margin: "0 auto" }}>

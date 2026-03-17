@@ -31,7 +31,8 @@ export default function VideoModal() {
   if (!open) return null;
 
   return (
-    <div
+    <dialog
+      open
       style={{
         position: "fixed",
         inset: 0,
@@ -42,9 +43,19 @@ export default function VideoModal() {
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         backgroundColor: "rgba(0, 0, 0, 0.8)",
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        border: "none",
+        padding: 0,
+        margin: 0,
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") handleClose();
       }}
     >
       <div
@@ -139,6 +150,6 @@ export default function VideoModal() {
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

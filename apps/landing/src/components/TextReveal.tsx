@@ -109,18 +109,18 @@ export default function TextReveal({
 
           return (
             <p
-              key={pi}
+              key={`para-${para.slice(0, 20)}`}
               style={{
                 transform: `translateY(${paraY}px)`,
                 opacity: paraOpacity,
                 transition: "transform 0.1s ease, opacity 0.1s ease",
               }}
             >
-              {words.map((word, wi) => {
+              {words.map((word) => {
                 const globalIdx = wordIndex++;
                 return (
                   <span
-                    key={`${word}-${wi}`}
+                    key={`${word}-${globalIdx}`}
                     style={{
                       opacity: globalIdx < revealedCount ? 1 : 0.1,
                       transition: "opacity 0.15s ease",

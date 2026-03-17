@@ -43,7 +43,11 @@ export default function StrikethroughList() {
   return (
     <div
       ref={wrapperRef}
-      style={{ height: `${(itemCount + 1) * 100}vh`, position: "relative", background: "#000" }}
+      style={{
+        height: `${(itemCount + 1) * 100}vh`,
+        position: "relative",
+        background: "#000",
+      }}
     >
       <div
         style={{
@@ -76,13 +80,9 @@ export default function StrikethroughList() {
           // Slide up: starts at translateY(100vh), ends at 0
           const translateY = Math.max(0, (1 - Math.min(localP * 2, 1)) * 100);
           // Strikethrough: scaleX 0 -> 1 (starts at 30% of local, finishes at 70%)
-          const strikeP = Math.max(
-            0,
-            Math.min(1, (localP - 0.3) / 0.4),
-          );
+          const strikeP = Math.max(0, Math.min(1, (localP - 0.3) / 0.4));
           // Fade: once strikethrough done, fade to 0.2
-          const opacity =
-            localP < 0.7 ? 1 : 1 - (localP - 0.7) / 0.3 * 0.8;
+          const opacity = localP < 0.7 ? 1 : 1 - ((localP - 0.7) / 0.3) * 0.8;
 
           return (
             <div
