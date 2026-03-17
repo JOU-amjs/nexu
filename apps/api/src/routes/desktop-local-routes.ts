@@ -130,7 +130,7 @@ async function pollCloudForAuthorization(
     if (signal.aborted) return;
 
     try {
-      const res = await fetch(`${cloudApiUrl}/api/auth/desktop-poll`, {
+      const res = await fetch(`${cloudApiUrl}/api/auth/device-poll`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceId, deviceSecret }),
@@ -235,7 +235,7 @@ export function registerDesktopLocalRoutes(app: OpenAPIHono<AppBindings>) {
 
     // Register device on cloud
     const res = await fetch(
-      `${cloudApiUrl}/api/auth/desktop-device-register`,
+      `${cloudApiUrl}/api/auth/device-register`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,6 +1,6 @@
 {
-  "id": "9d66c245-8eb3-4c94-968f-a1db364988fe",
-  "prevId": "e52f1706-5d57-4520-8ba0-a486e63fa2a1",
+  "id": "01e0141c-f010-4cab-8032-a4627195de3d",
+  "prevId": "9d66c245-8eb3-4c94-968f-a1db364988fe",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1114,8 +1114,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.desktop_device_authorizations": {
-      "name": "desktop_device_authorizations",
+    "public.device_authorizations": {
+      "name": "device_authorizations",
       "schema": "",
       "columns": {
         "pk": {
@@ -1175,8 +1175,8 @@
         }
       },
       "indexes": {
-        "desktop_device_auth_device_id_idx": {
-          "name": "desktop_device_auth_device_id_idx",
+        "device_auth_device_id_idx": {
+          "name": "device_auth_device_id_idx",
           "columns": [
             {
               "expression": "device_id",
@@ -1190,8 +1190,8 @@
           "method": "btree",
           "with": {}
         },
-        "desktop_device_auth_status_idx": {
-          "name": "desktop_device_auth_status_idx",
+        "device_auth_status_idx": {
+          "name": "device_auth_status_idx",
           "columns": [
             {
               "expression": "status",
@@ -1209,15 +1209,15 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "desktop_device_authorizations_id_unique": {
-          "name": "desktop_device_authorizations_id_unique",
+        "device_authorizations_id_unique": {
+          "name": "device_authorizations_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "id"
           ]
         },
-        "desktop_device_authorizations_device_id_unique": {
-          "name": "desktop_device_authorizations_device_id_unique",
+        "device_authorizations_device_id_unique": {
+          "name": "device_authorizations_device_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "device_id"

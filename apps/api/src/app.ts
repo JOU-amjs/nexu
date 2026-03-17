@@ -26,6 +26,11 @@ import {
   registerClaimRoutes,
 } from "./routes/claim-routes.js";
 import { registerComposioRoutes } from "./routes/composio-routes.js";
+import {
+  registerDesktopDeviceRoutes,
+  registerDesktopAuthorizeRoute,
+} from "./routes/desktop-auth-routes.js";
+import { registerDesktopLocalRoutes } from "./routes/desktop-local-routes.js";
 import { registerFeedbackRoutes } from "./routes/feedback-routes.js";
 import { registerFeishuEvents } from "./routes/feishu-events.js";
 import {
@@ -53,11 +58,6 @@ import {
 import { registerSlackEvents } from "./routes/slack-events.js";
 import { registerUserRoutes } from "./routes/user-routes.js";
 import { registerWorkspaceTemplateRoutes } from "./routes/workspace-template-routes.js";
-import {
-  registerDesktopDeviceRoutes,
-  registerDesktopAuthorizeRoute,
-} from "./routes/desktop-auth-routes.js";
-import { registerDesktopLocalRoutes } from "./routes/desktop-local-routes.js";
 
 import type { AppBindings } from "./types.js";
 

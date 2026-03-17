@@ -6,7 +6,7 @@ import { eq, lt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   apiKeys,
-  desktopDeviceAuthorizations,
+  deviceAuthorizations,
   users,
 } from "../db/schema/index.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
@@ -18,7 +18,7 @@ import type { AppBindings } from "../types.js";
  */
 export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
   // Step 1: Desktop client registers a device before opening the browser.
-  app.post("/api/auth/desktop-device-register", async (c) => {
+  app.post("/api/auth/device-register", async (c) => {
     const body = await c.req.json<{
       deviceId?: string;
       deviceSecretHash?: string;
@@ -30,10 +30,10 @@ export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
 
     // Clean up expired rows opportunistically
     await db
-      .delete(desktopDeviceAuthorizations)
-      .where(lt(desktopDeviceAuthorizations.expiresAt, new Date().toISOString()));
+      .delete(deviceAuthorizations)
+      .where(lt(deviceAuthorizations.expiresAt, new Date().toISOString()));
 
-    await db.insert(desktopDeviceAuthorizations).values({
+    await db.insert(deviceAuthorizations).values({
       id: createId(),
       deviceId: body.deviceId,
       deviceSecretHash: body.deviceSecretHash,
@@ -45,7 +45,7 @@ export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
   });
 
   // Step 3: Desktop client polls for authorization result.
-  app.post("/api/auth/desktop-poll", async (c) => {
+  app.post("/api/auth/device-poll", async (c) => {
     const body = await c.req.json<{
       deviceId?: string;
       deviceSecret?: string;
@@ -57,8 +57,8 @@ export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
 
     const [row] = await db
       .select()
-      .from(desktopDeviceAuthorizations)
-      .where(eq(desktopDeviceAuthorizations.deviceId, body.deviceId));
+      .from(deviceAuthorizations)
+      .where(eq(deviceAuthorizations.deviceId, body.deviceId));
 
     if (!row) {
       return c.json({ status: "expired" });
@@ -75,8 +75,8 @@ export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
     // Check expiry
     if (new Date(row.expiresAt) < new Date()) {
       await db
-        .delete(desktopDeviceAuthorizations)
-        .where(eq(desktopDeviceAuthorizations.pk, row.pk));
+        .delete(deviceAuthorizations)
+        .where(eq(deviceAuthorizations.pk, row.pk));
       return c.json({ status: "expired" });
     }
 
@@ -116,9 +116,9 @@ export function registerDesktopDeviceRoutes(app: OpenAPIHono<AppBindings>) {
 
       // Mark as consumed instead of deleting — prevents race with late authorize calls
       await db
-        .update(desktopDeviceAuthorizations)
+        .update(deviceAuthorizations)
         .set({ status: "consumed" })
-        .where(eq(desktopDeviceAuthorizations.pk, row.pk));
+        .where(eq(deviceAuthorizations.pk, row.pk));
 
       return c.json({
         status: "completed",
@@ -150,8 +150,8 @@ export function registerDesktopAuthorizeRoute(app: OpenAPIHono<AppBindings>) {
     // Find the device authorization (any status)
     const [row] = await db
       .select()
-      .from(desktopDeviceAuthorizations)
-      .where(eq(desktopDeviceAuthorizations.deviceId, body.deviceId));
+      .from(deviceAuthorizations)
+      .where(eq(deviceAuthorizations.deviceId, body.deviceId));
 
     if (!row) {
       return c.json({ error: "授权链接已失效，请关闭此页面并从客户端重新点击登录" }, 404);
@@ -164,8 +164,8 @@ export function registerDesktopAuthorizeRoute(app: OpenAPIHono<AppBindings>) {
 
     if (new Date(row.expiresAt) < new Date()) {
       await db
-        .delete(desktopDeviceAuthorizations)
-        .where(eq(desktopDeviceAuthorizations.pk, row.pk));
+        .delete(deviceAuthorizations)
+        .where(eq(deviceAuthorizations.pk, row.pk));
       return c.json({ error: "授权链接已过期，请关闭此页面并从客户端重新点击登录" }, 410);
     }
 
@@ -207,13 +207,13 @@ export function registerDesktopAuthorizeRoute(app: OpenAPIHono<AppBindings>) {
     const encryptedApiKey = encrypt(rawKey);
 
     await db
-      .update(desktopDeviceAuthorizations)
+      .update(deviceAuthorizations)
       .set({
         status: "completed",
         userId: authUserId,
         encryptedApiKey,
       })
-      .where(eq(desktopDeviceAuthorizations.pk, row.pk));
+      .where(eq(deviceAuthorizations.pk, row.pk));
 
     return c.json({ ok: true });
   });

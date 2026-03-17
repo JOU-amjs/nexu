@@ -641,8 +641,8 @@ export const supportedSkills = pgTable("supported_skills", {
 // Desktop cloud connection: stores pending device authorizations for the
 // "Connect to Cloud" flow. Rows are short-lived (5 min expiry) and deleted
 // after the desktop client polls the completed API key.
-export const desktopDeviceAuthorizations = pgTable(
-  "desktop_device_authorizations",
+export const deviceAuthorizations = pgTable(
+  "device_authorizations",
   {
     pk: serial("pk").primaryKey(),
     id: text("id").notNull().unique(),
@@ -657,8 +657,8 @@ export const desktopDeviceAuthorizations = pgTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   (table) => [
-    index("desktop_device_auth_device_id_idx").on(table.deviceId),
-    index("desktop_device_auth_status_idx").on(table.status),
+    index("device_auth_device_id_idx").on(table.deviceId),
+    index("device_auth_status_idx").on(table.status),
   ],
 );
 
