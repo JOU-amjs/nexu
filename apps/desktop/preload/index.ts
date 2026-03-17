@@ -12,12 +12,17 @@ import {
   hostInvokeChannels,
   updaterEvents,
 } from "../shared/host";
+import { getDesktopRuntimeConfig } from "../shared/runtime-config";
 
 const validChannels = new Set<string>(hostInvokeChannels);
 
+const runtimeConfig = getDesktopRuntimeConfig(process.env, {
+  resourcesPath: process.resourcesPath,
+});
+
 const hostBridge: HostBridge = {
   bootstrap: {
-    sentryDsn: process.env.NEXU_DESKTOP_SENTRY_DSN ?? null,
+    sentryDsn: runtimeConfig.sentryDsn,
   },
 
   invoke<TChannel extends HostInvokeChannel>(

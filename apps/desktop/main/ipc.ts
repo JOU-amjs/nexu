@@ -5,7 +5,10 @@ import {
   type HostInvokeResultMap,
   hostInvokeChannels,
 } from "../shared/host";
-import { getDesktopRuntimeConfig } from "../shared/runtime-config";
+import {
+  type DesktopRuntimeConfig,
+  getDesktopRuntimeConfig,
+} from "../shared/runtime-config";
 import { ensureDesktopAuthSession } from "./desktop-bootstrap";
 import type { RuntimeOrchestrator } from "./runtime/daemon-supervisor";
 import type { ComponentUpdater } from "./updater/component-updater";
@@ -53,7 +56,10 @@ function assertValidChannel(
   }
 }
 
-export function registerIpcHandlers(orchestrator: RuntimeOrchestrator): void {
+export function registerIpcHandlers(
+  orchestrator: RuntimeOrchestrator,
+  runtimeConfig: DesktopRuntimeConfig,
+): void {
   orchestrator.subscribe((runtimeEvent) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send("host:runtime-event", runtimeEvent);
@@ -78,7 +84,7 @@ export function registerIpcHandlers(orchestrator: RuntimeOrchestrator): void {
         }
 
         case "diagnostics:get-info": {
-          const sentryDsn = process.env.NEXU_DESKTOP_SENTRY_DSN ?? null;
+          const sentryDsn = runtimeConfig.sentryDsn;
           const sentryMainEnabled = Boolean(sentryDsn);
           const result: HostInvokeResultMap["diagnostics:get-info"] = {
             crashDumpsPath: app.getPath("crashDumps"),

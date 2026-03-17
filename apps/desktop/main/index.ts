@@ -48,7 +48,7 @@ const orchestrator = new RuntimeOrchestrator(
 
 app.setName("Nexu Desktop");
 
-const sentryDsn = process.env.NEXU_DESKTOP_SENTRY_DSN;
+const sentryDsn = runtimeConfig.sentryDsn;
 
 if (sentryDsn) {
   Sentry.init({
@@ -433,7 +433,7 @@ app.on("web-contents-created", (_event, contents) => {
 app.whenReady().then(async () => {
   installApplicationMenu();
   installDesktopAuthRecoveryHooks();
-  registerIpcHandlers(orchestrator);
+  registerIpcHandlers(orchestrator, runtimeConfig);
 
   void (async () => {
     const healthCheck = new StartupHealthCheck();
