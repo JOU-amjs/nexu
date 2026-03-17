@@ -97,6 +97,12 @@ created: "2026-03-17"
   - [x] Confirm renderer crash is recorded locally and remotely
   - [x] Confirm main crash is recorded locally and remotely
 
+## Further actions
+
+- [ ] Provision the Sentry project via Terraform (currently dev-only and not Terraform-managed).
+- [ ] Wire `NEXU_DESKTOP_SENTRY_DSN` into the production environment once the Terraform-managed project is ready.
+- [ ] Verify the prod DSN is pointing to the correct Sentry project before enabling crash reporting in production.
+
 ## Notes
 
 - Native crash issue titles are harder to force than JavaScript exception titles because Sentry groups minidump-native events with platform-derived metadata.
