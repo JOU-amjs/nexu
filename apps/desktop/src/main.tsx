@@ -1062,6 +1062,21 @@ function DesktopShell() {
           />
         </nav>
 
+        {runtimeConfig ? (
+          <div className="desktop-sidebar-config">
+            <span className="desktop-shell-eyebrow">Build Config</span>
+            <dl className="desktop-config-list">
+              <div>
+                <dt>Cloud</dt>
+                <dd>{runtimeConfig.urls.nexuCloud}</dd>
+              </div>
+              <div>
+                <dt>Link</dt>
+                <dd>{runtimeConfig.urls.nexuLink ?? "(not set)"}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
       </aside>
 
       <main className="desktop-shell-stage">
