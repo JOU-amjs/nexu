@@ -53,23 +53,22 @@ export const pruneDependencyTargets = [
 // `./src/*`, so deleting extension source trees here breaks runtime loading in
 // desktop sidecars while leaving plain local runtime installs unaffected.
 //
-// Keep this list intentionally conservative and share it across all runtime
-// assembly paths so `dev`, `desktop dev`, and `desktop dist` consume the same
-// OpenClaw package baseline.
-// Only prune large non-essential docs subdirectories.
-// MUST keep docs/reference/templates/ — runtime-required workspace templates
-// (AGENTS.md, IDENTITY.md, etc.). Without these, message dispatch fails
-// with "Missing workspace template" errors.
-export const openclawPackagePruneTargets = [
-  "docs/assets",    // ~5.9M — images/static for doc site
-  "docs/images",    // ~2.6M — screenshots
-  "docs/zh-CN",     // ~2.5M — Chinese translation
-  "docs/ja-JP",     // Japanese translation
+// `openclaw/docs` must be preserved because the runtime reads
+// `docs/reference/templates/*` as workspace seed files while handling inbound
+// messages. Keep docs pruning explicit so we do not accidentally remove runtime
+// assets hidden under generic `docs/` paths.
+export const docsPruneTargets = [
+  "node_modules/@mariozechner/pi-coding-agent/docs",
+  "node_modules/pino/docs",
+  "node_modules/smart-buffer/docs",
+  "node_modules/socks/docs",
+  "node_modules/undici/docs",
+  // OpenClaw docs: only prune large non-essential subdirectories.
+  // MUST keep docs/reference/templates/ — runtime-required workspace templates.
+  "node_modules/openclaw/docs/assets",
+  "node_modules/openclaw/docs/images",
+  "node_modules/openclaw/docs/zh-CN",
+  "node_modules/openclaw/docs/ja-JP",
 ];
 
-export const pruneTargets = [
-  ...pruneDependencyTargets,
-  ...openclawPackagePruneTargets.map(
-    (relativePath) => `node_modules/openclaw/${relativePath}`,
-  ),
-];
+export const pruneTargets = [...pruneDependencyTargets, ...docsPruneTargets];
