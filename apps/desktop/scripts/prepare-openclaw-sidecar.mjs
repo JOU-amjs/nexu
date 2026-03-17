@@ -109,6 +109,17 @@ async function collectFiles(rootPath) {
   return files;
 }
 
+const nativeBinaryNamePattern = /\.(?:node|dylib|so|dll)$/u;
+const nativeBinaryBasenames = new Set(["spawn-helper"]);
+
+function isNativeBinaryCandidate(filePath) {
+  const baseName = path.basename(filePath);
+  return (
+    nativeBinaryNamePattern.test(baseName) ||
+    nativeBinaryBasenames.has(baseName)
+  );
+}
+
 async function resolveCodesignIdentity() {
   const { stdout } = await runAndCapture("security", [
     "find-identity",
@@ -241,13 +252,14 @@ async function signOpenclawNativeBinaries() {
   const startedAt = Date.now();
   const identity = await ensureCodesignIdentity();
   const files = await collectFiles(sidecarRoot);
+  const candidateFiles = files.filter(isNativeBinaryCandidate);
   let machOCount = 0;
 
   console.log(
-    `[openclaw-sidecar] scanning ${files.length} files for native binaries`,
+    `[openclaw-sidecar] scanning ${candidateFiles.length} native-binary candidates out of ${files.length} files`,
   );
 
-  for (const filePath of files) {
+  for (const filePath of candidateFiles) {
     const { stdout } = await runAndCapture("file", ["-b", filePath]);
     const description = stdout.trim();
     const isMachO = description.includes("Mach-O");
