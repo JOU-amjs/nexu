@@ -1,3 +1,5 @@
+import { NexuIcon } from "./platform-icons";
+
 const S = { width: 16, height: 16 };
 
 export function ProviderLogo({
@@ -55,14 +57,7 @@ export function ProviderLogo({
         </svg>
       );
     case "nexu":
-      return (
-        <span
-          className="flex items-center justify-center rounded bg-accent/10 text-[9px] font-bold text-accent"
-          style={s}
-        >
-          N
-        </span>
-      );
+      return <NexuIcon size={size} />;
     default:
       return (
         <span
