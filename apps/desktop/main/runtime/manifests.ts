@@ -54,79 +54,42 @@ function resolveElectronNodeRunner(): string {
   return process.execPath;
 }
 
-function addNodeCandidate(
-  candidates: string[],
-  seen: Set<string>,
+function normalizeNodeCandidate(
   candidate: string | undefined,
-): void {
-  if (!candidate) {
-    return;
+): string | undefined {
+  const trimmed = candidate?.trim();
+  if (!trimmed || !existsSync(trimmed)) {
+    return undefined;
   }
 
-  const trimmed = candidate.trim();
-  if (!trimmed || seen.has(trimmed) || !existsSync(trimmed)) {
-    return;
-  }
-
-  seen.add(trimmed);
-  candidates.push(trimmed);
+  return trimmed;
 }
 
-function compareNodeVersionDesc(a: string, b: string): number {
-  const aParts = a.replace(/^v/, "").split(".").map(Number);
-  const bParts = b.replace(/^v/, "").split(".").map(Number);
-
-  for (
-    let index = 0;
-    index < Math.max(aParts.length, bParts.length);
-    index += 1
-  ) {
-    const delta = (bParts[index] ?? 0) - (aParts[index] ?? 0);
-    if (delta !== 0) {
-      return delta;
-    }
-  }
-
-  return 0;
-}
-
-function collectNodeCandidates(): string[] {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-
-  addNodeCandidate(candidates, seen, process.env.NODE);
-
-  try {
-    addNodeCandidate(
-      candidates,
-      seen,
-      execFileSync("which", ["node"], { encoding: "utf8" }),
-    );
-  } catch {
-    /* current PATH may not expose node */
-  }
-
+/**
+ * Build a PATH prefix that puts a Node.js >= 22 binary first.
+ * OpenClaw requires Node 22.12+; in dev mode the system `node` may be
+ * older (e.g. nvm defaulting to v20). We scan NVM_DIR for a v22 install
+ * and, if found, prepend its bin directory to the inherited PATH.
+ */
+function buildNode22Path(): string | undefined {
   const nvmDir = process.env.NVM_DIR;
-  if (!nvmDir) {
-    return candidates;
-  }
-
+  if (!nvmDir) return undefined;
   try {
     const versionsDir = path.resolve(nvmDir, "versions/node");
-    const dirs = readdirSync(versionsDir).sort(compareNodeVersionDesc);
-
+    const dirs = readdirSync(versionsDir)
+      .filter((dir) => dir.startsWith("v22."))
+      .sort()
+      .reverse();
     for (const dir of dirs) {
-      addNodeCandidate(
-        candidates,
-        seen,
-        path.resolve(versionsDir, dir, "bin/node"),
-      );
+      const binDir = path.resolve(versionsDir, dir, "bin");
+      if (existsSync(path.resolve(binDir, "node"))) {
+        return `${binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+      }
     }
   } catch {
     /* nvm dir not present or unreadable */
   }
-
-  return candidates;
+  return undefined;
 }
 
 function supportsOpenclawRuntime(
@@ -156,20 +119,34 @@ function supportsOpenclawRuntime(
 }
 
 /**
- * Pick a Node binary that can actually boot the packaged OpenClaw runtime.
+ * Prefer the current session's Node binary when it can boot OpenClaw.
+ * Fall back to the previous Node 22 heuristic for older dev shells.
  *
  * The desktop gateway used to force Node 22 because OpenClaw historically
- * required 22.12+. The current sidecar can instead be bound to the Node ABI
- * from the local install (for example Node 24), so blindly prepending Node 22
- * can make native bindings fail during startup.
+ * required 22.12+. Some local sidecars are instead bound to the current
+ * session's Node ABI (for example Node 24), so we should try that first.
  */
 function buildOpenclawNodePath(
   openclawSidecarRoot: string,
 ): string | undefined {
-  const candidates = collectNodeCandidates();
   const currentPath = process.env.PATH ?? "";
+  const candidates = [normalizeNodeCandidate(process.env.NODE)];
+
+  try {
+    candidates.push(
+      normalizeNodeCandidate(
+        execFileSync("which", ["node"], { encoding: "utf8" }),
+      ),
+    );
+  } catch {
+    /* current PATH may not expose node */
+  }
 
   for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
     if (!supportsOpenclawRuntime(candidate, openclawSidecarRoot)) {
       continue;
     }
@@ -183,7 +160,7 @@ function buildOpenclawNodePath(
     return `${candidateDir}${path.delimiter}${currentPath}`;
   }
 
-  return undefined;
+  return buildNode22Path();
 }
 
 function ensurePackagedOpenclawSidecar(
