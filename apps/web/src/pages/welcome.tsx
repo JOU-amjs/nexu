@@ -446,21 +446,23 @@ export function WelcomePage() {
 
                   <FadeIn delay={380}>
                     <div className="mt-5 flex items-center justify-center gap-4 border-t border-black/8 pt-5 text-[12px] text-text-muted">
-                      <button
-                        type="button"
-                        onClick={() => navigate("/terms")}
+                      <a
+                        href="https://nexu.io/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="cursor-pointer transition-colors hover:text-text-secondary"
                       >
                         {t("auth.terms")}
-                      </button>
+                      </a>
                       <span className="select-none text-border-hover">·</span>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/privacy")}
+                      <a
+                        href="https://nexu.io/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="cursor-pointer transition-colors hover:text-text-secondary"
                       >
                         {t("auth.privacy")}
-                      </button>
+                      </a>
                     </div>
                   </FadeIn>
                 </div>
