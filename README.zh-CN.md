@@ -5,7 +5,7 @@
 <h1 align="center">nexu</h1>
 
 <p align="center">
-  <strong>The Simplest OpenClaw Desktop for One Person Company</strong>
+  <strong>The Simplest OpenClaw 🦞 Desktop for One Person Company</strong>
 </p>
 
 <p align="center">
@@ -29,9 +29,9 @@
 
 ## 概述
 
-**nexu**（next to you）将 OpenClaw 变成一个桌面体验 ⚡——下载 Mac 客户端，双击安装，几秒钟内你的第一个 AI Agent 就已就绪。
+**nexu**（next to you）将 OpenClaw 🦞 变成一个桌面体验 ⚡——下载 Mac 客户端，双击安装，几秒钟内你的第一个 AI Agent 就已就绪。
 
-基于开源 OpenClaw 核心打造，nexu 预装 **OpenClaw Skills** 与 **完整飞书 Skills**，让 Agent 直接接入你团队已在用的工作流 🔌。通过 nexu 账号即可使用 Claude 4.6、ChatGPT 5.4、Minimax 2.5、GLM 5.0、Kimi 2.5 等顶级模型，也可使用自带 API Key，无需登录 🔓。
+基于开源 OpenClaw 🦞 核心打造，nexu 预装 **OpenClaw 🦞 Skills** 与 **完整飞书 Skills**，让 Agent 直接接入你团队已在用的工作流 🔌。通过 nexu 账号即可使用 Claude 4.6、ChatGPT 5.4、Minimax 2.5、GLM 5.0、Kimi 2.5 等顶级模型，也可使用自带 API Key，无需登录 🔓。
 
 连接飞书、Slack 或 Discord，你的 AI Agent 即刻上手机 📱。无需额外 App，在你常用的聊天工具里直接和 Agent 对话。
 
@@ -46,7 +46,7 @@
 | 常见问题 | nexu |
 |----------|------|
 | 😩 复杂的 CLI / 环境配置 | ✅ 双击安装，无需终端 |
-| 🧩 技能与集成东拼西凑 | ✅ 内置 OpenClaw + 完整飞书 Skills，开箱即用 |
+| 🧩 技能与集成东拼西凑 | ✅ 内置 OpenClaw 🦞 + 完整飞书 Skills，开箱即用 |
 | 🔧 模型与 API Key 配置 | ✅ nexu 账号直连顶级模型，或自带 API Key |
 | 🎭 Agent 只能"演示" | ✅ 面向真实团队工作流的桌面客户端 |
 | 🚪 必须注册才能用 | ✅ 自带 API Key 即可使用，零注册零登录 |
@@ -62,9 +62,9 @@
 
 下载、双击、开始使用。无需环境变量、无需折腾依赖、无需长文档。nexu 的首次体验与能力一致——开箱即用。
 
-### 🔗 内置 OpenClaw Skills + 完整飞书 Skills
+### 🔗 内置 OpenClaw 🦞 Skills + 完整飞书 Skills
 
-原生 OpenClaw Skills 与完整飞书 Skills 一并提供。Agent 不再停留在演示，而是直接进入团队真实工作流，无需额外集成。
+原生 OpenClaw 🦞 Skills 与完整飞书 Skills 一并提供。Agent 不再停留在演示，而是直接进入团队真实工作流，无需额外集成。
 
 ### 🧠 顶级模型，开箱即用
 
@@ -224,7 +224,7 @@ pnpm test                # 运行测试（Vitest）
 
 nexu 基于以下优秀开源项目构建：
 
-- [OpenClaw](https://github.com/nexu-io/nexu) — AI Agent 运行时
+- [OpenClaw 🦞](https://github.com/nexu-io/nexu) — AI Agent 运行时
 - [Electron](https://www.electronjs.org/) — 跨平台桌面框架
 - [React](https://react.dev/) — UI 组件库
 - [Tailwind CSS](https://tailwindcss.com/) — 实用优先的 CSS 框架

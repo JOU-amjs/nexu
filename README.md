@@ -5,7 +5,7 @@
 <h1 align="center">nexu</h1>
 
 <p align="center">
-  <strong>The Simplest OpenClaw Desktop for One Person Company</strong>
+  <strong>The Simplest OpenClaw 🦞 Desktop for One Person Company</strong>
 </p>
 
 <p align="center">
@@ -29,9 +29,9 @@
 
 ## Overview
 
-**nexu** (next to you) turns OpenClaw into a desktop experience you can start using in seconds ⚡. Download the Mac client, double-click to install, and your first AI agent is ready before you finish reading this paragraph.
+**nexu** (next to you) turns OpenClaw 🦞 into a desktop experience you can start using in seconds ⚡. Download the Mac client, double-click to install, and your first AI agent is ready before you finish reading this paragraph.
 
-Built on the open-source OpenClaw core, nexu bundles **OpenClaw Skills** and **full Feishu Skills** so agents plug directly into the workflows your team already uses 🔌. Access Claude 4.6, ChatGPT 5.4, Minimax 2.5, GLM 5.0, Kimi 2.5, and more via your nexu account—or bring your own API Key with no login required 🔓.
+Built on the open-source OpenClaw 🦞 core, nexu bundles **OpenClaw 🦞 Skills** and **full Feishu Skills** so agents plug directly into the workflows your team already uses 🔌. Access Claude 4.6, ChatGPT 5.4, Minimax 2.5, GLM 5.0, Kimi 2.5, and more via your nexu account—or bring your own API Key with no login required 🔓.
 
 Connect to Feishu, Slack, or Discord—and your AI agent goes mobile 📱. No extra app needed; just chat with your agent wherever you already are.
 
@@ -46,7 +46,7 @@ Open-source agent tools often force users through long install guides and scatte
 | Challenge | nexu |
 |-----------|------|
 | 😩 Complex CLI / env setup | ✅ One double-click install; no terminal required |
-| 🧩 Scattered skill integration | ✅ Built-in OpenClaw + full Feishu Skills, ready to use |
+| 🧩 Scattered skill integration | ✅ Built-in OpenClaw 🦞 + full Feishu Skills, ready to use |
 | 🔧 Model and API key juggling | ✅ nexu account for top models, or bring your own API Key |
 | 🎭 "Demo only" agents | ✅ A desktop client built for real team workflows |
 | 🚪 Login walls | ✅ Use your own API Key with zero sign-up |
@@ -62,9 +62,9 @@ Open-source agent tools often force users through long install guides and scatte
 
 Download, double-click, start using. No environment variables, no dependency wrestling, no long install docs. nexu's first run is as capable as it gets—ready out of the box.
 
-### 🔗 Built-in OpenClaw Skills + full Feishu Skills
+### 🔗 Built-in OpenClaw 🦞 Skills + full Feishu Skills
 
-Native OpenClaw Skills and full Feishu Skills ship together. Agents move beyond demos and into the real workflows your team already uses—without extra integration work.
+Native OpenClaw 🦞 Skills and full Feishu Skills ship together. Agents move beyond demos and into the real workflows your team already uses—without extra integration work.
 
 ### 🧠 Top-tier models, out of the box
 
@@ -224,7 +224,7 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 nexu is built on the shoulders of excellent open-source projects:
 
-- [OpenClaw](https://github.com/nexu-io/nexu) — The AI agent runtime
+- [OpenClaw 🦞](https://github.com/nexu-io/nexu) — The AI agent runtime
 - [Electron](https://www.electronjs.org/) — Cross-platform desktop framework
 - [React](https://react.dev/) — UI component library
 - [Tailwind CSS](https://tailwindcss.com/) — Utility-first CSS framework
