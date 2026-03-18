@@ -122,7 +122,7 @@ export function AuthPage() {
     desktopAuthCalled.current = true;
     setDesktopAuthorizing(true);
     try {
-      const { data, error } = await postApiV1AuthDesktopAuthorize({
+      const { error } = await postApiV1AuthDesktopAuthorize({
         body: { deviceId },
       });
       if (error) {

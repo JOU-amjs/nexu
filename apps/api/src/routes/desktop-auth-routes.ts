@@ -2,9 +2,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { createRoute } from "@hono/zod-openapi";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createId } from "@paralleldrive/cuid2";
-import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { eq, lt } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "../db/index.js";
 import { apiKeys, deviceAuthorizations, users } from "../db/schema/index.js";
 import { decrypt, encrypt } from "../lib/crypto.js";
@@ -156,6 +156,22 @@ const desktopAuthorizeRoute = createRoute({
       },
       description: "Authorization result",
     },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({ ok: z.boolean(), error: z.string().optional() }),
+        },
+      },
+      description: "Device not found",
+    },
+    410: {
+      content: {
+        "application/json": {
+          schema: z.object({ ok: z.boolean(), error: z.string().optional() }),
+        },
+      },
+      description: "Authorization expired",
+    },
   },
 });
 
@@ -177,7 +193,10 @@ export function registerDesktopAuthorizeRoute(app: OpenAPIHono<AppBindings>) {
 
     if (!row) {
       return c.json(
-        { error: "授权链接已失效，请关闭此页面并从客户端重新点击登录" },
+        {
+          ok: false,
+          error: "授权链接已失效，请关闭此页面并从客户端重新点击登录",
+        },
         404,
       );
     }
@@ -192,7 +211,10 @@ export function registerDesktopAuthorizeRoute(app: OpenAPIHono<AppBindings>) {
         .delete(deviceAuthorizations)
         .where(eq(deviceAuthorizations.pk, row.pk));
       return c.json(
-        { error: "授权链接已过期，请关闭此页面并从客户端重新点击登录" },
+        {
+          ok: false,
+          error: "授权链接已过期，请关闭此页面并从客户端重新点击登录",
+        },
         410,
       );
     }

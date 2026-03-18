@@ -390,7 +390,10 @@ export function registerModelRoutes(app: OpenAPIHono<AppBindings>) {
 
     const verifyUrl = getVerifyUrl(providerId, body.baseUrl);
     if (!verifyUrl) {
-      return c.json({ valid: false, error: "Unknown provider and no baseUrl given" });
+      return c.json({
+        valid: false,
+        error: "Unknown provider and no baseUrl given",
+      });
     }
 
     try {

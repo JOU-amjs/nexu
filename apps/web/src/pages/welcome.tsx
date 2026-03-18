@@ -10,15 +10,15 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { BrandRail } from "../components/brand-rail";
-import { LanguageSwitcher } from "../components/language-switcher";
-import { useLocale } from "../hooks/use-locale";
-import { usePageTitle } from "../hooks/use-page-title";
 import {
   getApiInternalDesktopCloudStatus,
   postApiInternalDesktopCloudConnect,
   postApiInternalDesktopCloudDisconnect,
 } from "../../lib/api/sdk.gen";
+import { BrandRail } from "../components/brand-rail";
+import { LanguageSwitcher } from "../components/language-switcher";
+import { useLocale } from "../hooks/use-locale";
+import { usePageTitle } from "../hooks/use-page-title";
 
 const SETUP_COMPLETE_KEY = "nexu_setup_complete";
 
