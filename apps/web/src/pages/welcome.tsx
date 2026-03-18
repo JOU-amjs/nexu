@@ -310,7 +310,7 @@ export function WelcomePage() {
         toast.info(t("welcome.browserOpened"));
       }
       // Keep cloudConnecting=true — polling effect will detect completion.
-    } catch (error) {
+    } catch (_error) {
       setLoginError(t("welcome.cloudConnectError"));
       setCloudConnecting(false);
       toast.error(t("welcome.cloudConnectError"));
@@ -358,8 +358,8 @@ export function WelcomePage() {
         <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#f7f5ef] px-5 py-8 text-text-primary sm:px-8 lg:px-10">
           <div className="absolute inset-0 bg-[radial-gradient(80%_80%_at_20%_15%,rgba(0,0,0,0.035),transparent_45%),radial-gradient(70%_70%_at_85%_85%,rgba(0,0,0,0.04),transparent_42%)]" />
 
-            <div className="relative z-10 w-full max-w-[620px]">
-              <nav className="mb-8 flex items-center justify-between lg:hidden">
+          <div className="relative z-10 w-full max-w-[620px]">
+            <nav className="mb-8 flex items-center justify-between lg:hidden">
               <button
                 type="button"
                 onClick={() => navigate("/")}
@@ -396,7 +396,7 @@ export function WelcomePage() {
                       <FadeIn key={option.id} delay={180 + index * 90}>
                         {/* Login card: show waiting overlay when polling */}
                         {option.id === "login" && cloudConnecting ? (
-                            <div className="relative w-full rounded-[28px] border border-black/12 bg-[linear-gradient(135deg,#7c2d12_0%,#c2410c_100%)] p-5 text-white">
+                          <div className="relative w-full rounded-[28px] border border-black/12 bg-[linear-gradient(135deg,#7c2d12_0%,#c2410c_100%)] p-5 text-white">
                             <div className="flex flex-col items-center gap-4 py-4">
                               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
                               <div className="text-center">
