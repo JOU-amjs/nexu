@@ -5,7 +5,7 @@
 <h1 align="center">nexu</h1>
 
 <p align="center">
-  <strong>The Simplest OpenClaw Desktop for OPC</strong>
+  <strong>The Simplest OpenClaw Desktop for One Person Company</strong>
 </p>
 
 <p align="center">
@@ -14,20 +14,26 @@
 </p>
 
 <p align="center">
-  <a href="#overview">Overview</a> · <a href="#why-nexu">Why nexu</a> · <a href="#features">Features</a> · <a href="#getting-started">Getting Started</a> · <a href="#use-cases">Use Cases</a> · <a href="#development">Development</a> · <a href="#contributing">Contributing</a> · <a href="#acknowledgements">Acknowledgements</a> · <a href="#community">Community</a> · <a href="#star-history">Star History</a> · <a href="#license">License</a>
+  <a href="https://nexu.io" target="_blank" rel="noopener"><strong>🌐 Website</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/nexu-io/nexu/releases/latest" target="_blank" rel="noopener"><strong>⬇️ Download</strong></a> &nbsp;·&nbsp;
+  <a href="https://docs.nexu.io" target="_blank" rel="noopener"><strong>📖 Docs</strong></a> &nbsp;·&nbsp;
+  <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=8b7k7b5b-ac27-4748-9165-78606dc16913" target="_blank" rel="noopener"><strong>💬 Feishu</strong></a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/nexu" target="_blank" rel="noopener"><strong>🎮 Discord</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://nexu.io" target="_blank" rel="noopener"><strong>Website</strong></a> &nbsp;·&nbsp; English &nbsp;·&nbsp; <a href="README.zh-CN.md">简体中文</a>
+  English &nbsp;·&nbsp; <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 ---
 
 ## Overview
 
-**nexu** turns OpenClaw into a desktop experience you can start using in seconds ⚡. Download the Mac client, double-click to install, and your first AI agent is ready before you finish reading this paragraph.
+**nexu** (next to you) turns OpenClaw into a desktop experience you can start using in seconds ⚡. Download the Mac client, double-click to install, and your first AI agent is ready before you finish reading this paragraph.
 
 Built on the open-source OpenClaw core, nexu bundles **OpenClaw Skills** and **full Feishu Skills** so agents plug directly into the workflows your team already uses 🔌. Access Claude 4.6, ChatGPT 5.4, Minimax 2.5, GLM 5.0, Kimi 2.5, and more via your nexu account—or bring your own API Key with no login required 🔓.
+
+Connect to Feishu, Slack, or Discord—and your AI agent goes mobile 📱. No extra app needed; just chat with your agent wherever you already are.
 
 <!-- TODO: Add product demo GIF / screenshot here -->
 
@@ -44,6 +50,7 @@ Open-source agent tools often force users through long install guides and scatte
 | 🔧 Model and API key juggling | ✅ nexu account for top models, or bring your own API Key |
 | 🎭 "Demo only" agents | ✅ A desktop client built for real team workflows |
 | 🚪 Login walls | ✅ Use your own API Key with zero sign-up |
+| 📵 Desktop-only, no mobile access | ✅ Connect IM channels, use your agent on mobile instantly |
 
 > Open source should not mean harder to use. It should mean more freedom, more trust, and more leverage for every team.
 
@@ -66,6 +73,10 @@ Use Claude 4.6, ChatGPT 5.4, Minimax 2.5, GLM 5.0, Kimi 2.5, and more directly v
 ### 🔑 Bring your own API Key, no login
 
 Prefer your own model providers? Add your API Key and use the client without creating an account or logging in.
+
+### 📱 IM-connected, mobile-ready
+
+Connect to Feishu, Slack, or Discord and your AI agent is instantly available on your phone. No extra app—just open your team chat and start talking to your agent on the go.
 
 ### 👥 Built for teams
 
@@ -98,29 +109,41 @@ Sign in with your nexu account for instant access to supported models, or add yo
 
 ## Use Cases
 
-nexu is built for **OPC (One Person Company)** and small teams—one person, one AI team.
+nexu is built for **One Person Company** and small teams—one person, one AI team.
 
 ### 🛒 Solo e-commerce / cross-border trade
+
+> *"I used to spend the whole weekend writing listings in 3 languages. Now I tell my Agent the product specs in Feishu, and by the time I finish my coffee, the listings are ready for Amazon, Shopee, and TikTok Shop."*
 
 Product research, competitor pricing, listing optimization, multilingual marketing assets—compress a week's work into one afternoon.
 
 ### ✍️ Content creators / knowledge bloggers
 
+> *"Monday morning: I ask my Agent in Slack for this week's trending topics. By lunch, I have 5 draft posts across Xiaohongshu, WeChat, and Twitter—each in the right tone for the platform."*
+
 Trend tracking, topic generation, multi-platform content production, comment engagement—run a content matrix solo.
 
 ### 💻 Indie developers
+
+> *"3 AM bug hunt? I paste the stack trace into Discord, my Agent traces it to a race condition, suggests a fix, and even drafts the PR description. Pair programming that never sleeps."*
 
 Code review, doc generation, bug analysis, repetitive task automation—your Agent is your pair-programming partner.
 
 ### ⚖️ Legal / finance / consulting
 
+> *"A client sends a 40-page contract on Feishu. I forward it to my Agent—10 minutes later I get a risk summary, flagged clauses, and suggested revisions. What used to take half a day now takes a coffee break."*
+
 Contract review, regulation lookup, report generation, client Q&A—turn domain expertise into Agent skills.
 
 ### 🏪 Local business / retail
 
+> *"Customers message me at midnight asking 'is this in stock?' My Agent in Feishu auto-replies with real-time inventory, handles returns, and even sends a promo coupon. I actually sleep now."*
+
 Inventory management, order follow-up, auto-reply to customer messages, marketing copy—let AI help run the shop.
 
 ### 🎨 Design / creative
+
+> *"I drop a rough brief in Slack: 'landing page for a pet food brand, playful vibe.' My Agent comes back with copy options, color palette suggestions, and reference images—all before the kickoff meeting."*
 
 Requirement breakdown, asset search, copywriting, design annotation—free up creative time, cut repetitive work.
 
@@ -208,8 +231,6 @@ nexu is built on the shoulders of excellent open-source projects:
 
 ---
 
----
-
 ## 💬 Community
 
 | Feishu Group | Discord |
@@ -220,6 +241,12 @@ nexu is built on the shoulders of excellent open-source projects:
 - 💡 [GitHub Discussions](https://github.com/nexu-io/nexu/discussions) — Q&A and discussion
 - 🐛 [GitHub Issues](https://github.com/nexu-io/nexu/issues) — Bug reports and feature ideas
 - 📧 Email: [support@nexu.ai](mailto:support@nexu.ai)
+
+### Contributors
+
+<a href="https://github.com/nexu-io/nexu/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nexu-io/nexu" />
+</a>
 
 ---
 

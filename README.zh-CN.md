@@ -5,7 +5,7 @@
 <h1 align="center">nexu</h1>
 
 <p align="center">
-  <strong>The Simplest OpenClaw Desktop for OPC</strong>
+  <strong>The Simplest OpenClaw Desktop for One Person Company</strong>
 </p>
 
 <p align="center">
@@ -14,20 +14,26 @@
 </p>
 
 <p align="center">
-  <a href="#概述">概述</a> · <a href="#为什么选择-nexu">为什么选择 nexu</a> · <a href="#核心特性">核心特性</a> · <a href="#快速开始">快速开始</a> · <a href="#使用场景">使用场景</a> · <a href="#开发">开发</a> · <a href="#贡献">贡献</a> · <a href="#致谢">致谢</a> · <a href="#社区">社区</a> · <a href="#star-history">Star History</a> · <a href="#许可证">许可证</a>
+  <a href="https://nexu.io" target="_blank" rel="noopener"><strong>🌐 官网</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/nexu-io/nexu/releases/latest" target="_blank" rel="noopener"><strong>⬇️ 下载</strong></a> &nbsp;·&nbsp;
+  <a href="https://docs.nexu.io" target="_blank" rel="noopener"><strong>📖 文档</strong></a> &nbsp;·&nbsp;
+  <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=8b7k7b5b-ac27-4748-9165-78606dc16913" target="_blank" rel="noopener"><strong>💬 飞书</strong></a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/nexu" target="_blank" rel="noopener"><strong>🎮 Discord</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://nexu.io" target="_blank" rel="noopener"><strong>官网</strong></a> &nbsp;·&nbsp; <a href="README.md">English</a> &nbsp;·&nbsp; 简体中文
+  <a href="README.md">English</a> &nbsp;·&nbsp; 简体中文
 </p>
 
 ---
 
 ## 概述
 
-**nexu** 将 OpenClaw 变成一个桌面体验 ⚡——下载 Mac 客户端，双击安装，几秒钟内你的第一个 AI Agent 就已就绪。
+**nexu**（next to you）将 OpenClaw 变成一个桌面体验 ⚡——下载 Mac 客户端，双击安装，几秒钟内你的第一个 AI Agent 就已就绪。
 
 基于开源 OpenClaw 核心打造，nexu 预装 **OpenClaw Skills** 与 **完整飞书 Skills**，让 Agent 直接接入你团队已在用的工作流 🔌。通过 nexu 账号即可使用 Claude 4.6、ChatGPT 5.4、Minimax 2.5、GLM 5.0、Kimi 2.5 等顶级模型，也可使用自带 API Key，无需登录 🔓。
+
+连接飞书、Slack 或 Discord，你的 AI Agent 即刻上手机 📱。无需额外 App，在你常用的聊天工具里直接和 Agent 对话。
 
 <!-- TODO: 添加产品 Demo GIF / 截图 -->
 
@@ -44,6 +50,7 @@
 | 🔧 模型与 API Key 配置 | ✅ nexu 账号直连顶级模型，或自带 API Key |
 | 🎭 Agent 只能"演示" | ✅ 面向真实团队工作流的桌面客户端 |
 | 🚪 必须注册才能用 | ✅ 自带 API Key 即可使用，零注册零登录 |
+| 📵 只能桌面用，手机没法用 | ✅ 连接 IM 频道，手机上随时使用 Agent |
 
 > 开源不应该意味着更难用，而应该意味着更多自由、更多信任、更高的团队杠杆。
 
@@ -66,6 +73,10 @@
 ### 🔑 支持自带 API Key，无需登录
 
 更倾向自己的模型服务？填入 API Key 即可使用，无需注册、无需登录。
+
+### 📱 连接 IM，移动端即用
+
+连接飞书、Slack 或 Discord，你的 AI Agent 立刻出现在手机上。无需额外 App——打开团队聊天工具，随时随地和 Agent 对话。
 
 ### 👥 为团队而生
 
@@ -98,29 +109,41 @@
 
 ## 使用场景
 
-nexu 面向 **OPC（One Person Company）** 与小团队，让一个人就能拥有一支 AI 团队。
+nexu 面向 **One Person Company** 与小团队，让一个人就能拥有一支 AI 团队。
 
 ### 🛒 一人电商 / 跨境电商
+
+> *"以前写 3 种语言的商品详情要花整个周末。现在我在飞书里把产品参数发给 Agent，一杯咖啡的功夫，亚马逊、Shopee、TikTok Shop 的 listing 就全好了。"*
 
 选品调研、竞品比价、商品标题优化、多语言营销素材生成——从一周压缩到一个下午。
 
 ### ✍️ 知识博主 / 自媒体
 
+> *"周一早上，我在 Slack 里问 Agent 这周有什么热点。午饭前，小红书、公众号、Twitter 的 5 篇初稿就出来了——每篇都是对应平台的调性。"*
+
 热点追踪、选题生成、多平台内容批量产出、评论区互动——一个人运营矩阵账号。
 
 ### 💻 独立开发者
+
+> *"凌晨 3 点排 Bug？我把报错堆栈贴到 Discord，Agent 定位到一个竞态条件，给出修复方案，连 PR 描述都帮我写好了。永不下线的结对编程。"*
 
 代码审查、文档生成、Bug 分析、重复任务自动化——Agent 就是你的结对编程搭档。
 
 ### ⚖️ 法律 / 财税 / 咨询
 
+> *"客户在飞书发来一份 40 页合同。我转发给 Agent——10 分钟后收到风险摘要、标记条款和修改建议。以前半天的活儿，现在一杯咖啡的时间。"*
+
 合同审阅、法规检索、报表生成、客户问答——把专业知识变成 Agent 的技能。
 
 ### 🏪 门店 / 本地商家
 
+> *"半夜客户发消息问'这个还有货吗？'我飞书里的 Agent 自动回复实时库存，处理退换，还顺手发了张优惠券。我终于能安心睡觉了。"*
+
 库存管理、订单跟进、客户消息自动回复、营销文案生成——让 AI 帮你看店。
 
 ### 🎨 设计 / 创意
+
+> *"我在 Slack 里丢了一句简单的 brief：'宠物食品品牌落地页，活泼风格。'Agent 回了文案方案、配色建议和参考图——全在启动会之前搞定。"*
 
 需求拆解、素材检索、文案撰写、设计稿标注——释放创意时间，减少重复劳动。
 
@@ -208,8 +231,6 @@ nexu 基于以下优秀开源项目构建：
 
 ---
 
----
-
 ## 💬 社区
 
 | 飞书群 | Discord |
@@ -220,6 +241,12 @@ nexu 基于以下优秀开源项目构建：
 - 💡 [GitHub Discussions](https://github.com/nexu-io/nexu/discussions) — 提问与讨论
 - 🐛 [GitHub Issues](https://github.com/nexu-io/nexu/issues) — Bug 反馈与功能建议
 - 📧 邮件：[support@nexu.ai](mailto:support@nexu.ai)
+
+### Contributors
+
+<a href="https://github.com/nexu-io/nexu/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nexu-io/nexu" />
+</a>
 
 ---
 
