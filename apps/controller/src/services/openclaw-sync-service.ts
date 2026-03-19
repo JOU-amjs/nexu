@@ -13,6 +13,10 @@ const logger = {
 };
 
 export class OpenClawSyncService {
+  private pendingSync: Promise<{ configPushed: boolean }> | null = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly DEBOUNCE_MS = 500;
+
   constructor(
     private readonly env: ControllerEnv,
     private readonly configStore: NexuConfigStore,
@@ -31,7 +35,40 @@ export class OpenClawSyncService {
     return compileOpenClawConfig(config, this.env);
   }
 
+  /**
+   * Debounced sync: coalesces rapid calls within 500ms into a single
+   * execution, preventing OpenClaw from restart-looping during setup.
+   */
   async syncAll(): Promise<{ configPushed: boolean }> {
+    // If a sync is already in flight, wait for it and schedule another after
+    if (this.pendingSync) {
+      await this.pendingSync.catch(() => {});
+    }
+
+    return new Promise((resolve, reject) => {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+      }
+      this.debounceTimer = setTimeout(() => {
+        this.debounceTimer = null;
+        const p = this.doSync();
+        this.pendingSync = p;
+        p.then(resolve, reject).finally(() => {
+          this.pendingSync = null;
+        });
+      }, OpenClawSyncService.DEBOUNCE_MS);
+    });
+  }
+
+  /**
+   * Immediate sync bypassing debounce. Used during bootstrap where
+   * we need the config written before OpenClaw starts.
+   */
+  async syncAllImmediate(): Promise<{ configPushed: boolean }> {
+    return this.doSync();
+  }
+
+  private async doSync(): Promise<{ configPushed: boolean }> {
     const config = await this.configStore.getConfig();
     const compiled = compileOpenClawConfig(config, this.env);
 

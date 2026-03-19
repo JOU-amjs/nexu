@@ -10,7 +10,8 @@ export async function bootstrapController(
 
   // Write config files BEFORE starting OpenClaw so it boots with the
   // correct configuration, avoiding a SIGUSR1 restart cycle on first connect.
-  await container.openclawSyncService.syncAll();
+  // Use syncAllImmediate() to bypass debounce — must complete before start().
+  await container.openclawSyncService.syncAllImmediate();
 
   // Pre-seed the push hash so the onConnected syncAll() sees no change
   // and skips the redundant config.apply RPC.
