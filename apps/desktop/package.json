@@ -99,7 +99,7 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": ["dmg", "zip"],
-      "artifactName": "${productName}-${arch}.${ext}",
+      "artifactName": "nexu-simplest-openclaw-desktop-${version}-${arch}.${ext}",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
