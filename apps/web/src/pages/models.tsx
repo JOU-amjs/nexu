@@ -916,12 +916,8 @@ export function ModelsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <h2 className="text-[18px] font-semibold text-text-primary mb-1">
-          {t("models.pageTitle")}
-        </h2>
-        <p className="text-[12px] text-text-muted mb-5">
-          {t("settings.pageSubtitle")}
-        </p>
+        <h2 className="heading-page">{t("models.pageTitle")}</h2>
+        <p className="heading-page-desc mb-8">{t("settings.pageSubtitle")}</p>
         <div className="mb-6 flex items-center gap-5 border-b border-border">
           {[
             { id: "general", label: t("settings.tabGeneral") },
@@ -965,42 +961,100 @@ export function ModelsPage() {
               className="flex gap-0 rounded-xl border border-border bg-surface-1 overflow-hidden"
               style={{ minHeight: 520 }}
             >
-              <div className="w-56 shrink-0 border-r border-border bg-surface-0 overflow-y-auto">
+              {/* Left: Provider list with Enabled / Providers grouping */}
+              <div className="w-56 shrink-0 bg-surface-0 overflow-y-auto">
                 <div className="p-2">
-                  <div className="space-y-0.5">
-                    {sidebarItems.map((item) => {
-                      const isActive = activeProvider?.id === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProviderId(item.id);
-                            clearSetupParam();
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors",
-                            isActive ? "bg-accent/10" : "hover:bg-surface-2",
-                          )}
-                        >
-                          <span className="w-5 h-5 shrink-0 flex items-center justify-center">
-                            <ProviderLogo provider={item.id} size={16} />
-                          </span>
-                          <span
-                            className={cn(
-                              "flex-1 text-[12px] font-medium truncate",
-                              isActive ? "text-accent" : "text-text-primary",
-                            )}
-                          >
-                            {item.name}
-                          </span>
-                          {item.configured && (
-                            <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* Enabled providers */}
+                  {sidebarItems.filter((p) => p.configured).length > 0 && (
+                    <>
+                      <div className="px-3 pt-1 pb-1.5 text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
+                        Enabled
+                      </div>
+                      <div className="space-y-0.5 mb-3">
+                        {sidebarItems
+                          .filter((p) => p.configured)
+                          .map((item) => {
+                            const isActive = activeProvider?.id === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProviderId(item.id);
+                                  clearSetupParam();
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors",
+                                  isActive
+                                    ? "bg-surface-3"
+                                    : "hover:bg-surface-2",
+                                )}
+                              >
+                                <span className="w-5 h-5 shrink-0 flex items-center justify-center">
+                                  <ProviderLogo provider={item.id} size={16} />
+                                </span>
+                                <span
+                                  className={cn(
+                                    "flex-1 text-[12px] font-medium truncate",
+                                    isActive
+                                      ? "text-accent"
+                                      : "text-text-primary",
+                                  )}
+                                >
+                                  {item.name}
+                                </span>
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--color-success)] ml-auto" />
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
+                  {/* Other providers */}
+                  {sidebarItems.filter((p) => !p.configured).length > 0 && (
+                    <>
+                      <div className="px-3 pt-1 pb-1.5 text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
+                        Providers
+                      </div>
+                      <div className="space-y-0.5">
+                        {sidebarItems
+                          .filter((p) => !p.configured)
+                          .map((item) => {
+                            const isActive = activeProvider?.id === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProviderId(item.id);
+                                  clearSetupParam();
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors",
+                                  isActive
+                                    ? "bg-surface-3"
+                                    : "hover:bg-surface-2",
+                                )}
+                              >
+                                <span className="w-5 h-5 shrink-0 flex items-center justify-center">
+                                  <ProviderLogo provider={item.id} size={16} />
+                                </span>
+                                <span
+                                  className={cn(
+                                    "flex-1 text-[12px] font-medium truncate",
+                                    isActive
+                                      ? "text-accent"
+                                      : "text-text-primary",
+                                  )}
+                                >
+                                  {item.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
