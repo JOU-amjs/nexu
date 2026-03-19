@@ -1,5 +1,6 @@
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -13,71 +14,78 @@ const defaultProfileDir = path.join(
   "slack-reply-probe",
   "chrome-canary-profile",
 );
-const defaultPrepareUrl = process.env.SLACK_PROBE_PREPARE_URL ?? null;
-const defaultConnectUrl = process.env.SLACK_PROBE_CONNECT_URL ?? null;
-const defaultTimeoutMs = Number(process.env.SLACK_PROBE_TIMEOUT_MS ?? "15000");
-const defaultPrepareTimeoutMs = Number(
-  process.env.SLACK_PROBE_PREPARE_TIMEOUT_MS ?? "600000",
-);
+const defaultCanaryBinary =
+  process.env.SLACK_PROBE_CANARY_BIN ??
+  "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary";
+const defaultSlackUrl = process.env.PROBE_SLACK_URL ?? null;
+const defaultConnectUrl = "http://127.0.0.1:9222";
 const defaultReplyTimeoutMs = Number(
   process.env.SLACK_PROBE_REPLY_TIMEOUT_MS ?? "90000",
 );
-const browserChannel =
-  process.env.SLACK_PROBE_BROWSER_CHANNEL ?? "chrome-canary";
+const defaultPageTimeoutMs = Number(
+  process.env.SLACK_PROBE_TIMEOUT_MS ?? "15000",
+);
 
 function parseArgs(argv) {
   const options = {
-    mode: "send",
-    profileDir: defaultProfileDir,
-    slackUrl: null,
-    prepareUrl: defaultPrepareUrl,
+    mode: "help",
+    slackUrl: defaultSlackUrl,
     connectUrl: defaultConnectUrl,
-    headless: false,
-    resetProfile: false,
-    timeoutMs: defaultTimeoutMs,
-    prepareTimeoutMs: defaultPrepareTimeoutMs,
+    profileDir: defaultProfileDir,
+    canaryBinary: defaultCanaryBinary,
+    debugPort: 9222,
     replyTimeoutMs: defaultReplyTimeoutMs,
+    pageTimeoutMs: defaultPageTimeoutMs,
     message: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--headless") {
-      options.headless = true;
+
+    if (
+      arg === "prepare" ||
+      arg === "run" ||
+      arg === "inspect" ||
+      arg === "session"
+    ) {
+      options.mode = arg;
       continue;
     }
-    if (arg === "--reset-profile") {
-      options.resetProfile = true;
-      continue;
-    }
-    if (arg === "--profile-dir") {
-      options.profileDir = path.resolve(argv[index + 1] ?? options.profileDir);
-      index += 1;
-      continue;
-    }
+
     if (arg === "--url") {
       options.slackUrl = argv[index + 1] ?? options.slackUrl;
       index += 1;
       continue;
     }
-    if (arg === "--prepare-url") {
-      options.prepareUrl = argv[index + 1] ?? options.prepareUrl;
-      index += 1;
-      continue;
-    }
+
     if (arg === "--connect-url") {
       options.connectUrl = argv[index + 1] ?? options.connectUrl;
       index += 1;
       continue;
     }
-    if (arg === "--timeout-ms") {
-      const nextValue = Number(argv[index + 1] ?? options.timeoutMs);
+
+    if (arg === "--profile-dir") {
+      options.profileDir = path.resolve(argv[index + 1] ?? options.profileDir);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--canary-binary") {
+      options.canaryBinary = argv[index + 1] ?? options.canaryBinary;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--debug-port") {
+      const nextValue = Number(argv[index + 1] ?? options.debugPort);
       if (!Number.isNaN(nextValue) && nextValue > 0) {
-        options.timeoutMs = nextValue;
+        options.debugPort = nextValue;
+        options.connectUrl = `http://127.0.0.1:${nextValue}`;
       }
       index += 1;
       continue;
     }
+
     if (arg === "--reply-timeout-ms") {
       const nextValue = Number(argv[index + 1] ?? options.replyTimeoutMs);
       if (!Number.isNaN(nextValue) && nextValue > 0) {
@@ -86,32 +94,23 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+
+    if (arg === "--timeout-ms") {
+      const nextValue = Number(argv[index + 1] ?? options.pageTimeoutMs);
+      if (!Number.isNaN(nextValue) && nextValue > 0) {
+        options.pageTimeoutMs = nextValue;
+      }
+      index += 1;
+      continue;
+    }
+
     if (arg === "--message") {
       options.message = argv[index + 1] ?? options.message;
       index += 1;
       continue;
     }
-    if (arg === "session") {
-      options.mode = "session";
-      continue;
-    }
-    if (arg === "inspect") {
-      options.mode = "inspect";
-      continue;
-    }
-    if (arg === "send") {
-      options.mode = "send";
-      continue;
-    }
-    if (arg === "prepare") {
-      options.mode = "prepare";
-      continue;
-    }
-    if (arg === "open") {
-      options.mode = "open";
-      continue;
-    }
-    if (arg === "help" || arg === "--help" || arg === "-h") {
+
+    if (arg === "--help" || arg === "-h" || arg === "help") {
       options.mode = "help";
     }
   }
@@ -125,42 +124,111 @@ function printUsage() {
       "Slack Reply Probe",
       "",
       "Usage:",
-      "  pnpm probe:slack --url <slack-dm-url>                    # send one probe message and wait for reply",
-      "  pnpm probe:slack -- session",
-      "  pnpm probe:slack -- inspect",
-      "  pnpm probe:slack -- send",
-      "  pnpm probe:slack -- prepare",
-      "  pnpm probe:slack -- --headless",
-      "  pnpm probe:slack -- --reset-profile",
+      '  export PROBE_SLACK_URL="https://app.slack.com/client/..."',
+      "  pnpm probe:slack prepare",
+      "  pnpm probe:slack run",
+      "",
+      "Commands:",
+      "  prepare           Launch Chrome Canary with a dedicated probe profile",
+      "  run               Send one probe message and wait for a new reply",
+      "  session           Check whether the Slack page looks ready",
+      "  inspect           Print selector diagnostics for the current DM page",
       "",
       "Options:",
-      "  session           Check whether the saved Slack browser profile is authenticated",
-      "  inspect           Print Slack DM composer and message-list selector diagnostics",
-      "  send              Send one probe message and wait for a new reply",
-      "  prepare           Open Slack sign-in and wait for a reusable logged-in session",
-      "  open              Open the target Slack page with the persistent profile",
-      "  --profile-dir     Override the persistent browser profile directory",
-      "  --url             Slack DM URL to probe (required)",
-      "  --prepare-url     Override the initial sign-in URL used by prepare mode",
-      "  --connect-url     Reuse an already running Chrome instance over CDP",
-      "  --timeout-ms      Override page wait timeout in milliseconds",
+      "  --url             Override PROBE_SLACK_URL for this run",
+      "  --connect-url     Override the Chrome CDP endpoint (default: http://127.0.0.1:9222)",
+      "  --debug-port      Debug port used by `prepare` (default: 9222)",
+      "  --profile-dir     Override the dedicated Canary profile directory",
+      "  --canary-binary   Override the Chrome Canary executable path",
       "  --reply-timeout-ms Override reply wait timeout in milliseconds",
+      "  --timeout-ms      Override page navigation timeout in milliseconds",
       "  --message         Override the sent probe message body",
-      "  --headless        Run without showing the browser window",
-      "  --reset-profile   Delete the saved probe profile before launch",
     ].join("\n"),
   );
+}
+
+function requireSlackUrl(slackUrl) {
+  if (!slackUrl) {
+    throw new Error(
+      "missing Slack DM URL: export PROBE_SLACK_URL or pass --url",
+    );
+  }
+}
+
+function createProbeMessage() {
+  const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `probe:${nonce}`;
 }
 
 function formatBoolean(value) {
   return value ? "yes" : "no";
 }
 
-async function detectSession(page, expectedUrl, timeoutMs) {
-  await page.goto(expectedUrl, {
-    timeout: timeoutMs,
-    waitUntil: "domcontentloaded",
+async function launchProbeBrowser(options) {
+  requireSlackUrl(options.slackUrl);
+
+  if (!existsSync(options.canaryBinary)) {
+    throw new Error(
+      `chrome canary binary not found at ${options.canaryBinary}`,
+    );
+  }
+
+  await mkdir(options.profileDir, { recursive: true });
+
+  const args = [
+    `--remote-debugging-port=${options.debugPort}`,
+    `--user-data-dir=${options.profileDir}`,
+    "--new-window",
+    options.slackUrl,
+  ];
+
+  const child = spawn(options.canaryBinary, args, {
+    detached: true,
+    stdio: "ignore",
   });
+
+  child.unref();
+
+  console.log("[probe] mode=prepare");
+  console.log(`[probe] canaryBinary=${options.canaryBinary}`);
+  console.log(`[probe] profileDir=${options.profileDir}`);
+  console.log(`[probe] connectUrl=${options.connectUrl}`);
+  console.log(`[probe] targetUrl=${options.slackUrl}`);
+  console.log("[probe] Chrome Canary launched.");
+  console.log(
+    "[probe] If this is the first run, log into Slack in that Canary window, then rerun `pnpm probe:slack run`.",
+  );
+}
+
+async function openBrowserTarget(connectUrl, slackUrl) {
+  const browser = await chromium.connectOverCDP(connectUrl);
+  const context = browser.contexts()[0] ?? (await browser.newContext());
+  const existingPages = context.pages();
+  const matchingPage = existingPages.find(
+    (page) =>
+      page.url().startsWith(slackUrl) ||
+      page.url().startsWith("https://app.slack.com/client/"),
+  );
+  const page = matchingPage ?? existingPages[0] ?? (await context.newPage());
+
+  return {
+    page,
+    close: async () => {},
+  };
+}
+
+async function detectSession(page, expectedUrl, timeoutMs) {
+  const currentUrlBefore = page.url();
+  const shouldNavigate =
+    !currentUrlBefore.startsWith(expectedUrl) &&
+    !currentUrlBefore.startsWith("https://app.slack.com/client/");
+
+  if (shouldNavigate) {
+    await page.goto(expectedUrl, {
+      timeout: timeoutMs,
+      waitUntil: "domcontentloaded",
+    });
+  }
 
   await page.waitForTimeout(2000);
 
@@ -168,22 +236,20 @@ async function detectSession(page, expectedUrl, timeoutMs) {
   const bodyText = (await page.locator("body").textContent()) ?? "";
   const normalizedText = bodyText.replace(/\s+/g, " ").trim();
   const title = await page.title().catch(() => "");
-
   const redirectedToSignIn =
     currentUrl.includes("/signin") ||
     currentUrl.includes("/checkcookie") ||
-    currentUrl.includes("/ssb/signin");
+    currentUrl.includes("/ssb/signin") ||
+    currentUrl.includes("/workspace-signin");
 
   const composerVisible = await page
-    .locator('[contenteditable="true"], div[role="textbox"], textarea')
+    .locator('[role="textbox"][aria-label*="Message to"]')
     .first()
     .isVisible()
     .catch(() => false);
 
   const workspaceShellVisible = await page
-    .locator(
-      'a[href*="/client/"], button[aria-label*="Later"], [data-qa="message_input"]',
-    )
+    .locator('[data-qa="message_input"], [data-qa="message_container"]')
     .first()
     .isVisible()
     .catch(() => false);
@@ -196,13 +262,11 @@ async function detectSession(page, expectedUrl, timeoutMs) {
     ) ||
       /unable to load slack/i.test(title));
 
-  const looksAuthenticated =
-    !redirectedToSignIn &&
-    !loadErrorVisible &&
-    (composerVisible || workspaceShellVisible);
-
   return {
-    looksAuthenticated,
+    looksAuthenticated:
+      !redirectedToSignIn &&
+      !loadErrorVisible &&
+      (composerVisible || workspaceShellVisible),
     currentUrl,
     title,
     redirectedToSignIn,
@@ -213,141 +277,52 @@ async function detectSession(page, expectedUrl, timeoutMs) {
   };
 }
 
-function buildPrepareUrl(slackUrl) {
-  if (defaultPrepareUrl) {
-    return defaultPrepareUrl;
-  }
-  const parsedUrl = new URL(slackUrl);
-  const redirectPath = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
-  return `https://app.slack.com/client/signin?redir=${encodeURIComponent(redirectPath)}`;
-}
-
-async function waitForReusableSession(page, targetUrl, timeoutMs) {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const session = await detectSession(
-      page,
-      targetUrl,
-      defaultTimeoutMs,
-    ).catch(() => null);
-    if (session?.looksAuthenticated) {
-      return session;
-    }
-    await page.waitForTimeout(3000);
-  }
-
-  return null;
-}
-
-async function openPreparePage(page, prepareUrl, timeoutMs) {
-  try {
-    await page.goto(prepareUrl, {
-      timeout: timeoutMs,
-      waitUntil: "domcontentloaded",
-    });
-    return;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("page.goto: Timeout")) {
-      throw error;
-    }
-
-    console.log(
-      "[probe] initial Slack sign-in navigation timed out, but the page may still be usable. Keeping the browser open and continuing session polling.",
-    );
-  }
-}
-
-async function ensureProfileDirectory(profileDir, resetProfile) {
-  if (resetProfile && existsSync(profileDir)) {
-    await rm(profileDir, { recursive: true, force: true });
-  }
-  await mkdir(profileDir, { recursive: true });
-}
-
 async function inspectSlackDm(page) {
-  const composerCandidates = [
-    '[data-qa="message_input"]',
-    '[data-qa="message_input"] [contenteditable="true"]',
-    '[role="textbox"]',
-    '[contenteditable="true"]',
-    'div[aria-label*="Message"]',
-    'div[aria-label*="message"]',
-    'div[data-qa="message_input"] div[contenteditable="true"]',
-  ];
-  const messageCandidates = [
-    '[data-qa="virtual-list-item"]',
-    '[data-qa="message_container"]',
-    '[data-qa="message_content"]',
-    '[role="listitem"]',
-  ];
-  const sendButtonCandidates = [
-    'button[aria-label*="Send"]',
-    'button[data-qa="texty_send_button"]',
-    'button[aria-label*="发送"]',
-  ];
+  const selectorGroups = {
+    composer: [
+      '[data-qa="message_input"]',
+      '[data-qa="message_input"] [contenteditable="true"]',
+      '[role="textbox"]',
+      '[contenteditable="true"]',
+      'div[aria-label*="Message"]',
+      'div[data-qa="message_input"] div[contenteditable="true"]',
+    ],
+    messages: [
+      '[data-qa="virtual-list-item"]',
+      '[data-qa="message_container"]',
+      '[data-qa="message_content"]',
+      '[role="listitem"]',
+    ],
+    sendButtons: [
+      'button[aria-label*="Send"]',
+      'button[data-qa="texty_send_button"]',
+      'button[aria-label*="发送"]',
+    ],
+  };
 
-  const composerDiagnostics = [];
-  for (const selector of composerCandidates) {
-    const locator = page.locator(selector);
-    const count = await locator.count().catch(() => 0);
-    const first = locator.first();
-    const visible =
-      count > 0 ? await first.isVisible().catch(() => false) : false;
-    const text =
-      count > 0
-        ? ((await first.textContent().catch(() => "")) ?? "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 120)
-        : "";
-    const ariaLabel =
-      count > 0
-        ? await first.getAttribute("aria-label").catch(() => null)
-        : null;
+  async function collect(selectors) {
+    const results = [];
+    for (const selector of selectors) {
+      const locator = page.locator(selector);
+      const count = await locator.count().catch(() => 0);
+      const first = locator.first();
+      const visible =
+        count > 0 ? await first.isVisible().catch(() => false) : false;
+      const text =
+        count > 0
+          ? ((await first.textContent().catch(() => "")) ?? "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 120)
+          : "";
+      const ariaLabel =
+        count > 0
+          ? await first.getAttribute("aria-label").catch(() => null)
+          : null;
 
-    composerDiagnostics.push({ selector, count, visible, text, ariaLabel });
-  }
-
-  const messageDiagnostics = [];
-  for (const selector of messageCandidates) {
-    const locator = page.locator(selector);
-    const count = await locator.count().catch(() => 0);
-    const first = locator.first();
-    const visible =
-      count > 0 ? await first.isVisible().catch(() => false) : false;
-    const text =
-      count > 0
-        ? ((await first.textContent().catch(() => "")) ?? "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 120)
-        : "";
-
-    messageDiagnostics.push({ selector, count, visible, text });
-  }
-
-  const sendButtonDiagnostics = [];
-  for (const selector of sendButtonCandidates) {
-    const locator = page.locator(selector);
-    const count = await locator.count().catch(() => 0);
-    const first = locator.first();
-    const visible =
-      count > 0 ? await first.isVisible().catch(() => false) : false;
-    const text =
-      count > 0
-        ? ((await first.textContent().catch(() => "")) ?? "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 120)
-        : "";
-    const ariaLabel =
-      count > 0
-        ? await first.getAttribute("aria-label").catch(() => null)
-        : null;
-
-    sendButtonDiagnostics.push({ selector, count, visible, text, ariaLabel });
+      results.push({ selector, count, visible, text, ariaLabel });
+    }
+    return results;
   }
 
   const pageSnapshot = await page.evaluate(() => {
@@ -363,16 +338,11 @@ async function inspectSlackDm(page) {
   });
 
   return {
-    composerDiagnostics,
-    messageDiagnostics,
-    sendButtonDiagnostics,
     pageSnapshot,
+    composerDiagnostics: await collect(selectorGroups.composer),
+    messageDiagnostics: await collect(selectorGroups.messages),
+    sendButtonDiagnostics: await collect(selectorGroups.sendButtons),
   };
-}
-
-function createProbeMessage() {
-  const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return `probe:${nonce}`;
 }
 
 async function getVisibleMessageContainerCount(page) {
@@ -459,7 +429,7 @@ async function waitForReplyAfterOwnMessage(
   );
 
   const afterCount = await messageContainers.count();
-  const lastMessage = messageContainers.nth(afterCount - 1);
+  const lastMessage = messageContainers.nth(Math.max(afterCount - 1, 0));
   const text = ((await lastMessage.textContent().catch(() => "")) ?? "")
     .replace(/\s+/g, " ")
     .trim()
@@ -468,109 +438,22 @@ async function waitForReplyAfterOwnMessage(
   return { afterCount, text };
 }
 
-async function openBrowserTarget(options) {
-  if (options.connectUrl) {
-    const browser = await chromium.connectOverCDP(options.connectUrl);
-    const context = browser.contexts()[0] ?? (await browser.newContext());
-    const existingPages = context.pages();
-    const matchingPage = existingPages.find(
-      (page) =>
-        page.url().startsWith(options.slackUrl) ||
-        page.url().startsWith("https://app.slack.com/client/"),
-    );
-    const page = matchingPage ?? existingPages[0] ?? (await context.newPage());
+async function withConnectedPage(options, fn) {
+  requireSlackUrl(options.slackUrl);
 
-    return {
-      page,
-      close: async () => {},
-    };
-  }
-
-  const context = await chromium.launchPersistentContext(options.profileDir, {
-    channel: browserChannel,
-    headless: options.headless,
-    viewport: { width: 1440, height: 960 },
-  });
-  const page = context.pages()[0] ?? (await context.newPage());
-
-  return {
-    page,
-    close: async () => {
-      await context.close();
-    },
-  };
-}
-
-async function main() {
-  const options = parseArgs(process.argv.slice(2));
-
-  if (options.mode === "help") {
-    printUsage();
-    return;
-  }
-
-  if (!options.slackUrl) {
-    throw new Error("missing required --url <slack-dm-url>");
-  }
-
-  const prepareUrl = options.prepareUrl ?? buildPrepareUrl(options.slackUrl);
-
-  await ensureProfileDirectory(options.profileDir, options.resetProfile);
-
-  console.log(`[probe] mode=${options.mode}`);
-  console.log(`[probe] browserChannel=${browserChannel}`);
-  console.log(`[probe] connectUrl=${options.connectUrl ?? "none"}`);
-  console.log(`[probe] profileDir=${options.profileDir}`);
-  console.log(`[probe] targetUrl=${options.slackUrl}`);
-  console.log(`[probe] prepareUrl=${prepareUrl}`);
-  console.log(`[probe] headless=${formatBoolean(options.headless)}`);
-  console.log(`[probe] resetProfile=${formatBoolean(options.resetProfile)}`);
-
-  const target = await openBrowserTarget(options);
+  const target = await openBrowserTarget(options.connectUrl, options.slackUrl);
 
   try {
-    const { page } = target;
-
-    if (options.mode === "prepare") {
-      if (options.headless) {
-        throw new Error("prepare mode requires a visible browser window");
-      }
-
-      console.log(
-        "[probe] opening Slack sign-in. Complete login in the browser window. The probe will confirm when the session becomes reusable.",
-      );
-      await openPreparePage(page, prepareUrl, options.timeoutMs);
-
-      const preparedSession = await waitForReusableSession(
-        page,
-        options.slackUrl,
-        options.prepareTimeoutMs,
-      );
-
-      if (!preparedSession) {
-        console.log(
-          "[probe] timed out while waiting for a reusable Slack session.",
-        );
-        process.exitCode = 2;
-        return;
-      }
-
-      console.log(`[probe] currentUrl=${preparedSession.currentUrl}`);
-      console.log(
-        "[probe] Slack session is now saved in the persistent profile.",
-      );
-      return;
-    }
-
-    const currentPageAlreadyOnSlack =
-      page.url().startsWith(options.slackUrl) ||
-      page.url().startsWith("https://app.slack.com/client/");
     const session = await detectSession(
-      page,
-      currentPageAlreadyOnSlack ? page.url() : options.slackUrl,
-      options.timeoutMs,
+      target.page,
+      options.slackUrl,
+      options.pageTimeoutMs,
     );
 
+    console.log(`[probe] mode=${options.mode}`);
+    console.log(`[probe] connectUrl=${options.connectUrl}`);
+    console.log(`[probe] profileDir=${options.profileDir}`);
+    console.log(`[probe] targetUrl=${options.slackUrl}`);
     console.log(`[probe] currentUrl=${session.currentUrl}`);
     console.log(`[probe] title=${session.title}`);
     console.log(
@@ -595,70 +478,99 @@ async function main() {
 
     if (!session.looksAuthenticated) {
       console.log(
-        "[probe] login state is not ready. Run `pnpm probe:slack -- prepare`, complete Slack login in the opened browser, and wait for the session-ready message.",
+        "[probe] Slack is not ready in Chrome Canary. Run `pnpm probe:slack prepare`, log into Slack in Canary if needed, then rerun.",
       );
       console.log("[probe] result=not-ready");
       process.exitCode = 2;
       return;
     }
 
-    if (options.mode === "session") {
-      console.log("[probe] saved Slack browser session looks reusable.");
-      return;
-    }
-
-    if (options.mode === "inspect") {
-      const diagnostics = await inspectSlackDm(page);
-      console.log(
-        `[probe] pageSnapshot=${JSON.stringify(diagnostics.pageSnapshot)}`,
-      );
-      console.log(
-        `[probe] composerDiagnostics=${JSON.stringify(diagnostics.composerDiagnostics)}`,
-      );
-      console.log(
-        `[probe] messageDiagnostics=${JSON.stringify(diagnostics.messageDiagnostics)}`,
-      );
-      console.log(
-        `[probe] sendButtonDiagnostics=${JSON.stringify(diagnostics.sendButtonDiagnostics)}`,
-      );
-      return;
-    }
-
-    if (options.mode === "send") {
-      const message = options.message ?? createProbeMessage();
-      const beforeCount = await getVisibleMessageContainerCount(page);
-
-      console.log(`[probe] sendMessage=${message}`);
-      console.log(`[probe] messageCountBefore=${beforeCount}`);
-
-      await sendProbeMessage(page, message);
-      const ownMessageState = await waitForOwnMessage(page, message, 15000);
-      console.log(`[probe] ownMessageCount=${ownMessageState.count}`);
-      console.log(`[probe] ownLastMessage=${ownMessageState.lastMessageText}`);
-
-      const reply = await waitForReplyAfterOwnMessage(
-        page,
-        ownMessageState.count,
-        ownMessageState.lastMessageText,
-        message,
-        options.replyTimeoutMs,
-      );
-      console.log(`[probe] messageCountAfter=${reply.afterCount}`);
-      console.log(`[probe] latestMessage=${reply.text}`);
-      console.log("[probe] result=pass");
-      console.log(
-        "[probe] observed a new Slack reply after sending the probe.",
-      );
-      return;
-    }
-
-    console.log(
-      "[probe] Slack session looks reusable. The browser will stay open until you close it.",
-    );
-    await page.bringToFront();
-    await page.waitForTimeout(Number.POSITIVE_INFINITY);
+    await fn(target.page);
   } finally {
     await target.close();
+  }
+}
+
+async function runProbe(options) {
+  await withConnectedPage(options, async (page) => {
+    const message = options.message ?? createProbeMessage();
+    const beforeCount = await getVisibleMessageContainerCount(page);
+
+    console.log(`[probe] sendMessage=${message}`);
+    console.log(`[probe] messageCountBefore=${beforeCount}`);
+
+    await sendProbeMessage(page, message);
+    const ownMessageState = await waitForOwnMessage(page, message, 15000);
+
+    console.log(`[probe] ownMessageCount=${ownMessageState.count}`);
+    console.log(`[probe] ownLastMessage=${ownMessageState.lastMessageText}`);
+
+    const reply = await waitForReplyAfterOwnMessage(
+      page,
+      ownMessageState.count,
+      ownMessageState.lastMessageText,
+      message,
+      options.replyTimeoutMs,
+    );
+
+    console.log(`[probe] messageCountAfter=${reply.afterCount}`);
+    console.log(`[probe] latestMessage=${reply.text}`);
+    console.log("[probe] result=pass");
+    console.log("[probe] observed a new Slack reply after sending the probe.");
+  });
+}
+
+async function runSessionCheck(options) {
+  await withConnectedPage(options, async () => {
+    console.log("[probe] result=pass");
+    console.log("[probe] Slack page looks ready.");
+  });
+}
+
+async function runInspect(options) {
+  await withConnectedPage(options, async (page) => {
+    const diagnostics = await inspectSlackDm(page);
+    console.log(
+      `[probe] pageSnapshot=${JSON.stringify(diagnostics.pageSnapshot)}`,
+    );
+    console.log(
+      `[probe] composerDiagnostics=${JSON.stringify(diagnostics.composerDiagnostics)}`,
+    );
+    console.log(
+      `[probe] messageDiagnostics=${JSON.stringify(diagnostics.messageDiagnostics)}`,
+    );
+    console.log(
+      `[probe] sendButtonDiagnostics=${JSON.stringify(diagnostics.sendButtonDiagnostics)}`,
+    );
+    console.log("[probe] result=pass");
+  });
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+
+  if (options.mode === "help") {
+    printUsage();
+    return;
+  }
+
+  if (options.mode === "prepare") {
+    await launchProbeBrowser(options);
+    return;
+  }
+
+  if (options.mode === "run") {
+    await runProbe(options);
+    return;
+  }
+
+  if (options.mode === "session") {
+    await runSessionCheck(options);
+    return;
+  }
+
+  if (options.mode === "inspect") {
+    await runInspect(options);
   }
 }
 
@@ -667,7 +579,7 @@ main()
     process.exit(process.exitCode ?? 0);
   })
   .catch((error) => {
-    console.error("[probe] failed to launch Slack probe");
+    console.error("[probe] failed");
     if (error instanceof Error) {
       console.error(error.message);
     } else {
