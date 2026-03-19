@@ -47,16 +47,6 @@ function getChatUrl(
   }
 }
 
-function getChannelShortNames(
-  t: (key: string) => string,
-): Record<string, string> {
-  return {
-    feishu: t("home.feishu"),
-    slack: "Slack",
-    discord: "Discord",
-  };
-}
-
 const SLACK_SVG = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" role="img">
     <title>Slack</title>
@@ -95,18 +85,6 @@ const FEISHU_ICON = (
     style={{ objectFit: "contain" }}
   />
 );
-
-function FeishuIconChat({ size = 14 }: { size?: number }) {
-  return (
-    <img
-      src="/feishu-logo.png"
-      width={size}
-      height={size}
-      alt="Feishu"
-      style={{ objectFit: "contain", filter: "brightness(0) invert(1)" }}
-    />
-  );
-}
 
 const ONBOARDING_CHANNELS = [
   {
@@ -162,7 +140,6 @@ export function HomePage() {
   const [videoHover, setVideoHover] = useState(false);
 
   const CHANNEL_OPTIONS = useMemo(() => getChannelOptions(t), [t]);
-  const CHANNEL_SHORT_NAMES = useMemo(() => getChannelShortNames(t), [t]);
 
   const handleConnected = async () => {
     await queryClient.refetchQueries({ queryKey: ["channels"] });
@@ -205,16 +182,6 @@ export function HomePage() {
   const connectedCount = channels.length;
   const hasChannel = connectedCount > 0;
   const connectedTypes = new Set<string>(channels.map((c) => c.channelType));
-  const firstChannel = channels[0];
-  const firstChannelType = firstChannel?.channelType ?? "feishu";
-  const chatShortName =
-    CHANNEL_SHORT_NAMES[firstChannelType] ?? firstChannelType;
-  const chatUrl = getChatUrl(
-    firstChannelType,
-    firstChannel?.appId,
-    firstChannel?.botUserId,
-    firstChannel?.accountId,
-  );
 
   // Video playback effects — reset when channel state changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: hasChannel triggers reset intentionally
@@ -351,11 +318,11 @@ export function HomePage() {
      ══════════════════════════════════════════════════════════════════════ */
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
-        {/* ═══ TOP: Hero — Bot running ═══ */}
-        <div className="flex flex-col items-center text-center">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        {/* ═══ TOP: Compact Hero — Bot + CTA ═══ */}
+        <div className="flex items-center gap-4">
           <div
-            className="relative w-32 h-32 mb-5 cursor-default"
+            className="relative w-28 h-28 shrink-0 cursor-default"
             onMouseEnter={() => setVideoHover(true)}
             onMouseLeave={() => setVideoHover(false)}
           >
@@ -370,47 +337,33 @@ export function HomePage() {
               className="w-full h-full object-contain"
             />
           </div>
-          <h2
-            className="text-[26px] font-normal tracking-tight text-text-primary mb-1.5"
-            style={{ fontFamily: "var(--font-script)" }}
-          >
-            nexu alpha
-          </h2>
-          <div className="flex items-center gap-3 text-[11px] text-text-muted mb-2">
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              {t("home.running")}
-            </span>
-            <InlineModelSelector />
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
-            <span>
-              {sessionsData
-                ? t("home.todayMessages", { count: messagesToday })
-                : "..."}
-            </span>
-            <span className="text-border">&middot;</span>
-            <span>
-              {sessionsData ? formatRelativeTime(lastActiveAt, t) : "..."}
-            </span>
-          </div>
-
-          {/* Primary CTA */}
-          <div className="mt-5">
-            <a
-              href={chatUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium bg-accent text-accent-fg hover:bg-accent-hover transition-colors shadow-sm"
-            >
-              {firstChannelType === "feishu" ? (
-                <FeishuIconChat size={15} />
-              ) : (
-                CHANNEL_OPTIONS.find((c) => c.id === firstChannelType)?.icon
-              )}
-              Chat in {chatShortName}
-              <ArrowUpRight size={13} className="opacity-70" />
-            </a>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5">
+              <h2
+                className="text-[26px] font-normal tracking-tight text-text-primary"
+                style={{ fontFamily: "var(--font-script)" }}
+              >
+                nexu alpha
+              </h2>
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[var(--color-success)]/10 text-[var(--color-success)] text-[10px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+                {t("home.running")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <InlineModelSelector />
+              <div className="flex items-center gap-2 text-[11px] text-text-muted ml-3">
+                <span>
+                  {sessionsData
+                    ? t("home.todayMessages", { count: messagesToday })
+                    : "..."}
+                </span>
+                <span className="text-border">&middot;</span>
+                <span>
+                  {sessionsData ? formatRelativeTime(lastActiveAt, t) : "..."}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
