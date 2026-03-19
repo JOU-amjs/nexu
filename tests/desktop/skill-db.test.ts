@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SkillDb } from "#desktop/main/skillhub/skill-db";
+import { SkillDb } from "#controller/services/skillhub/skill-db";
 
 function makeTempDir(): string {
   const dir = resolve(tmpdir(), `skill-db-test-${Date.now()}`);

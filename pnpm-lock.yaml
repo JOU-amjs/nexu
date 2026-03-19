@@ -124,6 +124,12 @@ importers:
       '@nexu/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+      clawhub:
+        specifier: 0.8.0
+        version: 0.8.0
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -134,6 +140,9 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
       '@types/node':
         specifier: ^22.13.4
         version: 22.19.11
@@ -176,15 +185,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.66.9
         version: 5.90.21(react@19.2.4)
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
-      clawhub:
-        specifier: 0.8.0
-        version: 0.8.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -194,9 +197,6 @@ importers:
       lucide-react:
         specifier: ^0.474.0
         version: 0.474.0(react@19.2.4)
-      npm:
-        specifier: ^11
-        version: 11.12.0
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -225,9 +225,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.0.0
         version: 4.2.1(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
-      '@types/better-sqlite3':
-        specifier: ^7.6.12
-        version: 7.6.13
       '@types/node':
         specifier: ^22.13.4
         version: 22.19.11
@@ -4175,77 +4172,6 @@ packages:
   normalize-url@6.1.0:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
-
-  npm@11.12.0:
-    resolution: {integrity: sha512-xPhOap4ZbJWyd7DAOukP564WFwNSGu/2FeTRFHhiiKthcauxhH/NpkJAQm24xD+cAn8av5tQ00phi98DqtfLsg==}
-    engines: {node: ^20.17.0 || >=22.9.0}
-    hasBin: true
-    bundledDependencies:
-      - '@isaacs/string-locale-compare'
-      - '@npmcli/arborist'
-      - '@npmcli/config'
-      - '@npmcli/fs'
-      - '@npmcli/map-workspaces'
-      - '@npmcli/metavuln-calculator'
-      - '@npmcli/package-json'
-      - '@npmcli/promise-spawn'
-      - '@npmcli/redact'
-      - '@npmcli/run-script'
-      - '@sigstore/tuf'
-      - abbrev
-      - archy
-      - cacache
-      - chalk
-      - ci-info
-      - fastest-levenshtein
-      - fs-minipass
-      - glob
-      - graceful-fs
-      - hosted-git-info
-      - ini
-      - init-package-json
-      - is-cidr
-      - json-parse-even-better-errors
-      - libnpmaccess
-      - libnpmdiff
-      - libnpmexec
-      - libnpmfund
-      - libnpmorg
-      - libnpmpack
-      - libnpmpublish
-      - libnpmsearch
-      - libnpmteam
-      - libnpmversion
-      - make-fetch-happen
-      - minimatch
-      - minipass
-      - minipass-pipeline
-      - ms
-      - node-gyp
-      - nopt
-      - npm-audit-report
-      - npm-install-checks
-      - npm-package-arg
-      - npm-pick-manifest
-      - npm-profile
-      - npm-registry-fetch
-      - npm-user-validate
-      - p-map
-      - pacote
-      - parse-conflict-json
-      - proc-log
-      - qrcode-terminal
-      - read
-      - semver
-      - spdx-expression-parse
-      - ssri
-      - supports-color
-      - tar
-      - text-table
-      - tiny-relative-date
-      - treeverse
-      - validate-npm-package-name
-      - which
 
   nypm@0.5.4:
     resolution: {integrity: sha512-X0SNNrZiGU8/e/zAB7sCTtdxWTMSIO73q+xuKgglm2Yvzwlo8UoC5FNySQFCvl84uPaeADkqHUZUkWy4aH4xOA==}
@@ -9150,8 +9076,6 @@ snapshots:
       abbrev: 3.0.1
 
   normalize-url@6.1.0: {}
-
-  npm@11.12.0: {}
 
   nypm@0.5.4:
     dependencies:

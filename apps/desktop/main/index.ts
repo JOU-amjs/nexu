@@ -10,7 +10,6 @@ import {
   session,
   shell,
 } from "electron";
-import { getOpenclawCuratedSkillsDir } from "../shared/desktop-paths";
 import type { DesktopChromeMode, DesktopSurface } from "../shared/host";
 import { getDesktopRuntimeConfig } from "../shared/runtime-config";
 import { getDesktopSentryBuildMetadata } from "../shared/sentry-build-metadata";
@@ -19,7 +18,6 @@ import { ensureDesktopAuthSession } from "./desktop-bootstrap";
 import { DesktopDiagnosticsReporter } from "./desktop-diagnostics";
 import {
   registerIpcHandlers,
-  setCatalogManager,
   setComponentUpdater,
   setUpdateManager,
 } from "./ipc";
@@ -30,8 +28,6 @@ import {
   rotateDesktopLogSession,
   writeDesktopMainLog,
 } from "./runtime/runtime-logger";
-import { CatalogManager } from "./skillhub/catalog-manager";
-import { SkillDb } from "./skillhub/skill-db";
 import { ComponentUpdater } from "./updater/component-updater";
 import { StartupHealthCheck } from "./updater/rollback";
 import { UpdateManager } from "./updater/update-manager";
@@ -117,7 +113,6 @@ if (sentryDsn) {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let catalogMgr: CatalogManager | null = null;
 let diagnosticsReporter: DesktopDiagnosticsReporter | null = null;
 
 function sendDesktopCommand(
@@ -571,66 +566,6 @@ app.whenReady().then(async () => {
       });
     }
 
-    // Resolve static bundled-skills dir: packaged app has it in resources/,
-    // dev mode has it relative to the repo root.
-    // Resolve static bundled-skills dir: packaged app has it in resources/,
-    // dev mode has it relative to the app root.
-    const staticSkillsDir = app.isPackaged
-      ? resolve(process.resourcesPath ?? "", "static/bundled-skills")
-      : resolve(app.getAppPath(), "static/bundled-skills");
-
-    const skillDbPath = resolve(app.getPath("userData"), "runtime/skills.db");
-    const legacyCuratedDir = getOpenclawCuratedSkillsDir(
-      app.getPath("userData"),
-    );
-    let skillDb: SkillDb | undefined;
-    try {
-      skillDb = new SkillDb(skillDbPath, legacyCuratedDir);
-    } catch (err) {
-      // better-sqlite3 native addon may fail to load in dev mode due to ABI
-      // mismatch between system Node.js and Electron. CatalogManager works
-      // without SkillDb — it just loses cross-restart uninstall persistence.
-      writeDesktopMainLog({
-        source: "skillhub",
-        stream: "stderr",
-        kind: "app",
-        message: `SkillDb init failed (falling back to no-db mode): ${err instanceof Error ? err.message : String(err)}`,
-        logFilePath: getDesktopLogFilePath("desktop-main.log"),
-      });
-    }
-
-    catalogMgr = new CatalogManager(app.getPath("userData"), {
-      staticSkillsDir,
-      skillDb,
-      log: (level, message) => {
-        writeDesktopMainLog({
-          source: "skillhub",
-          stream: level === "error" ? "stderr" : "stdout",
-          kind: "app",
-          message,
-          logFilePath: getDesktopLogFilePath("desktop-main.log"),
-        });
-      },
-    });
-    setCatalogManager(catalogMgr);
-    catalogMgr.start();
-
-    // Install curated skills on first launch (or re-install missing ones on update).
-    // Runs in background — does not block window creation.
-    // Skipped in CI to avoid ClawHub rate-limit failures on shared runners.
-    if (!process.env.CI) {
-      void catalogMgr.installCuratedSkills().catch((err) => {
-        // Best-effort — curated skills are not critical for app startup.
-        writeDesktopMainLog({
-          source: "skillhub",
-          stream: "stderr",
-          kind: "app",
-          message: `curated skill install failed: ${err instanceof Error ? err.message : String(err)}`,
-          logFilePath: getDesktopLogFilePath("desktop-main.log"),
-        });
-      });
-    }
-
     const win = createMainWindow();
 
     if (app.isPackaged) {
@@ -666,7 +601,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  catalogMgr?.dispose();
   void diagnosticsReporter?.flushNow().catch(() => undefined);
   flushRuntimeLoggers();
   void orchestrator.dispose();

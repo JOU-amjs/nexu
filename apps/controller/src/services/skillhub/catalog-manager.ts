@@ -12,22 +12,18 @@ import { createRequire } from "node:module";
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import {
-  getOpenclawCuratedSkillsDir,
-  getOpenclawSkillsDir,
-} from "../../shared/desktop-paths";
+  type CuratedInstallResult,
+  copyStaticSkills,
+  resolveCuratedSkillsToInstall,
+} from "./curated-skills.js";
+import type { SkillDb } from "./skill-db.js";
 import type {
   CatalogMeta,
   InstalledSkill,
   MinimalSkill,
   SkillSource,
   SkillhubCatalogData,
-} from "../../shared/skillhub-types";
-import {
-  type CuratedInstallResult,
-  copyStaticSkills,
-  resolveCuratedSkillsToInstall,
-} from "./curated-skills";
-import type { SkillDb } from "./skill-db";
+} from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,11 +36,6 @@ function resolveClawHubBin(): string {
   };
   const binRel = pkg.bin?.clawhub ?? pkg.bin?.clawdhub ?? "bin/clawdhub.js";
   return resolve(dirname(pkgPath), binRel);
-}
-
-function resolveNpmBin(): string {
-  const pkgPath = nodeRequire.resolve("npm/package.json");
-  return resolve(dirname(pkgPath), "bin/npm-cli.js");
 }
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,127}$/;
@@ -92,12 +83,18 @@ export class CatalogManager {
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    userDataPath: string,
-    opts?: { staticSkillsDir?: string; skillDb?: SkillDb; log?: SkillhubLogFn },
+    cacheDir: string,
+    opts?: {
+      skillsDir?: string;
+      curatedSkillsDir?: string;
+      staticSkillsDir?: string;
+      skillDb?: SkillDb;
+      log?: SkillhubLogFn;
+    },
   ) {
-    this.cacheDir = resolve(userDataPath, "runtime/skillhub-cache");
-    this.skillsDir = getOpenclawSkillsDir(userDataPath);
-    this.curatedSkillsDir = getOpenclawCuratedSkillsDir(userDataPath);
+    this.cacheDir = cacheDir;
+    this.skillsDir = opts?.skillsDir ?? "";
+    this.curatedSkillsDir = opts?.curatedSkillsDir ?? "";
     this.db = opts?.skillDb ?? null;
     this.staticSkillsDir = opts?.staticSkillsDir ?? "";
     this.metaPath = resolve(this.cacheDir, "meta.json");
@@ -381,15 +378,8 @@ export class CatalogManager {
 
     this.log("info", `installing npm deps: ${slug}`);
     try {
-      const npmBin = resolveNpmBin();
-      await execFileAsync(
-        process.execPath,
-        [npmBin, "install", "--production", "--no-audit", "--no-fund"],
-        {
-          cwd: skillDir,
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-        },
-      );
+      const npmArgs = ["install", "--production", "--no-audit", "--no-fund"];
+      await execFileAsync("npm", npmArgs, { cwd: skillDir });
       this.log("info", `npm deps installed: ${slug}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

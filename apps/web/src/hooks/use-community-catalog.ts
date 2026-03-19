@@ -4,48 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getApiV1SkillhubCatalog,
   postApiV1SkillhubInstall,
+  postApiV1SkillhubRefresh,
   postApiV1SkillhubUninstall,
 } from "../../lib/api/sdk.gen";
 
 const CATALOG_QUERY_KEY = ["skillhub", "catalog"] as const;
 const DETAIL_QUERY_KEY = ["skillhub", "detail"] as const;
 
-const isElectron =
-  typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
-
-type NexuHostBridge = {
-  invoke(
-    channel: "skillhub:get-catalog",
-    payload: undefined,
-  ): Promise<SkillhubCatalogData>;
-  invoke(
-    channel: "skillhub:install",
-    payload: { slug: string },
-  ): Promise<{ ok: boolean; error?: string }>;
-  invoke(
-    channel: "skillhub:uninstall",
-    payload: { slug: string },
-  ): Promise<{ ok: boolean; error?: string }>;
-  invoke(
-    channel: "skillhub:refresh-catalog",
-    payload: undefined,
-  ): Promise<{ ok: boolean; skillCount: number }>;
-};
-
-function getHostBridge(): NexuHostBridge | null {
-  if (!isElectron) return null;
-  const host = (window as Window & { nexuHost?: NexuHostBridge }).nexuHost;
-  return host ?? null;
-}
-
 export function useCommunitySkills(opts?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: CATALOG_QUERY_KEY,
     queryFn: async (): Promise<SkillhubCatalogData> => {
-      const host = getHostBridge();
-      if (host) {
-        return host.invoke("skillhub:get-catalog", undefined);
-      }
       const { data, error } = await getApiV1SkillhubCatalog();
       if (error) throw new Error("Catalog fetch failed");
       return data as unknown as SkillhubCatalogData;
@@ -60,16 +29,6 @@ export function useInstallSkill() {
 
   return useMutation({
     mutationFn: async (slug: string) => {
-      const host = getHostBridge();
-      if (host) {
-        const result = await host.invoke("skillhub:install", { slug });
-        if (!result.ok) throw new Error(result.error ?? "Install failed");
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }),
-          queryClient.invalidateQueries({ queryKey: DETAIL_QUERY_KEY }),
-        ]);
-        return result;
-      }
       const { data, error } = await postApiV1SkillhubInstall({
         body: { slug },
       });
@@ -92,16 +51,6 @@ export function useUninstallSkill() {
 
   return useMutation({
     mutationFn: async (slug: string) => {
-      const host = getHostBridge();
-      if (host) {
-        const result = await host.invoke("skillhub:uninstall", { slug });
-        if (!result.ok) throw new Error(result.error ?? "Uninstall failed");
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }),
-          queryClient.invalidateQueries({ queryKey: DETAIL_QUERY_KEY }),
-        ]);
-        return result;
-      }
       const { data, error } = await postApiV1SkillhubUninstall({
         body: { slug },
       });
@@ -124,11 +73,9 @@ export function useRefreshCatalog() {
 
   return useMutation({
     mutationFn: async () => {
-      const host = getHostBridge();
-      if (host) {
-        return host.invoke("skillhub:refresh-catalog", undefined);
-      }
-      return { ok: true, skillCount: 0 };
+      const { data, error } = await postApiV1SkillhubRefresh();
+      if (error) throw new Error("Refresh request failed");
+      return data as { ok: boolean; skillCount: number };
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });

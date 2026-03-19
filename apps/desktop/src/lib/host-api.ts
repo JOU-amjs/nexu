@@ -11,8 +11,6 @@ import type {
   UpdateChannelName,
   UpdateSource,
 } from "@shared/host";
-import type { SkillhubCatalogData } from "@shared/skillhub-types";
-
 function getHostBridge() {
   if (typeof window === "undefined" || !window.nexuHost) {
     throw new Error("Nexu host bridge is unavailable.");
@@ -155,27 +153,4 @@ export async function checkComponentUpdates(): Promise<{
 
 export async function installComponent(id: string): Promise<{ ok: boolean }> {
   return getHostBridge().invoke("component:install", { id });
-}
-
-export async function getSkillhubCatalog(): Promise<SkillhubCatalogData> {
-  return getHostBridge().invoke("skillhub:get-catalog", undefined);
-}
-
-export async function installSkill(
-  slug: string,
-): Promise<{ ok: boolean; error?: string }> {
-  return getHostBridge().invoke("skillhub:install", { slug });
-}
-
-export async function uninstallSkill(
-  slug: string,
-): Promise<{ ok: boolean; error?: string }> {
-  return getHostBridge().invoke("skillhub:uninstall", { slug });
-}
-
-export async function refreshSkillhubCatalog(): Promise<{
-  ok: boolean;
-  skillCount: number;
-}> {
-  return getHostBridge().invoke("skillhub:refresh-catalog", undefined);
 }

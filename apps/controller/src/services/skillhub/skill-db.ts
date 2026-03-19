@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
-import type { SkillSource } from "../../shared/skillhub-types";
+import type { SkillSource } from "./types.js";
 
 export type SkillRecord = {
   readonly slug: string;

@@ -24,7 +24,7 @@ export default defineConfig({
             target: "esnext",
             outDir: "dist-electron/main",
             rollupOptions: {
-              external: ["electron", "better-sqlite3"],
+              external: ["electron"],
             },
           },
         },

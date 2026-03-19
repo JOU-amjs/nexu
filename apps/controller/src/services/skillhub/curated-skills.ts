@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import type { SkillDb } from "./skill-db";
+import type { SkillDb } from "./skill-db.js";
 
 /**
  * Skills to install from ClawHub into `state/bundled-skills/` on first launch.
