@@ -11,7 +11,6 @@
 import crypto, { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import WebSocket from "ws";
 import type { ControllerEnv } from "../app/env.js";
 import { logger } from "../lib/logger.js";
 
@@ -223,30 +222,37 @@ export class OpenClawWsClient {
     }
     logger.info({ url: this.url }, "openclaw_ws_connecting");
 
-    const ws = new WebSocket(this.url, { maxPayload: 25 * 1024 * 1024 });
+    const ws = new WebSocket(this.url);
     this.ws = ws;
 
-    ws.on("open", () => {
-      // Wait for connect.challenge event from gateway
-    });
+    // Native WebSocket: use event handler properties instead of ws .on()
+    ws.onmessage = (event) => {
+      const data = event.data;
+      this.handleMessage(typeof data === "string" ? data : String(data));
+    };
 
-    ws.on("message", (data: string | Buffer) => {
-      this.handleMessage(
-        typeof data === "string" ? data : data.toString("utf8"),
-      );
-    });
-
-    ws.on("close", (code: number, reason: string | Buffer) => {
-      const reasonText =
-        typeof reason === "string" ? reason : reason.toString("utf8");
-      logger.info({ code, reason: reasonText }, "openclaw_ws_closed");
+    let didCleanup = false;
+    const cleanupOnce = () => {
+      if (didCleanup) return;
+      didCleanup = true;
       this.cleanup();
       this.scheduleReconnect();
-    });
+    };
 
-    ws.on("error", (err: Error) => {
-      logger.warn({ error: err.message }, "openclaw_ws_error");
-    });
+    ws.onclose = (event) => {
+      logger.info(
+        { code: event.code, reason: event.reason },
+        "openclaw_ws_closed",
+      );
+      cleanupOnce();
+    };
+
+    ws.onerror = () => {
+      logger.warn({}, "openclaw_ws_error");
+      // Native WebSocket does NOT fire onclose after a connection-refused error
+      // (unlike the `ws` npm package). Force cleanup + reconnect here.
+      cleanupOnce();
+    };
   }
 
   /** Gracefully close the connection. No reconnect after this. */

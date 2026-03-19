@@ -10,9 +10,38 @@ import {
   deleteApiV1ChannelsByChannelId,
   getApiInternalDesktopReady,
   getApiV1Channels,
-  getApiV1ChannelsByChannelIdReadiness,
+  getApiV1ChannelsLiveStatus,
   getApiV1Sessions,
 } from "../../lib/api/sdk.gen";
+
+type ChannelLiveStatus =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "error"
+  | "restarting";
+
+type ChannelLiveStatusEntry = {
+  channelType: string;
+  channelId: string;
+  accountId: string;
+  status: ChannelLiveStatus;
+  ready: boolean;
+  connected: boolean;
+  running: boolean;
+  configured: boolean;
+  lastError: string | null;
+};
+
+type LiveStatusResponse = {
+  gatewayConnected: boolean;
+  channels: ChannelLiveStatusEntry[];
+  agent: {
+    modelId: string | null;
+    modelName: string | null;
+    alive: boolean;
+  };
+};
 
 function formatRelativeTime(
   date: string | null | undefined,
@@ -137,6 +166,44 @@ function getChannelOptions(t: (key: string) => string) {
   ];
 }
 
+function getChannelStatusMeta(
+  status: ChannelLiveStatus | undefined,
+  t: (key: string) => string,
+): { colorClass: string; pulse: boolean; label: string } {
+  switch (status) {
+    case "connected":
+      return {
+        colorClass: "bg-[var(--color-success)]",
+        pulse: false,
+        label: t("home.connected"),
+      };
+    case "connecting":
+      return {
+        colorClass: "bg-[var(--color-warning)]",
+        pulse: true,
+        label: t("home.channelConnecting"),
+      };
+    case "restarting":
+      return {
+        colorClass: "bg-[var(--color-warning)]",
+        pulse: true,
+        label: t("home.channel.restarting"),
+      };
+    case "error":
+      return {
+        colorClass: "bg-[var(--color-danger)]",
+        pulse: false,
+        label: t("home.channel.error"),
+      };
+    default:
+      return {
+        colorClass: "bg-text-muted/40",
+        pulse: false,
+        label: t("home.channel.disconnected"),
+      };
+  }
+}
+
 export function HomePage() {
   const { t } = useTranslation();
   const [modalChannel, setModalChannel] = useState<
@@ -145,6 +212,13 @@ export function HomePage() {
   const queryClient = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoHover, setVideoHover] = useState(false);
+  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const connectingToastIdRef = useRef<string | number | null>(null);
+  const previousLiveStatusesRef = useRef<Record<string, ChannelLiveStatus>>({});
+  // Suppress status-change toasts during startup grace period (first config
+  // push triggers SIGUSR1 → brief disconnect → reconnect cycle).
+  const mountedAtRef = useRef(Date.now());
+  const STARTUP_GRACE_MS = 15_000;
 
   const CHANNEL_OPTIONS = useMemo(() => getChannelOptions(t), [t]);
 
@@ -237,95 +311,11 @@ export function HomePage() {
     }
   }, [runtimeData, t]);
 
-  // Per-channel readiness state
-  const [channelReadiness, setChannelReadiness] = useState<
-    Record<string, "checking" | "ready" | "connecting" | "error">
-  >({});
-
   const handleConnected = async () => {
     await queryClient.refetchQueries({ queryKey: ["channels"] });
+    await queryClient.refetchQueries({ queryKey: ["channels-live-status"] });
     setModalChannel(null);
   };
-
-  // -- Channel readiness polling --
-  const readinessPollingRef = useRef<{
-    channelId: string;
-    timer: ReturnType<typeof setInterval>;
-  } | null>(null);
-
-  const startReadinessPolling = useCallback(
-    (channelId: string, channelType?: string) => {
-      if (readinessPollingRef.current) {
-        clearInterval(readinessPollingRef.current.timer);
-      }
-      // Set initial checking state
-      if (channelType) {
-        setChannelReadiness((prev) => ({ ...prev, [channelType]: "checking" }));
-      }
-      const toastId = toast.loading(t("home.channel.phase.connecting"));
-      let attempts = 0;
-      const timer = setInterval(async () => {
-        attempts++;
-        const elapsedMs = attempts * 2000;
-        try {
-          const { data } = await getApiV1ChannelsByChannelIdReadiness({
-            path: { channelId },
-          });
-          if (data?.ready) {
-            clearInterval(timer);
-            readinessPollingRef.current = null;
-            toast.success(t("home.channel.phase.done"), { id: toastId });
-            if (channelType) {
-              setChannelReadiness((prev) => ({
-                ...prev,
-                [channelType]: "ready",
-              }));
-            }
-            return;
-          }
-          // Time-based progressive toast (backend phases flip too fast)
-          if (elapsedMs <= 3000) {
-            toast.loading(t("home.channel.phase.connecting"), { id: toastId });
-          } else if (elapsedMs <= 8000) {
-            toast.loading(t("home.channel.phase.configuring"), {
-              id: toastId,
-            });
-          } else {
-            toast.loading(t("home.channel.phase.almostReady"), {
-              id: toastId,
-            });
-          }
-          if (channelType) {
-            setChannelReadiness((prev) => ({
-              ...prev,
-              [channelType]: data?.gatewayConnected ? "connecting" : "checking",
-            }));
-          }
-          if (attempts >= 15) {
-            clearInterval(timer);
-            readinessPollingRef.current = null;
-            if (!data?.ready) {
-              toast.warning(t("home.channel.readinessTimeout"), {
-                id: toastId,
-              });
-            }
-          }
-        } catch {
-          // keep trying
-        }
-      }, 2000);
-      readinessPollingRef.current = { channelId, timer };
-    },
-    [t],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (readinessPollingRef.current) {
-        clearInterval(readinessPollingRef.current.timer);
-      }
-    };
-  }, []);
 
   const disconnectChannel = useMutation({
     mutationFn: async (channelId: string) => {
@@ -381,75 +371,101 @@ export function HomePage() {
   const hasChannel = connectedCount > 0;
   const connectedTypes = new Set<string>(channels.map((c) => c.channelType));
 
-  // Poll readiness for existing channels on mount
-  const initialCheckDone = useRef(false);
-  const initialPollTimers = useRef<ReturnType<typeof setInterval>[]>([]);
-  useEffect(() => {
-    if (channelsLoading || channels.length === 0 || initialCheckDone.current)
-      return;
-    initialCheckDone.current = true;
-    for (const ch of channels) {
-      setChannelReadiness((prev) => ({
-        ...prev,
-        [ch.channelType]: "checking",
-      }));
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const { data } = await getApiV1ChannelsByChannelIdReadiness({
-            path: { channelId: ch.id },
-          });
-          if (data?.ready) {
-            clearInterval(poll);
-            setChannelReadiness((prev) => ({
-              ...prev,
-              [ch.channelType]: "ready",
-            }));
-          } else if (attempts >= 1) {
-            setChannelReadiness((prev) => ({
-              ...prev,
-              [ch.channelType]:
-                prev[ch.channelType] === "ready" ? "ready" : "connecting",
-            }));
-          }
-        } catch {
-          /* keep polling */
-        }
-        if (attempts >= 15) clearInterval(poll);
-      }, 2000);
-      // Immediate first check
-      (async () => {
-        try {
-          const { data } = await getApiV1ChannelsByChannelIdReadiness({
-            path: { channelId: ch.id },
-          });
-          if (data?.ready) {
-            clearInterval(poll);
-            setChannelReadiness((prev) => ({
-              ...prev,
-              [ch.channelType]: "ready",
-            }));
-          } else {
-            setChannelReadiness((prev) => ({
-              ...prev,
-              [ch.channelType]: "connecting",
-            }));
-          }
-        } catch {
-          setChannelReadiness((prev) => ({
-            ...prev,
-            [ch.channelType]: "connecting",
-          }));
-        }
-      })();
-      initialPollTimers.current.push(poll);
+  const { data: liveStatus } = useQuery({
+    queryKey: ["channels-live-status"],
+    queryFn: async () => {
+      const { data } = await getApiV1ChannelsLiveStatus();
+      return data as LiveStatusResponse | undefined;
+    },
+    refetchInterval: hasChannel ? 3000 : false,
+    enabled: hasChannel,
+  });
+
+  const liveStatusByChannelType = useMemo(() => {
+    const entries = liveStatus?.channels ?? [];
+    return new Map(entries.map((entry) => [entry.channelType, entry]));
+  }, [liveStatus]);
+
+  const liveStatusByChannelId = useMemo(() => {
+    const entries = liveStatus?.channels ?? [];
+    return new Map(entries.map((entry) => [entry.channelId, entry]));
+  }, [liveStatus]);
+
+  const agentIndicator = useMemo(() => {
+    if (!hasChannel || !liveStatus?.agent) {
+      return null;
     }
-    return () => {
-      for (const t of initialPollTimers.current) clearInterval(t);
-      initialPollTimers.current = [];
-    };
-  }, [channelsLoading, channels]);
+    return liveStatus.agent.alive
+      ? {
+          colorClass: "bg-[var(--color-success)]",
+          pulse: false,
+          label: t("home.agent.alive"),
+        }
+      : {
+          colorClass: "bg-[var(--color-warning)]",
+          pulse: true,
+          label: t("home.agent.starting"),
+        };
+  }, [hasChannel, liveStatus, t]);
+
+  const handleChannelCreated = useCallback(
+    (channelId: string) => {
+      setPendingChannelId(channelId);
+      connectingToastIdRef.current = toast.loading(
+        t("home.channel.phase.connecting"),
+      );
+      void queryClient.refetchQueries({ queryKey: ["channels-live-status"] });
+    },
+    [queryClient, t],
+  );
+
+  useEffect(() => {
+    const toastId = connectingToastIdRef.current;
+    if (!toastId || !pendingChannelId) {
+      return;
+    }
+    const pending = liveStatusByChannelId.get(pendingChannelId);
+    if (!pending) {
+      toast.loading(t("home.channel.phase.configuring"), { id: toastId });
+      return;
+    }
+    if (pending.status === "connected") {
+      toast.success(t("home.channel.phase.done"), { id: toastId });
+      connectingToastIdRef.current = null;
+      setPendingChannelId(null);
+      return;
+    }
+    if (pending.status === "error") {
+      toast.error(pending.lastError ?? t("home.channel.error"), {
+        id: toastId,
+      });
+      connectingToastIdRef.current = null;
+      setPendingChannelId(null);
+      return;
+    }
+    if (pending.status === "restarting") {
+      toast.loading(t("home.channel.phase.configuring"), { id: toastId });
+      return;
+    }
+    toast.loading(t("home.channel.phase.almostReady"), { id: toastId });
+  }, [liveStatusByChannelId, pendingChannelId, t]);
+
+  useEffect(() => {
+    const previous = previousLiveStatusesRef.current;
+    const inGracePeriod = Date.now() - mountedAtRef.current < STARTUP_GRACE_MS;
+    for (const entry of liveStatus?.channels ?? []) {
+      const last = previous[entry.channelId];
+      // Skip channels being tracked by the pending-channel toast above,
+      // and suppress during the startup grace period where the initial
+      // config push causes a brief disconnect → reconnect cycle.
+      if (entry.channelId !== pendingChannelId && !inGracePeriod) {
+        if (last && last !== "connected" && entry.status === "connected") {
+          toast.success(t("home.channel.phase.done"));
+        }
+      }
+      previous[entry.channelId] = entry.status;
+    }
+  }, [liveStatus, pendingChannelId, t]);
 
   // Video playback effects — reset when channel state changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: hasChannel triggers reset intentionally
@@ -584,9 +600,7 @@ export function HomePage() {
             channelType={modalChannel}
             onClose={() => setModalChannel(null)}
             onConnected={handleConnected}
-            onStartReadinessPolling={(channelId) =>
-              startReadinessPolling(channelId, modalChannel)
-            }
+            onConnectedChannelCreated={handleChannelCreated}
           />
         )}
       </div>
@@ -641,6 +655,17 @@ export function HomePage() {
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <InlineModelSelector />
+              {agentIndicator && (
+                <span
+                  className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  title={agentIndicator.label}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${agentIndicator.colorClass} ${agentIndicator.pulse ? "animate-pulse" : ""}`}
+                  />
+                  {agentIndicator.label}
+                </span>
+              )}
               <div className="flex items-center gap-2 text-[11px] text-text-muted ml-3">
                 <span>
                   {sessionsData
@@ -673,6 +698,13 @@ export function HomePage() {
                     const connectedChannel = channels.find(
                       (c) => c.channelType === ch.id,
                     );
+                    const statusEntry = connectedChannel
+                      ? liveStatusByChannelId.get(connectedChannel.id)
+                      : liveStatusByChannelType.get(ch.id);
+                    const statusMeta = getChannelStatusMeta(
+                      statusEntry?.status,
+                      t,
+                    );
                     const channelChatUrl = connectedChannel
                       ? getChatUrl(
                           ch.id,
@@ -702,15 +734,8 @@ export function HomePage() {
                             {ch.name}
                           </span>
                           <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                              channelReadiness[ch.id] === "ready"
-                                ? "bg-[var(--color-success)]"
-                                : channelReadiness[ch.id] === "connecting"
-                                  ? "bg-[var(--color-warning)] animate-pulse"
-                                  : channelReadiness[ch.id] === "checking"
-                                    ? "bg-text-muted/30 animate-pulse"
-                                    : "bg-[var(--color-success)]"
-                            }`}
+                            title={statusEntry?.lastError ?? statusMeta.label}
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.colorClass} ${statusMeta.pulse ? "animate-pulse" : ""}`}
                           />
                         </div>
                         <button
@@ -724,11 +749,7 @@ export function HomePage() {
                           disabled={disconnectChannel.isPending}
                           className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary hover:text-[var(--color-danger)] hover:bg-surface-3 transition-colors shrink-0 disabled:opacity-50"
                         >
-                          {channelReadiness[ch.id] === "checking"
-                            ? t("home.checking")
-                            : channelReadiness[ch.id] === "connecting"
-                              ? t("home.channelConnecting")
-                              : t("home.connected")}
+                          {statusMeta.label}
                         </button>
                         <a
                           href={channelChatUrl}
@@ -785,9 +806,7 @@ export function HomePage() {
           channelType={modalChannel}
           onClose={() => setModalChannel(null)}
           onConnected={handleConnected}
-          onStartReadinessPolling={(channelId) =>
-            startReadinessPolling(channelId, modalChannel)
-          }
+          onConnectedChannelCreated={handleChannelCreated}
         />
       )}
     </div>

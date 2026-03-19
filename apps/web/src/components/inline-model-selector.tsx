@@ -113,6 +113,9 @@ export function InlineModelSelector() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["desktop-default-model"] });
+      // Config push triggers SIGUSR1 restart; immediately refetch live status
+      // so the UI reflects the restart sooner.
+      queryClient.invalidateQueries({ queryKey: ["channels-live-status"] });
     },
   });
 

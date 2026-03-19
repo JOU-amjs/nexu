@@ -4,7 +4,15 @@ import type {
   verifyProviderResponseSchema,
 } from "@nexu/shared";
 import type { z } from "zod";
+import { logger } from "../lib/logger.js";
 import type { NexuConfigStore } from "../store/nexu-config-store.js";
+
+export interface ModelAutoSelectResult {
+  changed: boolean;
+  previousModelId: string;
+  newModelId: string | null;
+  newModelName: string | null;
+}
 
 const PROVIDER_BASE_URLS: Record<string, string> = {
   anthropic: "https://api.anthropic.com/v1",
@@ -78,6 +86,51 @@ export class ModelProviderService {
 
   async deleteProvider(providerId: string) {
     return this.configStore.deleteProvider(providerId);
+  }
+
+  /**
+   * Validate that the current defaultModelId exists in the available model
+   * list. If not, auto-select the first available model and persist the
+   * change. Returns whether a switch happened and details for UI toast.
+   */
+  async ensureValidDefaultModel(): Promise<ModelAutoSelectResult> {
+    const { models } = await this.listModels();
+    const config = await this.configStore.getConfig();
+    const currentId = config.runtime.defaultModelId;
+
+    if (models.some((m) => m.id === currentId)) {
+      return {
+        changed: false,
+        previousModelId: currentId,
+        newModelId: null,
+        newModelName: null,
+      };
+    }
+
+    if (models.length === 0) {
+      return {
+        changed: false,
+        previousModelId: currentId,
+        newModelId: null,
+        newModelName: null,
+      };
+    }
+
+    // biome-ignore lint/style/noNonNullAssertion: length checked above
+    const selected = models[0]!;
+    await this.configStore.setDefaultModel(selected.id);
+
+    logger.info(
+      { previous: currentId, selected: selected.id },
+      "default_model_auto_switched",
+    );
+
+    return {
+      changed: true,
+      previousModelId: currentId,
+      newModelId: selected.id,
+      newModelName: selected.name,
+    };
   }
 
   async verifyProvider(

@@ -81,6 +81,13 @@ export function createContainer(): ControllerContainer {
     gatewayService,
   );
   const skillhubService = new SkillhubService(env);
+  const modelProviderService = new ModelProviderService(configStore);
+
+  // Wire cloud state change callback for auto-model-selection + sync
+  configStore.onCloudStateChanged = async () => {
+    await modelProviderService.ensureValidDefaultModel();
+    await openclawSyncService.syncAll();
+  };
 
   return {
     env,
@@ -95,7 +102,7 @@ export function createContainer(): ControllerContainer {
       configStore,
       openclawSyncService,
     ),
-    modelProviderService: new ModelProviderService(configStore),
+    modelProviderService,
     integrationService: new IntegrationService(configStore),
     localUserService: new LocalUserService(configStore),
     desktopLocalService: new DesktopLocalService(configStore),

@@ -905,8 +905,10 @@ export function ModelsPage() {
   const currentModelId = defaultModelData?.modelId ?? "";
   const models = modelsData?.models ?? [];
 
+  const userSwitchRef = useRef(false);
   const updateModel = useMutation({
     mutationFn: async (modelId: string) => {
+      userSwitchRef.current = true;
       const toastId = toast.loading(t("models.switchingModel"));
       const { error } = await putApiInternalDesktopDefaultModel({
         body: { modelId },
@@ -922,20 +924,26 @@ export function ModelsPage() {
     },
   });
 
-  // Auto-select first model if none is selected and models are available
-  const autoSelectDone = useRef(false);
+  // Detect backend auto-switch (ensureValidDefaultModel) and toast
+  const prevModelIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (
-      !autoSelectDone.current &&
-      defaultModelData !== undefined &&
-      !currentModelId &&
-      models.length > 0
-    ) {
-      autoSelectDone.current = true;
-      const firstModel = models[0];
-      if (firstModel) updateModel.mutate(firstModel.id);
+    const newId = defaultModelData?.modelId;
+    if (newId === undefined) return;
+    const prev = prevModelIdRef.current;
+    prevModelIdRef.current = newId ?? undefined;
+    if (prev === undefined) return; // skip initial load
+
+    if (newId && newId !== prev && !userSwitchRef.current) {
+      const matched = models.find((m) => m.id === newId);
+      const providerName =
+        PROVIDER_META[matched?.provider ?? ""]?.name ?? matched?.provider;
+      const label = providerName
+        ? `${matched?.name ?? newId} (${providerName})`
+        : (matched?.name ?? newId);
+      toast.info(t("models.autoSwitched", { model: label }));
     }
-  }, [defaultModelData, currentModelId, models, updateModel]);
+    userSwitchRef.current = false;
+  }, [defaultModelData?.modelId, models, t]);
 
   const providers = useMemo(() => buildProviders(models), [models]);
 
@@ -1266,14 +1274,14 @@ function ManagedProviderDetail({
         if (data?.connected) {
           setLoginBusy(false);
           setCloudConnected(true);
-          // Refresh provider/model data now that cloud is connected
+          // Refresh provider/model data now that cloud is connected.
+          // Backend onCloudStateChanged callback already ran
+          // ensureValidDefaultModel + syncAll at this point.
           queryClient.invalidateQueries({ queryKey: ["link-catalog"] });
           queryClient.invalidateQueries({ queryKey: ["models"] });
-          // Auto-select first model if none set
-          const firstModel = provider.models[0];
-          if (firstModel) {
-            onAutoSelectModel(firstModel.id);
-          }
+          queryClient.invalidateQueries({
+            queryKey: ["desktop-default-model"],
+          });
         }
       } catch {
         /* ignore */
@@ -1376,6 +1384,10 @@ function ManagedProviderDetail({
                 onClick={async () => {
                   await postApiInternalDesktopCloudDisconnect().catch(() => {});
                   setCloudConnected(false);
+                  queryClient.invalidateQueries({ queryKey: ["models"] });
+                  queryClient.invalidateQueries({
+                    queryKey: ["desktop-default-model"],
+                  });
                 }}
                 className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium text-red-500/70 hover:text-red-500 hover:bg-red-500/5 transition-colors cursor-pointer"
               >

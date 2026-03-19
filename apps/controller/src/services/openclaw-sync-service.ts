@@ -24,6 +24,13 @@ export class OpenClawSyncService {
     private readonly gatewayService: OpenClawGatewayService,
   ) {}
 
+  async compileCurrentConfig(): Promise<
+    ReturnType<typeof compileOpenClawConfig>
+  > {
+    const config = await this.configStore.getConfig();
+    return compileOpenClawConfig(config, this.env);
+  }
+
   async syncAll(): Promise<{ configPushed: boolean }> {
     const config = await this.configStore.getConfig();
     const compiled = compileOpenClawConfig(config, this.env);

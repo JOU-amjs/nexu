@@ -25,6 +25,7 @@ export interface ChannelAccountSnapshot {
   running?: boolean;
   configured?: boolean;
   enabled?: boolean;
+  restartPending?: boolean;
   lastError?: string | null;
   probe?: { ok?: boolean };
 }
@@ -45,6 +46,31 @@ export interface ChannelReadiness {
   gatewayConnected: boolean;
 }
 
+export type ChannelLiveStatus =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "error"
+  | "restarting";
+
+export interface ChannelLiveStatusEntry {
+  channelType: string;
+  channelId: string;
+  accountId: string;
+  status: ChannelLiveStatus;
+  ready: boolean;
+  connected: boolean;
+  running: boolean;
+  configured: boolean;
+  lastError: string | null;
+}
+
+interface LiveStatusChannelInput {
+  id: string;
+  channelType: string;
+  accountId: string;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -58,6 +84,15 @@ export class OpenClawGatewayService {
   /** Whether the WS client has completed handshake and is ready for RPC. */
   isConnected(): boolean {
     return this.wsClient.isConnected();
+  }
+
+  /**
+   * Pre-seed the config hash so the next pushConfig() call skips if
+   * the config hasn't changed. Used during bootstrap to avoid a
+   * redundant config.apply → SIGUSR1 cycle on first WS connect.
+   */
+  preSeedConfigHash(config: OpenClawConfig): void {
+    this.lastPushedConfigHash = this.configHash(config);
   }
 
   /**
@@ -102,10 +137,129 @@ export class OpenClawGatewayService {
    * When probe=true, real-time probes are triggered (e.g. Feishu bot-info validation).
    */
   async getChannelsStatus(): Promise<ChannelsStatusResult> {
+    return this.getChannelsStatusSnapshot({ probe: true, timeoutMs: 8000 });
+  }
+
+  async getChannelsStatusSnapshot(opts?: {
+    probe?: boolean;
+    timeoutMs?: number;
+  }): Promise<ChannelsStatusResult> {
     return this.wsClient.request<ChannelsStatusResult>("channels.status", {
-      probe: true,
-      timeoutMs: 8000,
+      probe: opts?.probe ?? true,
+      timeoutMs: opts?.timeoutMs ?? 8000,
     });
+  }
+
+  async getAllChannelsLiveStatus(channels: LiveStatusChannelInput[]): Promise<{
+    gatewayConnected: boolean;
+    channels: ChannelLiveStatusEntry[];
+  }> {
+    if (!this.wsClient.isConnected()) {
+      return {
+        gatewayConnected: false,
+        channels: channels.map((channel) => ({
+          channelType: channel.channelType,
+          channelId: channel.id,
+          accountId: channel.accountId,
+          status: "disconnected",
+          ready: false,
+          connected: false,
+          running: false,
+          configured: false,
+          lastError: null,
+        })),
+      };
+    }
+
+    try {
+      const status = await this.getChannelsStatusSnapshot({
+        probe: false,
+        timeoutMs: 1000,
+      });
+
+      return {
+        gatewayConnected: true,
+        channels: channels.map((channel) => {
+          const accounts = status.channelAccounts?.[channel.channelType] ?? [];
+          const snapshot = accounts.find(
+            (entry) => entry.accountId === channel.accountId,
+          );
+
+          if (!snapshot) {
+            return {
+              channelType: channel.channelType,
+              channelId: channel.id,
+              accountId: channel.accountId,
+              status: "restarting" satisfies ChannelLiveStatus,
+              ready: false,
+              connected: false,
+              running: false,
+              configured: false,
+              lastError: null,
+            };
+          }
+
+          const connected = snapshot.connected === true;
+          const running = snapshot.running === true;
+          const configured = snapshot.configured === true;
+          const hasProbeOk = snapshot.probe?.ok === true;
+          const ready = connected || (running && configured && hasProbeOk);
+          const lastError = snapshot.lastError?.trim()
+            ? snapshot.lastError
+            : null;
+
+          // For channels like Feishu where `connected` is always false
+          // (they use long-polling/WS to Feishu servers, not a direct
+          // inbound connection), running + configured + no error means
+          // the channel is operational.
+          const operationalWithoutProbe = running && configured && !lastError;
+
+          let derivedStatus: ChannelLiveStatus;
+          if (lastError) {
+            derivedStatus = "error";
+          } else if (snapshot.restartPending === true) {
+            derivedStatus = "restarting";
+          } else if (ready || operationalWithoutProbe) {
+            derivedStatus = "connected";
+          } else if (running) {
+            derivedStatus = "connecting";
+          } else {
+            derivedStatus = "disconnected";
+          }
+
+          return {
+            channelType: channel.channelType,
+            channelId: channel.id,
+            accountId: channel.accountId,
+            status: derivedStatus,
+            ready,
+            connected,
+            running,
+            configured,
+            lastError,
+          };
+        }),
+      };
+    } catch (err) {
+      logger.warn(
+        { error: err instanceof Error ? err.message : String(err) },
+        "openclaw_channels_live_status_error",
+      );
+      return {
+        gatewayConnected: false,
+        channels: channels.map((channel) => ({
+          channelType: channel.channelType,
+          channelId: channel.id,
+          accountId: channel.accountId,
+          status: "disconnected",
+          ready: false,
+          connected: false,
+          running: false,
+          configured: false,
+          lastError: null,
+        })),
+      };
+    }
   }
 
   /**

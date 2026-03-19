@@ -15,7 +15,7 @@ interface ChannelConnectModalProps {
   channelType: ChannelType;
   onClose: () => void;
   onConnected: () => void | Promise<void>;
-  onStartReadinessPolling?: (channelId: string) => void;
+  onConnectedChannelCreated?: (channelId: string) => void;
 }
 
 const SlackIcon = () => (
@@ -134,7 +134,7 @@ export function ChannelConnectModal({
   channelType,
   onClose,
   onConnected,
-  onStartReadinessPolling,
+  onConnectedChannelCreated,
 }: ChannelConnectModalProps) {
   const { t } = useTranslation();
   const CHANNEL_CONFIGS = useMemo(() => getChannelConfigs(t), [t]);
@@ -215,10 +215,9 @@ export function ChannelConnectModal({
       await Promise.resolve(onConnected()).catch(() => {});
       onClose();
 
-      // Start polling for channel readiness after modal closes
       const channelId = data?.id;
       if (channelId) {
-        onStartReadinessPolling?.(channelId);
+        onConnectedChannelCreated?.(channelId);
       }
     } catch {
       toast.error(t("modal.connectRetryFailed"));
