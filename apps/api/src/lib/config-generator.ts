@@ -444,8 +444,8 @@ export async function generatePoolConfig(
     ...new Set(activeBots.map((b) => b.modelId).filter(Boolean) as string[]),
   ];
   const defaultModelId = resolveModelId(
-    activeBots[0]?.modelId ??
-      loadDesktopSelectedModel() ??
+    loadDesktopSelectedModel() ??
+      activeBots[0]?.modelId ??
       process.env.DEFAULT_MODEL_ID ??
       "claude-sonnet-4-5",
   );

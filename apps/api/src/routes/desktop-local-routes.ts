@@ -10,7 +10,7 @@ import {
   cloudModelsResponseSchema,
   cloudStatusResponseSchema,
 } from "@nexu/shared";
-import { eq } from "drizzle-orm";
+
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { bots, gatewayPools } from "../db/schema/index.js";
@@ -183,7 +183,7 @@ async function pollCloudForAuthorization(
           const [pool] = await db
             .select({ id: gatewayPools.id })
             .from(gatewayPools)
-            .where(eq(gatewayPools.poolName, "default"));
+            .limit(1);
           if (pool) {
             await publishPoolConfigSnapshot(db, pool.id);
           }
@@ -518,7 +518,7 @@ export function registerDesktopLocalRoutes(app: OpenAPIHono<AppBindings>) {
       const [pool] = await db
         .select({ id: gatewayPools.id })
         .from(gatewayPools)
-        .where(eq(gatewayPools.poolName, "default"));
+        .limit(1);
       if (pool) {
         const snapshot = await publishPoolConfigSnapshot(db, pool.id);
         configPushed = snapshot.configPushed ?? false;
@@ -567,7 +567,7 @@ export function registerDesktopLocalRoutes(app: OpenAPIHono<AppBindings>) {
       const [pool] = await db
         .select({ id: gatewayPools.id })
         .from(gatewayPools)
-        .where(eq(gatewayPools.poolName, "default"));
+        .limit(1);
       if (pool) {
         await publishPoolConfigSnapshot(db, pool.id);
       }
@@ -598,7 +598,7 @@ export function registerDesktopLocalRoutes(app: OpenAPIHono<AppBindings>) {
       const [pool] = await db
         .select({ id: gatewayPools.id })
         .from(gatewayPools)
-        .where(eq(gatewayPools.poolName, "default"));
+        .limit(1);
       if (pool) {
         await publishPoolConfigSnapshot(db, pool.id);
       }
@@ -650,7 +650,7 @@ export async function refreshCloudModelsOnStartup(): Promise<void> {
     const [pool] = await db
       .select({ id: gatewayPools.id })
       .from(gatewayPools)
-      .where(eq(gatewayPools.poolName, "default"));
+      .limit(1);
     if (pool) {
       await publishPoolConfigSnapshot(db, pool.id);
     }

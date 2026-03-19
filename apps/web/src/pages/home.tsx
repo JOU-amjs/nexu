@@ -277,7 +277,7 @@ export function HomePage() {
   } | null>(null);
 
   const startReadinessPolling = useCallback(
-    (channelId: string) => {
+    (channelId: string, channelType?: string) => {
       if (readinessPollingRef.current) {
         clearInterval(readinessPollingRef.current.timer);
       }
@@ -298,6 +298,12 @@ export function HomePage() {
             clearInterval(timer);
             readinessPollingRef.current = null;
             toast.success(t("home.channel.ready"), { id: toastId });
+            if (channelType) {
+              setChannelReadiness((prev) => ({
+                ...prev,
+                [channelType]: "ready",
+              }));
+            }
             return;
           } else if (data?.configured) {
             toast.loading(t("home.channel.connecting"), { id: toastId });
@@ -436,11 +442,6 @@ export function HomePage() {
         }
         if (attempts >= 15) {
           clearInterval(poll);
-          setChannelReadiness((prev) => ({
-            ...prev,
-            [ch.channelType]:
-              prev[ch.channelType] === "ready" ? "ready" : "ready",
-          }));
         }
       }, 2000);
 
@@ -783,7 +784,9 @@ export function HomePage() {
           channelType={modalChannel}
           onClose={() => setModalChannel(null)}
           onConnected={handleConnected}
-          onStartReadinessPolling={startReadinessPolling}
+          onStartReadinessPolling={(channelId) =>
+            startReadinessPolling(channelId, modalChannel)
+          }
         />
       )}
     </div>
