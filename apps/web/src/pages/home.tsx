@@ -62,6 +62,14 @@ const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   google: "Google AI",
+  siliconflow: "SiliconFlow",
+  ppio: "PPIO",
+  openrouter: "OpenRouter",
+  minimax: "MiniMax",
+  kimi: "Kimi",
+  glm: "GLM",
+  moonshot: "Kimi",
+  zai: "GLM",
 };
 
 function getChatUrl(
