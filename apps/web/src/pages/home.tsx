@@ -5,7 +5,11 @@ import { ArrowRight, ArrowUpRight, Cable } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import "@/lib/api";
-import { getApiV1Channels, getApiV1Sessions } from "../../lib/api/sdk.gen";
+import {
+  deleteApiV1ChannelsByChannelId,
+  getApiV1Channels,
+  getApiV1Sessions,
+} from "../../lib/api/sdk.gen";
 
 function formatRelativeTime(
   date: string | null | undefined,
@@ -144,6 +148,11 @@ export function HomePage() {
   const handleConnected = async () => {
     await queryClient.refetchQueries({ queryKey: ["channels"] });
     setModalChannel(null);
+  };
+
+  const handleDisconnectChannel = async (channelId: string) => {
+    await deleteApiV1ChannelsByChannelId({ path: { channelId } });
+    await queryClient.refetchQueries({ queryKey: ["channels"] });
   };
 
   const { data: channelsData, isLoading: channelsLoading } = useQuery({
@@ -423,8 +432,11 @@ export function HomePage() {
                         </div>
                         <button
                           type="button"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDisconnectChannel(channel.id);
+                          }}
+                          className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary hover:text-[var(--color-danger)] hover:bg-surface-3 transition-colors shrink-0"
                         >
                           Connected
                         </button>
