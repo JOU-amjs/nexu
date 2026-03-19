@@ -25,10 +25,9 @@ import type {
 import {
   type CuratedInstallResult,
   copyStaticSkills,
-  recordCuratedInstallation,
-  recordCuratedRemoval,
   resolveCuratedSkillsToInstall,
 } from "./curated-skills";
+import type { SkillDb } from "./skill-db";
 
 const execFileAsync = promisify(execFile);
 
@@ -84,7 +83,7 @@ export class CatalogManager {
   private readonly cacheDir: string;
   private readonly skillsDir: string;
   private readonly curatedSkillsDir: string;
-  private readonly curatedStatePath: string;
+  private readonly db: SkillDb | null;
   private readonly staticSkillsDir: string;
   private readonly metaPath: string;
   private readonly catalogPath: string;
@@ -94,15 +93,12 @@ export class CatalogManager {
 
   constructor(
     userDataPath: string,
-    opts?: { staticSkillsDir?: string; log?: SkillhubLogFn },
+    opts?: { staticSkillsDir?: string; skillDb?: SkillDb; log?: SkillhubLogFn },
   ) {
     this.cacheDir = resolve(userDataPath, "runtime/skillhub-cache");
     this.skillsDir = getOpenclawSkillsDir(userDataPath);
     this.curatedSkillsDir = getOpenclawCuratedSkillsDir(userDataPath);
-    this.curatedStatePath = resolve(
-      this.curatedSkillsDir,
-      ".curated-state.json",
-    );
+    this.db = opts?.skillDb ?? null;
     this.staticSkillsDir = opts?.staticSkillsDir ?? "";
     this.metaPath = resolve(this.cacheDir, "meta.json");
     this.catalogPath = resolve(this.cacheDir, "catalog.json");
@@ -112,6 +108,11 @@ export class CatalogManager {
   }
 
   start(): void {
+    if (process.env.CI) {
+      this.log("info", "skillhub catalog sync skipped in CI");
+      return;
+    }
+
     void this.refreshCatalog().catch(() => {
       // Best-effort initial sync — cached catalog used as fallback.
     });
@@ -212,6 +213,7 @@ export class CatalogManager {
         this.log("warn", `install stderr slug=${slug}: ${stderr.trim()}`);
       this.log("info", `install ok slug=${slug}`);
       await this.installSkillDeps(resolve(this.skillsDir, slug), slug);
+      this.db?.recordInstall(slug, "managed");
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -237,13 +239,14 @@ export class CatalogManager {
         rmSync(managedPath, { recursive: true, force: true });
         removed = true;
         this.log("info", `uninstall ok (managed) slug=${slug}`);
+        this.db?.recordUninstall(slug, "managed");
       }
 
       if (curatedPath && existsSync(curatedPath)) {
         rmSync(curatedPath, { recursive: true, force: true });
         removed = true;
         this.log("info", `uninstall ok (curated) slug=${slug}`);
-        recordCuratedRemoval({ slug, statePath: this.curatedStatePath });
+        this.db?.recordUninstall(slug, "curated");
       }
 
       if (!removed) {
@@ -260,21 +263,26 @@ export class CatalogManager {
 
   async installCuratedSkills(): Promise<CuratedInstallResult> {
     // Step 1: Copy static skills (not on ClawHub) from app bundle
-    if (this.staticSkillsDir) {
+    if (this.staticSkillsDir && this.db) {
       const { copied } = copyStaticSkills({
         staticDir: this.staticSkillsDir,
         curatedDir: this.curatedSkillsDir,
-        statePath: this.curatedStatePath,
+        skillDb: this.db,
       });
       if (copied.length > 0) {
+        this.db.recordBulkInstall(copied, "curated");
         this.log("info", `curated static skills copied: ${copied.join(", ")}`);
       }
     }
 
     // Step 2: Install remaining from ClawHub
+    if (!this.db) {
+      this.log("warn", "curated skills: no SkillDb available, skipping");
+      return { installed: [], skipped: [], failed: [] };
+    }
     const { toInstall, toSkip } = resolveCuratedSkillsToInstall({
       curatedDir: this.curatedSkillsDir,
-      statePath: this.curatedStatePath,
+      skillDb: this.db,
     });
 
     if (toInstall.length === 0) {
@@ -350,10 +358,9 @@ export class CatalogManager {
       );
     }
 
-    recordCuratedInstallation({
-      statePath: this.curatedStatePath,
-      installed,
-    });
+    if (installed.length > 0) {
+      this.db?.recordBulkInstall(installed, "curated");
+    }
 
     return { installed, skipped: toSkip, failed };
   }
@@ -363,6 +370,7 @@ export class CatalogManager {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    this.db?.close();
   }
 
   private async installSkillDeps(

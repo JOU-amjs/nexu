@@ -52,10 +52,34 @@ const skillhubDetailResponseSchema = z.object({
 
 const skillhubSlugSchema = z.string().min(1);
 
+/**
+ * SkillHub routes — cloud-ready stubs.
+ *
+ * In desktop mode, the Electron main process owns SkillHub operations via IPC:
+ *   - CatalogManager (apps/desktop/main/skillhub/catalog-manager.ts) syncs the
+ *     Tencent SkillHub catalog, runs `clawhub install/uninstall`, and manages
+ *     curated skill lifecycle.
+ *   - SkillDb (apps/desktop/main/skillhub/skill-db.ts) persists install/uninstall
+ *     intent in SQLite, surviving directory wipes and app restarts.
+ *   - The web layer calls IPC directly (window.nexuHost.invoke("skillhub:*"))
+ *     and never hits these HTTP routes.
+ *
+ * These controller routes exist so the OpenAPI spec stays complete and the
+ * generated web SDK compiles. They return locally-known skill state from the
+ * controller's config store, which is sufficient for non-desktop (cloud)
+ * deployments once a real SkillHub backend is wired in.
+ *
+ * TODO(cloud): Replace stub bodies with real SkillHub API integration —
+ *   catalog fetch from remote registry, clawhub-based install/uninstall,
+ *   and persistent install-state tracking.
+ */
 export function registerSkillhubRoutes(
   app: OpenAPIHono<ControllerBindings>,
   container: ControllerContainer,
 ): void {
+  // GET /api/v1/skillhub/catalog
+  // Desktop: bypassed (IPC → CatalogManager.getCatalog)
+  // Cloud:   returns locally-known skills from controller config store
   app.openapi(
     createRoute({
       method: "get",
@@ -100,6 +124,9 @@ export function registerSkillhubRoutes(
     },
   );
 
+  // POST /api/v1/skillhub/install + /uninstall
+  // Desktop: bypassed (IPC → CatalogManager.installSkill / uninstallSkill)
+  // Cloud:   no-op stubs — TODO(cloud): wire real clawhub install/uninstall
   for (const [pathName, description] of [
     ["/api/v1/skillhub/install", "Install"],
     ["/api/v1/skillhub/uninstall", "Uninstall"],
@@ -134,6 +161,9 @@ export function registerSkillhubRoutes(
     );
   }
 
+  // POST /api/v1/skillhub/refresh
+  // Desktop: bypassed (IPC → CatalogManager.refreshCatalog)
+  // Cloud:   returns current skill count from config store
   app.openapi(
     createRoute({
       method: "post",
@@ -157,6 +187,9 @@ export function registerSkillhubRoutes(
     },
   );
 
+  // GET /api/v1/skillhub/skills/{slug}
+  // Desktop: bypassed (IPC → CatalogManager.getCatalog, detail resolved client-side)
+  // Cloud:   returns skill detail from controller config store
   app.openapi(
     createRoute({
       method: "get",

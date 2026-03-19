@@ -10,6 +10,7 @@ import {
   session,
   shell,
 } from "electron";
+import { getOpenclawCuratedSkillsDir } from "../shared/desktop-paths";
 import type { DesktopChromeMode, DesktopSurface } from "../shared/host";
 import { getDesktopRuntimeConfig } from "../shared/runtime-config";
 import { getDesktopAppRoot } from "../shared/workspace-paths";
@@ -29,6 +30,7 @@ import {
   writeDesktopMainLog,
 } from "./runtime/runtime-logger";
 import { CatalogManager } from "./skillhub/catalog-manager";
+import { SkillDb } from "./skillhub/skill-db";
 import { ComponentUpdater } from "./updater/component-updater";
 import { StartupHealthCheck } from "./updater/rollback";
 import { UpdateManager } from "./updater/update-manager";
@@ -569,8 +571,15 @@ app.whenReady().then(async () => {
       ? resolve(process.resourcesPath ?? "", "static/bundled-skills")
       : resolve(app.getAppPath(), "static/bundled-skills");
 
+    const skillDbPath = resolve(app.getPath("userData"), "runtime/skills.db");
+    const legacyCuratedDir = getOpenclawCuratedSkillsDir(
+      app.getPath("userData"),
+    );
+    const skillDb = new SkillDb(skillDbPath, legacyCuratedDir);
+
     catalogMgr = new CatalogManager(app.getPath("userData"), {
       staticSkillsDir,
+      skillDb,
       log: (level, message) => {
         writeDesktopMainLog({
           source: "skillhub",
@@ -586,16 +595,19 @@ app.whenReady().then(async () => {
 
     // Install curated skills on first launch (or re-install missing ones on update).
     // Runs in background — does not block window creation.
-    void catalogMgr.installCuratedSkills().catch((err) => {
-      // Best-effort — curated skills are not critical for app startup.
-      writeDesktopMainLog({
-        source: "skillhub",
-        stream: "stderr",
-        kind: "app",
-        message: `curated skill install failed: ${err instanceof Error ? err.message : String(err)}`,
-        logFilePath: getDesktopLogFilePath("desktop-main.log"),
+    // Skipped in CI to avoid ClawHub rate-limit failures on shared runners.
+    if (!process.env.CI) {
+      void catalogMgr.installCuratedSkills().catch((err) => {
+        // Best-effort — curated skills are not critical for app startup.
+        writeDesktopMainLog({
+          source: "skillhub",
+          stream: "stderr",
+          kind: "app",
+          message: `curated skill install failed: ${err instanceof Error ? err.message : String(err)}`,
+          logFilePath: getDesktopLogFilePath("desktop-main.log"),
+        });
       });
-    });
+    }
 
     const win = createMainWindow();
 

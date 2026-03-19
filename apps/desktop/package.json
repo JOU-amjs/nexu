@@ -40,6 +40,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.6.0",
+    "better-sqlite3": "^11.0.0",
     "sharp": "0.34.5",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.1"
@@ -47,6 +48,7 @@
   "devDependencies": {
     "@electron/notarize": "^3.1.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.4",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -71,7 +73,20 @@
       "dist-electron/**/*",
       "package.json",
       "!node_modules/openclaw",
-      "!node_modules/openclaw/**/*"
+      "!node_modules/openclaw/**/*",
+      "!node_modules/sharp",
+      "!node_modules/sharp/**/*",
+      "!node_modules/@img",
+      "!node_modules/@img/**/*",
+      "!node_modules/better-sqlite3/build/Release/obj",
+      "!node_modules/better-sqlite3/build/Release/obj/**/*",
+      "!node_modules/better-sqlite3/build/Release/test_extension.node",
+      "!node_modules/better-sqlite3/build/deps",
+      "!node_modules/better-sqlite3/build/deps/**/*",
+      "!node_modules/better-sqlite3/deps",
+      "!node_modules/better-sqlite3/deps/**/*",
+      "!node_modules/better-sqlite3/src",
+      "!node_modules/better-sqlite3/src/**/*"
     ],
     "extraResources": [
       {
