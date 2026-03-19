@@ -160,6 +160,7 @@ const zhCN = {
   "home.connected": "已连接",
   "home.notConnected": "未连接",
   "home.disconnect": "断开连接",
+  "home.disconnecting": "正在断开...",
   "home.disconnected": "已断开连接",
   "home.disconnectFailed": "断开连接失败",
   "home.connect": "连接",

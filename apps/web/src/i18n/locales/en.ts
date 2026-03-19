@@ -163,6 +163,7 @@ const en = {
   "home.connected": "Connected",
   "home.notConnected": "Not connected",
   "home.disconnect": "Disconnect",
+  "home.disconnecting": "Disconnecting...",
   "home.disconnected": "Disconnected",
   "home.disconnectFailed": "Failed to disconnect",
   "home.connect": "Connect",

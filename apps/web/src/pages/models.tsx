@@ -1696,7 +1696,7 @@ function ByokProviderDetail({
                   href={meta.apiDocsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
+                  className="text-[11px] text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]/80 transition-colors flex items-center gap-0.5"
                 >
                   {t("models.byok.getApiKey")}
                   <ExternalLink size={10} />
@@ -1720,7 +1720,7 @@ function ByokProviderDetail({
             {t("models.byok.apiKey")}
           </label>
           {dbProvider?.hasApiKey && !isEditingApiKey ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] px-3 py-2.5">
               <div className="min-w-0">
                 <div className="text-[12px] font-medium text-text-primary">
                   {t("models.byok.apiKeySaved")}

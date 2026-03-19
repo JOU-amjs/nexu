@@ -1,17 +1,16 @@
 import { ChannelConnectModal } from "@/components/channel-connect-modal";
 import { InlineModelSelector } from "@/components/inline-model-selector";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  MessageSquare,
-  Sparkles,
-} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import "@/lib/api";
-import { getApiV1Channels, getApiV1Sessions } from "../../lib/api/sdk.gen";
+import {
+  deleteApiV1ChannelsByChannelId,
+  getApiV1Channels,
+  getApiV1Sessions,
+} from "../../lib/api/sdk.gen";
 
 function formatRelativeTime(
   date: string | null | undefined,
@@ -27,8 +26,6 @@ function formatRelativeTime(
   const days = Math.floor(hours / 24);
   return t("home.daysAgo", { count: days });
 }
-
-const GITHUB_URL = "https://github.com/nexu-io/nexu";
 
 function getChatUrl(
   channelType: string,
@@ -53,16 +50,6 @@ function getChatUrl(
     default:
       return "https://www.feishu.cn/";
   }
-}
-
-function getChannelShortNames(
-  t: (key: string) => string,
-): Record<string, string> {
-  return {
-    feishu: t("home.feishu"),
-    slack: "Slack",
-    discord: "Discord",
-  };
 }
 
 const SLACK_SVG = (
@@ -94,20 +81,6 @@ const DISCORD_SVG = (
   </svg>
 );
 
-const GITHUB_SVG = (
-  <svg
-    width="13"
-    height="13"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="text-text-primary"
-    role="img"
-  >
-    <title>GitHub</title>
-    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-  </svg>
-);
-
 const FEISHU_ICON = (
   <img
     width={16}
@@ -117,18 +90,6 @@ const FEISHU_ICON = (
     style={{ objectFit: "contain" }}
   />
 );
-
-function FeishuIconChat({ size = 14 }: { size?: number }) {
-  return (
-    <img
-      src="/feishu-logo.png"
-      width={size}
-      height={size}
-      alt="Feishu"
-      style={{ objectFit: "contain", filter: "brightness(0) invert(1)" }}
-    />
-  );
-}
 
 const ONBOARDING_CHANNELS = [
   {
@@ -174,26 +135,38 @@ function getChannelOptions(t: (key: string) => string) {
   ];
 }
 
-const actionCardBaseClass =
-  "block group rounded-[18px] border border-border/70 bg-surface-1/95 px-3.5 py-2.5 text-left transition-all duration-200 hover:border-border-hover hover:bg-surface-1 hover:shadow-[0_4px_12px_rgba(0,0,0,0.035)]";
-
 export function HomePage() {
   const { t } = useTranslation();
   const [modalChannel, setModalChannel] = useState<
     "feishu" | "slack" | "discord" | null
   >(null);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoHover, setVideoHover] = useState(false);
 
   const CHANNEL_OPTIONS = useMemo(() => getChannelOptions(t), [t]);
-  const CHANNEL_SHORT_NAMES = useMemo(() => getChannelShortNames(t), [t]);
 
   const handleConnected = async () => {
     await queryClient.refetchQueries({ queryKey: ["channels"] });
     setModalChannel(null);
   };
+
+  const disconnectChannel = useMutation({
+    mutationFn: async (channelId: string) => {
+      const toastId = toast.loading(t("home.disconnecting"));
+      const { error } = await deleteApiV1ChannelsByChannelId({
+        path: { channelId },
+      });
+      if (error) {
+        toast.error(t("home.disconnectFailed"), { id: toastId });
+        throw new Error("Failed to disconnect channel");
+      }
+      toast.success(t("home.disconnected"), { id: toastId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+    },
+  });
 
   const { data: channelsData, isLoading: channelsLoading } = useQuery({
     queryKey: ["channels"],
@@ -231,16 +204,6 @@ export function HomePage() {
   const connectedCount = channels.length;
   const hasChannel = connectedCount > 0;
   const connectedTypes = new Set<string>(channels.map((c) => c.channelType));
-  const firstChannel = channels[0];
-  const firstChannelType = firstChannel?.channelType ?? "feishu";
-  const chatShortName =
-    CHANNEL_SHORT_NAMES[firstChannelType] ?? firstChannelType;
-  const chatUrl = getChatUrl(
-    firstChannelType,
-    firstChannel?.appId,
-    firstChannel?.botUserId,
-    firstChannel?.accountId,
-  );
 
   // Video playback effects — reset when channel state changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: hasChannel triggers reset intentionally
@@ -378,10 +341,10 @@ export function HomePage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
-        {/* ═══ TOP: Hero — Bot running ═══ */}
-        <div className="flex flex-col items-center text-center">
+        {/* ═══ TOP: Hero — Bot running (horizontal layout) ═══ */}
+        <div className="flex items-center gap-6">
           <div
-            className="relative w-32 h-32 mb-5 cursor-default"
+            className="relative w-24 h-24 cursor-default shrink-0"
             onMouseEnter={() => setVideoHover(true)}
             onMouseLeave={() => setVideoHover(false)}
           >
@@ -396,189 +359,143 @@ export function HomePage() {
               className="w-full h-full object-contain"
             />
           </div>
-          <h2
-            className="text-[26px] font-normal tracking-tight text-text-primary mb-1.5"
-            style={{ fontFamily: "var(--font-script)" }}
-          >
-            nexu alpha
-          </h2>
-          <div className="flex items-center gap-3 text-[11px] text-text-muted mb-2">
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              {t("home.running")}
-            </span>
-            <InlineModelSelector />
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
-            <span>
-              {sessionsData
-                ? t("home.todayMessages", { count: messagesToday })
-                : "..."}
-            </span>
-            <span className="text-border">&middot;</span>
-            <span>
-              {sessionsData ? formatRelativeTime(lastActiveAt, t) : "..."}
-            </span>
-          </div>
-
-          {/* Primary CTA */}
-          <div className="mt-5">
-            <a
-              href={chatUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium bg-accent text-accent-fg hover:bg-accent-hover transition-colors shadow-sm"
-            >
-              {firstChannelType === "feishu" ? (
-                <FeishuIconChat size={15} />
-              ) : (
-                CHANNEL_OPTIONS.find((c) => c.id === firstChannelType)?.icon
-              )}
-              Chat in {chatShortName}
-              <ArrowUpRight size={13} className="opacity-70" />
-            </a>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5">
+              <h2
+                className="text-[26px] font-normal tracking-tight text-text-primary"
+                style={{ fontFamily: "var(--font-script)" }}
+              >
+                nexu alpha
+              </h2>
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[var(--color-success)]/10 text-[var(--color-success)] text-[10px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+                {t("home.running")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <InlineModelSelector />
+              <div className="flex items-center gap-2 text-[11px] text-text-muted ml-3">
+                <span>
+                  {sessionsData
+                    ? t("home.todayMessages", { count: messagesToday })
+                    : "..."}
+                </span>
+                <span className="text-border">&middot;</span>
+                <span>
+                  {sessionsData ? formatRelativeTime(lastActiveAt, t) : "..."}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* ═══ MIDDLE: Channels panel ═══ */}
         <div className="card card-static">
           <div className="px-5 pt-4 pb-3">
-            <span className="text-[12px] font-medium text-text-primary">
+            <h2 className="text-[14px] font-semibold text-text-primary">
               Channels
-            </span>
+            </h2>
           </div>
-          <div className="px-5 pb-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {CHANNEL_OPTIONS.map((ch) => {
-                const isConnected = connectedTypes.has(ch.id);
-                const connectedChannel = channels.find(
-                  (c) => c.channelType === ch.id,
-                );
-                const channelChatUrl = connectedChannel
-                  ? getChatUrl(
-                      ch.id,
-                      connectedChannel.appId,
-                      connectedChannel.botUserId,
-                      connectedChannel.accountId,
-                    )
-                  : "";
-                return (
-                  <div
-                    key={ch.id}
-                    className="rounded-xl border border-border bg-surface-0 px-3 py-3"
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-white shrink-0">
-                        {ch.icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-medium text-text-primary">
-                          {ch.name}
+          <div className="px-5 pb-5 space-y-3">
+            {/* Connected channels — full width rows with green dot */}
+            {CHANNEL_OPTIONS.filter((ch) => connectedTypes.has(ch.id)).length >
+              0 && (
+              <div className="space-y-1.5">
+                {CHANNEL_OPTIONS.filter((ch) => connectedTypes.has(ch.id)).map(
+                  (ch) => {
+                    const connectedChannel = channels.find(
+                      (c) => c.channelType === ch.id,
+                    );
+                    const channelChatUrl = connectedChannel
+                      ? getChatUrl(
+                          ch.id,
+                          connectedChannel.appId,
+                          connectedChannel.botUserId,
+                          connectedChannel.accountId,
+                        )
+                      : "";
+                    return (
+                      <button
+                        type="button"
+                        key={ch.id}
+                        className="flex w-full items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 cursor-pointer transition-all hover:bg-surface-1 text-left"
+                        onClick={() =>
+                          window.open(
+                            channelChatUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                      >
+                        <div className="w-8 h-8 rounded-[10px] flex items-center justify-center border border-border bg-white shrink-0">
+                          {ch.icon}
                         </div>
-                        <div className="mt-0.5 text-[11px] text-text-muted">
-                          {channelsLoading
-                            ? t("home.loading")
-                            : isConnected
-                              ? t("home.connected")
-                              : ""}
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-text-primary">
+                            {ch.name}
+                          </span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] shrink-0" />
                         </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      {isConnected && connectedChannel ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (connectedChannel) {
+                              disconnectChannel.mutate(connectedChannel.id);
+                            }
+                          }}
+                          disabled={disconnectChannel.isPending}
+                          className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary hover:text-[var(--color-danger)] hover:bg-surface-3 transition-colors shrink-0 disabled:opacity-50"
+                        >
+                          {t("home.connected")}
+                        </button>
                         <a
                           href={channelChatUrl}
                           target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-accent text-accent-fg hover:bg-accent-hover transition-colors"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary hover:text-text-primary transition-colors ml-3 shrink-0 leading-none"
                         >
                           Chat
+                          <ArrowUpRight size={12} className="-mt-px" />
                         </a>
-                      ) : (
-                        <span className="h-[30px]" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            )}
+
+            {/* Not-yet-connected channels — dashed border grid */}
+            {CHANNEL_OPTIONS.filter((ch) => !connectedTypes.has(ch.id)).length >
+              0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {CHANNEL_OPTIONS.filter((ch) => !connectedTypes.has(ch.id)).map(
+                  (ch) => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() =>
+                        setModalChannel(ch.id as "feishu" | "slack" | "discord")
+                      }
+                      className="group flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-surface-0 px-3 py-2 text-left hover:border-solid hover:border-border-hover hover:bg-surface-1 transition-all"
+                    >
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center bg-surface-1 shrink-0">
+                        {ch.icon}
+                      </div>
+                      <span className="text-[12px] font-medium text-text-muted group-hover:text-text-secondary flex-1 truncate">
+                        {ch.name}
+                      </span>
+                      <ArrowRight
+                        size={12}
+                        className="text-text-muted group-hover:text-text-primary transition-colors shrink-0"
+                      />
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* ═══ BOTTOM: Quick actions ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <button
-            type="button"
-            onClick={() => navigate("/workspace/sessions")}
-            className={actionCardBaseClass}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-lg bg-accent/8 flex items-center justify-center shrink-0">
-                  <MessageSquare size={13} className="text-accent" />
-                </div>
-                <div className="text-[14px] font-semibold text-text-primary truncate">
-                  {t("home.viewConversations")}
-                </div>
-              </div>
-              <ArrowUpRight
-                size={10}
-                className="text-text-muted/45 group-hover:text-accent transition-colors shrink-0"
-              />
-            </div>
-            <div className="mt-1.5 text-[9px] leading-[1.4] text-text-muted/85">
-              {t("home.viewConversationsDesc")}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/workspace/skills")}
-            className={actionCardBaseClass}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-lg bg-accent/8 flex items-center justify-center shrink-0">
-                  <Sparkles size={13} className="text-accent" />
-                </div>
-                <div className="text-[14px] font-semibold text-text-primary truncate">
-                  {t("home.manageSkills")}
-                </div>
-              </div>
-              <ArrowUpRight
-                size={10}
-                className="text-text-muted/45 group-hover:text-accent transition-colors shrink-0"
-              />
-            </div>
-            <div className="mt-1.5 text-[9px] leading-[1.4] text-text-muted/85">
-              {t("home.manageSkillsDesc")}
-            </div>
-          </button>
-
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={actionCardBaseClass}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-lg bg-[#111]/8 dark:bg-white/8 flex items-center justify-center shrink-0">
-                  {GITHUB_SVG}
-                </div>
-                <div className="text-[14px] font-semibold text-text-primary truncate">
-                  {t("home.starGithub")}
-                </div>
-              </div>
-              <ArrowUpRight
-                size={10}
-                className="text-text-muted/45 group-hover:text-accent transition-colors shrink-0"
-              />
-            </div>
-            <div className="mt-1.5 text-[9px] text-text-muted/85">
-              {t("home.starGithubDesc")}
-            </div>
-          </a>
         </div>
       </div>
 
