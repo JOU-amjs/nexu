@@ -42,15 +42,16 @@ Configuration and runtime state stay primarily on your machine.
 
 ---
 
-## 📊 Difference from typical hosted solutions
+## 📊 Difference from other solutions
 
-| | Typical hosted Feishu + agent stacks | nexu |
-|---|---|---|
-| **🧠 Models** | Often fixed or limited | Pick Claude / GPT / Gemini, etc.; switch when you want |
-| **📡 Data path** | Often via vendor services | Local-first; we don't host your business data for you |
-| **💰 Cost** | Subscription / per seat | Client is free; you pay providers via your own API keys |
-| **📜 Source** | Closed | MIT — fork and audit |
-| **🔗 Channels** | Varies by vendor | Feishu, Slack, Discord; more in progress |
+| | OpenClaw (official) | Typical hosted Feishu + agent stacks | **nexu** ✅ |
+|---|---|---|---|
+| **🧠 Models** | BYO, but manual config required ⚠️ | Platform-locked, no switching ❌ | **Pick Claude / GPT / Gemini, etc. — one-click switch in GUI** ✅ |
+| **📡 Data path** | Local | Routed through vendor servers, data out of your control ❌ | **Local-first; we don't host your business data** ✅ |
+| **💰 Cost** | Free, but self-deploy required ⚠️ | Subscription / per-seat pricing ❌ | **Client is free; pay providers via your own API keys** ✅ |
+| **📜 Source** | Open source | Closed source, no audit possible ❌ | **MIT — fork and audit** ✅ |
+| **🔗 Channels** | DIY integration required ⚠️ | Varies by vendor, often limited ❌ | **Built-in Feishu, Slack, Discord — works out of the box** ✅ |
+| **🖥 Interface** | CLI, requires technical skills ❌ | Varies by vendor | **Pure GUI, no CLI needed, double-click to start** ✅ |
 
 ---
 
