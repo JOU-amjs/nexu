@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { getSkillSearchText } from "../src/lib/skill-translations";
+import { composeSkillSearchText } from "../src/lib/skill-translations";
 
-describe("getSkillSearchText", () => {
+describe("composeSkillSearchText", () => {
   it("includes localized Chinese display text in zh locale", () => {
-    const searchText = getSkillSearchText(
+    const searchText = composeSkillSearchText(
       "second-brain",
       "Second Brain",
       "Build a personal knowledge base",
-      "zh",
+      "第二大脑",
+      "构建个人知识库",
     );
 
     expect(searchText).toContain("第二大脑");
   });
 
   it("keeps source English text searchable in zh locale", () => {
-    const searchText = getSkillSearchText(
+    const searchText = composeSkillSearchText(
       "second-brain",
       "Second Brain",
       "Build a personal knowledge base",
-      "zh",
+      "第二大脑",
+      "构建个人知识库",
     );
 
     expect(searchText).toContain("second brain");

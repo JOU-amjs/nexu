@@ -3,11 +3,7 @@ import {
   useInstallSkill,
   useUninstallSkill,
 } from "@/hooks/use-community-catalog";
-import {
-  getSkillDescription,
-  getSkillName,
-  getTagLabel,
-} from "@/lib/skill-translations";
+import { getTagLabel, useSkillTranslations } from "@/lib/skill-translations";
 import type { MinimalSkill } from "@/types/desktop";
 import { Download, Star } from "lucide-react";
 import { useState } from "react";
@@ -33,14 +29,11 @@ export function CommunitySkillCard({
   const [pendingAction, setPendingAction] = useState<
     "install" | "uninstall" | null
   >(null);
+  const { getSkillDescription, getSkillName } = useSkillTranslations(locale);
 
   const isBusy = pendingAction !== null;
-  const displayName = getSkillName(skill.slug, skill.name, locale);
-  const displayDescription = getSkillDescription(
-    skill.slug,
-    skill.description,
-    locale,
-  );
+  const displayName = getSkillName(skill.slug, skill.name);
+  const displayDescription = getSkillDescription(skill.slug, skill.description);
 
   async function handleToggle(checked: boolean) {
     if (checked) {

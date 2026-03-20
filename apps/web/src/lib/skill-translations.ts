@@ -1,25 +1,43 @@
-/**
- * Chinese translations for skills and tags.
- *
- * Skill translations are stored in a standalone JSON file.
- * Tags use an inline map for the most common catalog tags.
- */
-import skillTranslationsZh from "./skill-translations-zh.json";
+import { useEffect, useMemo, useState } from "react";
 
 type SkillTranslation = {
   name: string;
   description: string;
 };
 
-const typedTranslations = skillTranslationsZh as Record<
-  string,
-  SkillTranslation
->;
+type SkillTranslationsMap = Record<string, SkillTranslation>;
 
-/**
- * Chinese translations for common skill tags.
- * Tags not in this map are displayed as-is.
- */
+let zhTranslationsCache: SkillTranslationsMap | null = null;
+let zhTranslationsPromise: Promise<SkillTranslationsMap> | null = null;
+
+async function loadZhTranslations(): Promise<SkillTranslationsMap> {
+  if (zhTranslationsCache) {
+    return zhTranslationsCache;
+  }
+
+  if (!zhTranslationsPromise) {
+    zhTranslationsPromise = fetch("/skill-translations-zh.json")
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load skill translations: ${response.status}`,
+          );
+        }
+
+        return (await response.json()) as SkillTranslationsMap;
+      })
+      .then((translations) => {
+        zhTranslationsCache = translations;
+        return translations;
+      })
+      .finally(() => {
+        zhTranslationsPromise = null;
+      });
+  }
+
+  return zhTranslationsPromise;
+}
+
 const tagTranslationsZh: Record<string, string> = {
   latest: "最新",
   automation: "自动化",
@@ -131,55 +149,110 @@ const tagTranslationsZh: Record<string, string> = {
   "machine-learning": "机器学习",
 };
 
-/**
- * Returns the localized tag label, falling back to the original.
- */
-export function getTagLabel(tag: string, locale: string): string {
-  if (locale !== "zh") return tag;
-  return tagTranslationsZh[tag] ?? tag;
-}
-
-/**
- * Returns the localized name for a skill, falling back to the original.
- */
-export function getSkillName(
+function getLocalizedName(
+  translations: SkillTranslationsMap | null,
   slug: string,
   originalName: string,
   locale: string,
 ): string {
   if (locale !== "zh") return originalName;
-  return typedTranslations[slug]?.name ?? originalName;
+  return translations?.[slug]?.name ?? originalName;
 }
 
-/**
- * Returns the localized description for a skill, falling back to the original.
- */
-export function getSkillDescription(
+function getLocalizedDescription(
+  translations: SkillTranslationsMap | null,
   slug: string,
   originalDescription: string,
   locale: string,
 ): string {
   if (locale !== "zh") return originalDescription;
-  return typedTranslations[slug]?.description ?? originalDescription;
+  return translations?.[slug]?.description ?? originalDescription;
 }
 
-/**
- * Returns the text fields that should participate in search for the current
- * locale while preserving source English matches.
- */
-export function getSkillSearchText(
+export function useSkillTranslations(locale: string) {
+  const [translations, setTranslations] = useState<SkillTranslationsMap | null>(
+    () => (locale === "zh" ? zhTranslationsCache : null),
+  );
+
+  useEffect(() => {
+    if (locale !== "zh") {
+      return;
+    }
+
+    if (zhTranslationsCache) {
+      setTranslations(zhTranslationsCache);
+      return;
+    }
+
+    let cancelled = false;
+    loadZhTranslations()
+      .then((loadedTranslations) => {
+        if (!cancelled) {
+          setTranslations(loadedTranslations);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTranslations(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
+
+  return useMemo(
+    () => ({
+      getSkillName(slug: string, originalName: string): string {
+        return getLocalizedName(translations, slug, originalName, locale);
+      },
+      getSkillDescription(slug: string, originalDescription: string): string {
+        return getLocalizedDescription(
+          translations,
+          slug,
+          originalDescription,
+          locale,
+        );
+      },
+      getSkillSearchText(
+        slug: string,
+        originalName: string,
+        originalDescription: string,
+      ): string {
+        const localizedName = getLocalizedName(
+          translations,
+          slug,
+          originalName,
+          locale,
+        );
+        const localizedDescription = getLocalizedDescription(
+          translations,
+          slug,
+          originalDescription,
+          locale,
+        );
+
+        return composeSkillSearchText(
+          slug,
+          originalName,
+          originalDescription,
+          localizedName,
+          localizedDescription,
+        );
+      },
+    }),
+    [locale, translations],
+  );
+}
+
+export function composeSkillSearchText(
   slug: string,
   originalName: string,
   originalDescription: string,
-  locale: string,
+  localizedName: string,
+  localizedDescription: string,
 ): string {
-  const localizedName = getSkillName(slug, originalName, locale);
-  const localizedDescription = getSkillDescription(
-    slug,
-    originalDescription,
-    locale,
-  );
-
   return [
     slug,
     originalName,
@@ -189,4 +262,9 @@ export function getSkillSearchText(
   ]
     .join("\n")
     .toLowerCase();
+}
+
+export function getTagLabel(tag: string, locale: string): string {
+  if (locale !== "zh") return tag;
+  return tagTranslationsZh[tag] ?? tag;
 }

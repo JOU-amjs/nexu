@@ -4,11 +4,7 @@ import {
 } from "@/hooks/use-community-catalog";
 import { useLocale } from "@/hooks/use-locale";
 import "@/lib/api";
-import {
-  getSkillDescription,
-  getSkillName,
-  getTagLabel,
-} from "@/lib/skill-translations";
+import { getTagLabel, useSkillTranslations } from "@/lib/skill-translations";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -290,6 +286,7 @@ function SkillMdPreview({ content }: { content: string }) {
 export function CommunitySkillDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { t, locale } = useLocale();
+  const { getSkillDescription, getSkillName } = useSkillTranslations(locale);
   const installMutation = useInstallSkill();
   const uninstallMutation = useUninstallSkill();
   const [pendingAction, setPendingAction] = useState<
@@ -357,12 +354,8 @@ export function CommunitySkillDetailPage() {
     );
   }
 
-  const displayName = getSkillName(data.slug, data.name, locale);
-  const displayDescription = getSkillDescription(
-    data.slug,
-    data.description,
-    locale,
-  );
+  const displayName = getSkillName(data.slug, data.name);
+  const displayDescription = getSkillDescription(data.slug, data.description);
 
   return (
     <div className="min-h-full bg-surface-0">

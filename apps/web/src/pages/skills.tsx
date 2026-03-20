@@ -6,12 +6,7 @@ import {
   useUninstallSkill,
 } from "@/hooks/use-community-catalog";
 import { useLocale } from "@/hooks/use-locale";
-import {
-  getSkillDescription,
-  getSkillName,
-  getSkillSearchText,
-  getTagLabel,
-} from "@/lib/skill-translations";
+import { getTagLabel, useSkillTranslations } from "@/lib/skill-translations";
 import { cn } from "@/lib/utils";
 import type { InstalledSkill, MinimalSkill } from "@/types/desktop";
 import { Compass, Loader2, Plus, Search, Settings2, Zap } from "lucide-react";
@@ -51,14 +46,11 @@ function SkillCard({
   const [pendingAction, setPendingAction] = useState<
     "install" | "uninstall" | null
   >(null);
+  const { getSkillDescription, getSkillName } = useSkillTranslations(locale);
 
   const isBusy = pendingAction !== null;
-  const displayName = getSkillName(skill.slug, skill.name, locale);
-  const displayDescription = getSkillDescription(
-    skill.slug,
-    skill.description,
-    locale,
-  );
+  const displayName = getSkillName(skill.slug, skill.name);
+  const displayDescription = getSkillDescription(skill.slug, skill.description);
 
   async function handleInstall() {
     setPendingAction("install");
@@ -182,6 +174,7 @@ function SkillCard({
 export function SkillsPage() {
   const { t } = useTranslation();
   const { locale } = useLocale();
+  const { getSkillSearchText } = useSkillTranslations(locale);
   const { data, isLoading, isError } = useCommunitySkills();
   const refreshMutation = useRefreshCatalog();
 
@@ -277,12 +270,12 @@ export function SkillsPage() {
     if (debouncedQuery.trim()) {
       const q = debouncedQuery.toLowerCase();
       list = list.filter((s) =>
-        getSkillSearchText(s.slug, s.name, s.description, locale).includes(q),
+        getSkillSearchText(s.slug, s.name, s.description).includes(q),
       );
     }
 
     return list;
-  }, [baseSkills, activeTag, debouncedQuery, locale]);
+  }, [baseSkills, activeTag, debouncedQuery, getSkillSearchText]);
 
   // Reset visible count when filters change — deps are intentional triggers
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps trigger reset on filter change
