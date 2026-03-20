@@ -48,7 +48,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
 function RootApp() {
   return <DesktopShell />;
 }

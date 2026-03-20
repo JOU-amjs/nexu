@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 const repoRoot = process.cwd();
 const maxHealthAttempts = 60;
 const probeTimeoutMs = 5_000;
+const requiredDiagnosticsUnitIds = ["controller", "openclaw"];
 
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
@@ -50,8 +51,7 @@ function createCheckContext(mode) {
       mode,
       statusCommand: ["pnpm", ["desktop:status"]],
       ports: [
-        { unit: "pglite", port: 50832 },
-        { unit: "api", port: 50800 },
+        { unit: "controller", port: 50800 },
         { unit: "web", port: 50810 },
       ],
       readinessUrls: {
@@ -67,11 +67,15 @@ function createCheckContext(mode) {
       logs: {
         coldStart: [resolve(desktopLogsDir, "cold-start.log")],
         desktopMain: [resolve(desktopLogsDir, "desktop-main.log")],
-        pglite: [resolve(runtimeUnitLogsDir, "pglite.log")],
-        api: [resolve(runtimeUnitLogsDir, "api.log")],
+        controller: compactPaths([
+          resolve(runtimeUnitLogsDir, "controller.log"),
+          resolve(runtimeUnitLogsDir, "api.log"),
+        ]),
         web: [resolve(runtimeUnitLogsDir, "web.log")],
-        gateway: [resolve(runtimeUnitLogsDir, "gateway.log")],
-        openclaw: [resolve(runtimeUnitLogsDir, "openclaw.log")],
+        openclaw: compactPaths([
+          resolve(runtimeUnitLogsDir, "openclaw.log"),
+          resolve(runtimeUnitLogsDir, "gateway.log"),
+        ]),
       },
       capturePaths: [
         { source: resolve(repoRoot, ".tmp/logs"), target: "repo-logs" },
@@ -93,8 +97,7 @@ function createCheckContext(mode) {
     mode,
     statusCommand: null,
     ports: [
-      { unit: "pglite", port: 50832 },
-      { unit: "api", port: 50800 },
+      { unit: "controller", port: 50800 },
       { unit: "web", port: 50810 },
     ],
     readinessUrls: {
@@ -125,14 +128,12 @@ function createCheckContext(mode) {
           ? resolve(process.env.DEFAULT_LOGS_DIR, "desktop-main.log")
           : null,
       ]),
-      pglite: compactPaths([
-        resolve(packagedRuntimeLogsDir, "pglite.log"),
-        process.env.DEFAULT_RUNTIME_LOGS_DIR
-          ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "pglite.log")
-          : null,
-      ]),
-      api: compactPaths([
+      controller: compactPaths([
+        resolve(packagedRuntimeLogsDir, "controller.log"),
         resolve(packagedRuntimeLogsDir, "api.log"),
+        process.env.DEFAULT_RUNTIME_LOGS_DIR
+          ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "controller.log")
+          : null,
         process.env.DEFAULT_RUNTIME_LOGS_DIR
           ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "api.log")
           : null,
@@ -143,16 +144,14 @@ function createCheckContext(mode) {
           ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "web.log")
           : null,
       ]),
-      gateway: compactPaths([
-        resolve(packagedRuntimeLogsDir, "gateway.log"),
-        process.env.DEFAULT_RUNTIME_LOGS_DIR
-          ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "gateway.log")
-          : null,
-      ]),
       openclaw: compactPaths([
         resolve(packagedRuntimeLogsDir, "openclaw.log"),
+        resolve(packagedRuntimeLogsDir, "gateway.log"),
         process.env.DEFAULT_RUNTIME_LOGS_DIR
           ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "openclaw.log")
+          : null,
+        process.env.DEFAULT_RUNTIME_LOGS_DIR
+          ? resolve(process.env.DEFAULT_RUNTIME_LOGS_DIR, "gateway.log")
           : null,
       ]),
     },
@@ -454,8 +453,11 @@ function diagnosticsChecksPassed(diagnostics) {
     return false;
   }
 
-  const gatewayUnit = getDiagnosticsUnit(diagnostics, "gateway");
   const workspaceWebview = getLatestWorkspaceWebview(diagnostics);
+  const requiredUnitsRunning = requiredDiagnosticsUnitIds.every((unitId) => {
+    const unit = getDiagnosticsUnit(diagnostics, unitId);
+    return unit?.phase === "running" && unit.lastError === null;
+  });
 
   return (
     diagnostics.coldStart?.status === "succeeded" &&
@@ -464,8 +466,7 @@ function diagnosticsChecksPassed(diagnostics) {
     workspaceWebview?.didFinishLoad === true &&
     workspaceWebview?.processGone?.seen !== true &&
     workspaceWebview?.lastError === null &&
-    gatewayUnit?.phase === "running" &&
-    gatewayUnit.lastError === null
+    requiredUnitsRunning
   );
 }
 
@@ -542,16 +543,19 @@ function collectDiagnosticsFailures(diagnostics) {
     );
   }
 
-  const gatewayUnit = getDiagnosticsUnit(diagnostics, "gateway");
   const workspaceWebview = getLatestWorkspaceWebview(diagnostics);
-  if (!gatewayUnit) {
-    failures.push("gateway runtime unit is missing from diagnostics");
-  } else {
-    if (gatewayUnit.phase !== "running") {
-      failures.push(`gateway phase=${gatewayUnit.phase}`);
+  for (const unitId of requiredDiagnosticsUnitIds) {
+    const unit = getDiagnosticsUnit(diagnostics, unitId);
+    if (!unit) {
+      failures.push(`${unitId} runtime unit is missing from diagnostics`);
+      continue;
     }
-    if (gatewayUnit.lastError) {
-      failures.push(`gateway lastError=${gatewayUnit.lastError}`);
+
+    if (unit.phase !== "running") {
+      failures.push(`${unitId} phase=${unit.phase}`);
+    }
+    if (unit.lastError) {
+      failures.push(`${unitId} lastError=${unit.lastError}`);
     }
   }
 
@@ -911,7 +915,7 @@ async function verifyRuntime(context) {
 
   if (!probeResults.apiReady.body.includes('"ready":true')) {
     addMissing(
-      "api",
+      "controller",
       `readiness endpoint body: ${probeResults.apiReady.body || "<no response>"}`,
     );
   }
