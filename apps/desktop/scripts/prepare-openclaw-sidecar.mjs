@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, readdir, rename, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,14 @@ import {
 const openclawRuntimeRoot = resolve(repoRoot, "openclaw-runtime");
 const openclawRuntimeNodeModules = resolve(openclawRuntimeRoot, "node_modules");
 const openclawRoot = resolve(openclawRuntimeNodeModules, "openclaw");
+const openclawRuntimePatchesRoot = resolve(
+  repoRoot,
+  "openclaw-runtime-patches",
+);
+const openclawPackagePatchRoot = resolve(
+  openclawRuntimePatchesRoot,
+  "openclaw",
+);
 const sidecarRoot = getSidecarRoot("openclaw");
 const sidecarBinDir = resolve(sidecarRoot, "bin");
 const sidecarNodeModules = resolve(sidecarRoot, "node_modules");
@@ -292,12 +300,28 @@ async function signOpenclawNativeBinaries() {
   );
 }
 
+async function applyOpenclawRuntimePatches() {
+  if (!(await pathExists(openclawPackagePatchRoot))) {
+    return;
+  }
+
+  await cp(openclawPackagePatchRoot, openclawRoot, {
+    recursive: true,
+    force: true,
+  });
+  console.log(
+    `[openclaw-sidecar] applied runtime patches from ${openclawPackagePatchRoot}`,
+  );
+}
+
 async function prepareOpenclawSidecar() {
   if (!(await pathExists(openclawRoot))) {
     throw new Error(
       `OpenClaw runtime dependency not found at ${openclawRoot}. Run pnpm openclaw-runtime:install first.`,
     );
   }
+
+  await applyOpenclawRuntimePatches();
 
   await resetDir(sidecarRoot);
   await mkdir(sidecarBinDir, { recursive: true });
