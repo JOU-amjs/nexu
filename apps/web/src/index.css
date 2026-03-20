@@ -231,8 +231,8 @@
   padding: 7px 10px;
   border-radius: var(--radius-6);
   font-size: 13px;
-  font-weight: 400;
-  color: var(--color-text-secondary);
+  font-weight: 500;
+  color: var(--color-text-primary);
   background: transparent;
   transition: background 0.15s ease, color 0.15s ease;
   cursor: pointer;
@@ -248,7 +248,7 @@
 .nav-item-active {
   background: rgba(0, 0, 0, 0.08);
   color: var(--color-text-primary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -320,6 +320,105 @@
 
 .animate-scale-in {
   animation: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Sidebar Vibrancy — macOS-style glass blur effect
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sidebar-vibrancy {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not (backdrop-filter: blur(20px)) {
+  .sidebar-vibrancy {
+    background: var(--color-surface-1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Panel Variants — Dark / Warm theme panels
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Dark Panel — For high-contrast sections or overlays */
+.panel-dark {
+  --panel-bg: #1a1a1a;
+  --panel-bg-subtle: #242424;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-text: #ffffff;
+  --panel-text-muted: rgba(255, 255, 255, 0.6);
+
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border-color: var(--panel-border);
+}
+
+.panel-dark .text-text-primary {
+  color: var(--panel-text);
+}
+
+.panel-dark .text-text-muted {
+  color: var(--panel-text-muted);
+}
+
+.panel-dark .bg-surface-1 {
+  background: var(--panel-bg-subtle);
+}
+
+.panel-dark .border-border {
+  border-color: var(--panel-border);
+}
+
+/* Warm Panel — Cozy, softer tones */
+.panel-warm {
+  --panel-bg: #faf8f5;
+  --panel-bg-subtle: #f5f2ed;
+  --panel-border: #e8e4dc;
+  --panel-text: #3d3929;
+  --panel-text-muted: #8a846f;
+  --panel-accent: #d4a574;
+
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border-color: var(--panel-border);
+}
+
+.panel-warm .text-text-primary {
+  color: var(--panel-text);
+}
+
+.panel-warm .text-text-muted {
+  color: var(--panel-text-muted);
+}
+
+.panel-warm .bg-surface-1 {
+  background: var(--panel-bg-subtle);
+}
+
+.panel-warm .border-border {
+  border-color: var(--panel-border);
+}
+
+.panel-warm .text-accent,
+.panel-warm .bg-accent {
+  color: var(--panel-accent);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

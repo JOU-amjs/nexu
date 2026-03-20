@@ -372,6 +372,29 @@ export type PostApiV1SharedSlackClaimResponses = {
 
 export type PostApiV1SharedSlackClaimResponse = PostApiV1SharedSlackClaimResponses[keyof PostApiV1SharedSlackClaimResponses];
 
+export type GetApiInternalDesktopReadyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/internal/desktop/ready';
+};
+
+export type GetApiInternalDesktopReadyResponses = {
+    /**
+     * Desktop runtime ready status
+     */
+    200: {
+        ready: boolean;
+        runtime: {
+            ok: boolean;
+            status: number;
+        };
+        status: 'active' | 'degraded' | 'unhealthy';
+    };
+};
+
+export type GetApiInternalDesktopReadyResponse = GetApiInternalDesktopReadyResponses[keyof GetApiInternalDesktopReadyResponses];
+
 export type GetApiInternalDesktopCloudStatusData = {
     body?: never;
     path?: never;
@@ -495,6 +518,7 @@ export type PutApiInternalDesktopDefaultModelResponses = {
     200: {
         ok: boolean;
         modelId: string;
+        configPushed: boolean;
     };
 };
 
@@ -777,6 +801,76 @@ export type DeleteApiV1ChannelsByChannelIdResponses = {
 
 export type DeleteApiV1ChannelsByChannelIdResponse = DeleteApiV1ChannelsByChannelIdResponses[keyof DeleteApiV1ChannelsByChannelIdResponses];
 
+export type GetApiV1ChannelsLiveStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/channels/live-status';
+};
+
+export type GetApiV1ChannelsLiveStatusResponses = {
+    /**
+     * Live channel and agent status from OpenClaw gateway
+     */
+    200: {
+        gatewayConnected: boolean;
+        channels: Array<{
+            channelType: string;
+            channelId: string;
+            accountId: string;
+            status: 'connected' | 'connecting' | 'disconnected' | 'error' | 'restarting';
+            ready: boolean;
+            connected: boolean;
+            running: boolean;
+            configured: boolean;
+            lastError: string;
+        }>;
+        agent: {
+            modelId: string;
+            modelName: string;
+            alive: boolean;
+        };
+    };
+};
+
+export type GetApiV1ChannelsLiveStatusResponse = GetApiV1ChannelsLiveStatusResponses[keyof GetApiV1ChannelsLiveStatusResponses];
+
+export type GetApiV1ChannelsByChannelIdReadinessData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/v1/channels/{channelId}/readiness';
+};
+
+export type GetApiV1ChannelsByChannelIdReadinessErrors = {
+    /**
+     * Channel not found
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type GetApiV1ChannelsByChannelIdReadinessError = GetApiV1ChannelsByChannelIdReadinessErrors[keyof GetApiV1ChannelsByChannelIdReadinessErrors];
+
+export type GetApiV1ChannelsByChannelIdReadinessResponses = {
+    /**
+     * Channel readiness status from OpenClaw gateway
+     */
+    200: {
+        ready: boolean;
+        connected: boolean;
+        running: boolean;
+        configured: boolean;
+        lastError: string;
+        gatewayConnected: boolean;
+    };
+};
+
+export type GetApiV1ChannelsByChannelIdReadinessResponse = GetApiV1ChannelsByChannelIdReadinessResponses[keyof GetApiV1ChannelsByChannelIdReadinessResponses];
+
 export type PostApiInternalSessionsData = {
     body?: {
         botId: string;
@@ -1021,6 +1115,46 @@ export type PostApiV1SessionsByIdResetResponses = {
 };
 
 export type PostApiV1SessionsByIdResetResponse = PostApiV1SessionsByIdResetResponses[keyof PostApiV1SessionsByIdResetResponses];
+
+export type GetApiV1SessionsByIdMessagesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/sessions/{id}/messages';
+};
+
+export type GetApiV1SessionsByIdMessagesErrors = {
+    /**
+     * Session not found
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type GetApiV1SessionsByIdMessagesError = GetApiV1SessionsByIdMessagesErrors[keyof GetApiV1SessionsByIdMessagesErrors];
+
+export type GetApiV1SessionsByIdMessagesResponses = {
+    /**
+     * Chat messages for the session
+     */
+    200: {
+        messages: Array<{
+            id: string;
+            role: 'user' | 'assistant';
+            content?: unknown;
+            timestamp: number;
+            createdAt: string;
+        }>;
+        sessionKey: string;
+    };
+};
+
+export type GetApiV1SessionsByIdMessagesResponse = GetApiV1SessionsByIdMessagesResponses[keyof GetApiV1SessionsByIdMessagesResponses];
 
 export type GetApiV1ModelsData = {
     body?: never;
@@ -1662,49 +1796,6 @@ export type GetApiV1ArtifactsByIdResponses = {
 };
 
 export type GetApiV1ArtifactsByIdResponse = GetApiV1ArtifactsByIdResponses[keyof GetApiV1ArtifactsByIdResponses];
-
-export type GetApiV1SkillsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/skills';
-};
-
-export type GetApiV1SkillsResponses = {
-    /**
-     * Skills catalog
-     */
-    200: {
-        skills: {
-            version?: number;
-            defaults?: {
-                enabled?: boolean;
-                source?: 'inline' | 'local-path';
-            };
-            items?: {
-                [key: string]: {
-                    name: string;
-                    enabled?: boolean;
-                    source?: 'inline' | 'local-path';
-                    content?: string;
-                    localPath?: string;
-                    files?: {
-                        [key: string]: string;
-                    };
-                    metadata?: {
-                        title?: string;
-                        description?: string;
-                        owner?: string;
-                        tags?: Array<string>;
-                        category?: string;
-                    };
-                };
-            };
-        };
-    };
-};
-
-export type GetApiV1SkillsResponse = GetApiV1SkillsResponses[keyof GetApiV1SkillsResponses];
 
 export type GetApiInternalSkillsLatestData = {
     body?: never;

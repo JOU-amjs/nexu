@@ -19,6 +19,7 @@ import {
 } from "@nexu/shared";
 import type { z } from "zod";
 import type { ControllerEnv } from "../app/env.js";
+import { logger } from "../lib/logger.js";
 import { LowDbStore } from "./lowdb-store.js";
 import {
   type ControllerProvider,
@@ -49,6 +50,30 @@ type CloudPollingState = {
   deviceSecret: string;
   abortController: AbortController;
 };
+
+function describeFetchError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const parts = [error.message];
+  const cause = error.cause;
+
+  if (cause && typeof cause === "object") {
+    const code = "code" in cause ? cause.code : undefined;
+    const message = "message" in cause ? cause.message : undefined;
+
+    if (typeof code === "string" && code.length > 0) {
+      parts.push(code);
+    }
+
+    if (typeof message === "string" && message.length > 0) {
+      parts.push(message);
+    }
+  }
+
+  return parts.join(" | ");
+}
 
 function buildLinkModelsUrl(baseUrl: string): string {
   return new URL(
@@ -160,6 +185,9 @@ export class NexuConfigStore {
   private readonly nexuCloudUrl: string;
   private readonly nexuLinkUrl: string | null;
   private pollingState: CloudPollingState | null = null;
+
+  /** Callback fired when cloud state changes (connect/disconnect). */
+  onCloudStateChanged?: () => Promise<void>;
 
   constructor(env: ControllerEnv) {
     this.nexuCloudUrl = env.nexuCloudUrl;
@@ -292,6 +320,7 @@ export class NexuConfigStore {
             apiKey: data.apiKey,
             models,
           });
+          await this.onCloudStateChanged?.();
           return;
         }
 
@@ -348,10 +377,11 @@ export class NexuConfigStore {
       }
     }
 
+    const config = await this.getConfig();
     return this.createBot({
       name: "Nexu Assistant",
       slug: "nexu-assistant",
-      modelId: "anthropic/claude-sonnet-4",
+      modelId: config.runtime.defaultModelId,
     });
   }
 
@@ -369,7 +399,7 @@ export class NexuConfigStore {
       slug: input.slug,
       poolId: input.poolId ?? null,
       status: "active",
-      modelId: input.modelId ?? "anthropic/claude-sonnet-4",
+      modelId: input.modelId ?? (await this.getConfig()).runtime.defaultModelId,
       systemPrompt: input.systemPrompt ?? null,
       createdAt,
       updatedAt: createdAt,
@@ -906,16 +936,24 @@ export class NexuConfigStore {
       .digest("hex");
 
     let res: Response;
+    const registerUrl = `${this.nexuCloudUrl}/api/auth/device-register`;
     try {
-      res = await fetch(`${this.nexuCloudUrl}/api/auth/device-register`, {
+      res = await fetch(registerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceId, deviceSecretHash }),
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {
+      logger.warn(
+        {
+          url: registerUrl,
+          error: describeFetchError(error),
+        },
+        "desktop_cloud_connect_register_failed",
+      );
       return {
-        error: `Cloud unreachable: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Cloud unreachable: ${describeFetchError(error)}`,
       };
     }
 
@@ -965,6 +1003,7 @@ export class NexuConfigStore {
       apiKey: null,
       models: [],
     });
+    await this.onCloudStateChanged?.();
 
     return { ok: true };
   }

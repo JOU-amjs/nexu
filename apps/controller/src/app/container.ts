@@ -1,9 +1,10 @@
 import { GatewayClient } from "../runtime/gateway-client.js";
-import { startHealthLoop, startSyncLoop } from "../runtime/loops.js";
+import { startHealthLoop } from "../runtime/loops.js";
 import { OpenClawConfigWriter } from "../runtime/openclaw-config-writer.js";
 import { OpenClawProcessManager } from "../runtime/openclaw-process.js";
 import { OpenClawSkillsWriter } from "../runtime/openclaw-skills-writer.js";
 import { OpenClawWatchTrigger } from "../runtime/openclaw-watch-trigger.js";
+import { OpenClawWsClient } from "../runtime/openclaw-ws-client.js";
 import { RuntimeHealth } from "../runtime/runtime-health.js";
 import { SessionsRuntime } from "../runtime/sessions-runtime.js";
 import {
@@ -18,6 +19,7 @@ import { DesktopLocalService } from "../services/desktop-local-service.js";
 import { IntegrationService } from "../services/integration-service.js";
 import { LocalUserService } from "../services/local-user-service.js";
 import { ModelProviderService } from "../services/model-provider-service.js";
+import { OpenClawGatewayService } from "../services/openclaw-gateway-service.js";
 import { OpenClawSyncService } from "../services/openclaw-sync-service.js";
 import { RuntimeConfigService } from "../services/runtime-config-service.js";
 import { SessionService } from "../services/session-service.js";
@@ -47,6 +49,8 @@ export interface ControllerContainer {
   templateService: TemplateService;
   skillhubService: SkillhubService;
   openclawSyncService: OpenClawSyncService;
+  wsClient: OpenClawWsClient;
+  gatewayService: OpenClawGatewayService;
   runtimeState: ControllerRuntimeState;
   startBackgroundLoops: () => () => void;
 }
@@ -64,6 +68,8 @@ export function createContainer(): ControllerContainer {
   const runtimeHealth = new RuntimeHealth(env);
   const runtimeState = createRuntimeState();
   const openclawProcess = new OpenClawProcessManager(env);
+  const wsClient = new OpenClawWsClient(env);
+  const gatewayService = new OpenClawGatewayService(wsClient);
   const openclawSyncService = new OpenClawSyncService(
     env,
     configStore,
@@ -72,8 +78,16 @@ export function createContainer(): ControllerContainer {
     skillsWriter,
     templateWriter,
     watchTrigger,
+    gatewayService,
   );
   const skillhubService = new SkillhubService(env);
+  const modelProviderService = new ModelProviderService(configStore);
+
+  // Wire cloud state change callback for auto-model-selection + sync
+  configStore.onCloudStateChanged = async () => {
+    await modelProviderService.ensureValidDefaultModel();
+    await openclawSyncService.syncAll();
+  };
 
   return {
     env,
@@ -88,7 +102,7 @@ export function createContainer(): ControllerContainer {
       configStore,
       openclawSyncService,
     ),
-    modelProviderService: new ModelProviderService(configStore),
+    modelProviderService,
     integrationService: new IntegrationService(configStore),
     localUserService: new LocalUserService(configStore),
     desktopLocalService: new DesktopLocalService(configStore),
@@ -96,13 +110,10 @@ export function createContainer(): ControllerContainer {
     templateService: new TemplateService(configStore, openclawSyncService),
     skillhubService,
     openclawSyncService,
+    wsClient,
+    gatewayService,
     runtimeState,
     startBackgroundLoops: () => {
-      const stopSyncLoop = startSyncLoop({
-        env,
-        state: runtimeState,
-        syncService: openclawSyncService,
-      });
       const stopHealthLoop = startHealthLoop({
         env,
         state: runtimeState,
@@ -112,9 +123,9 @@ export function createContainer(): ControllerContainer {
       skillhubService.start();
 
       return () => {
-        stopSyncLoop();
         stopHealthLoop();
         skillhubService.dispose();
+        wsClient.stop();
       };
     },
   };

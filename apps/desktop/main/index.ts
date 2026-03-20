@@ -16,6 +16,7 @@ import { getDesktopSentryBuildMetadata } from "../shared/sentry-build-metadata";
 import { getDesktopAppRoot } from "../shared/workspace-paths";
 import { ensureDesktopAuthSession } from "./desktop-bootstrap";
 import { DesktopDiagnosticsReporter } from "./desktop-diagnostics";
+import { exportDiagnostics } from "./diagnostics-export";
 import {
   registerIpcHandlers,
   setComponentUpdater,
@@ -49,7 +50,8 @@ const electronRoot = app.isPackaged
   : getDesktopAppRoot();
 const runtimeConfig = getDesktopRuntimeConfig(process.env, {
   appVersion: app.getVersion(),
-  resourcesPath: electronRoot,
+  resourcesPath: app.isPackaged ? electronRoot : undefined,
+  useBuildConfig: app.isPackaged,
 });
 const orchestrator = new RuntimeOrchestrator(
   createRuntimeUnitManifests(
@@ -67,6 +69,44 @@ app.commandLine.appendSwitch("disable-popup-blocking");
 
 const sentryDsn = runtimeConfig.sentryDsn;
 
+function readNativeCrashTestTitle(event: Sentry.Event): string | null {
+  const taggedTitle =
+    typeof event.tags?.["nexu.crash_title"] === "string"
+      ? event.tags["nexu.crash_title"]
+      : typeof event.extra?.["nexu.crash_title"] === "string"
+        ? event.extra["nexu.crash_title"]
+        : null;
+
+  if (taggedTitle) {
+    return taggedTitle;
+  }
+
+  const electronContext = event.contexts?.electron as
+    | Record<string, unknown>
+    | undefined;
+  const crashpadTitle = electronContext?.["crashpad.nexu.crash_title"];
+
+  return typeof crashpadTitle === "string" ? crashpadTitle : null;
+}
+
+function readNativeCrashTestKind(event: Sentry.Event): string | null {
+  const taggedKind =
+    typeof event.tags?.["nexu.crash_kind"] === "string"
+      ? event.tags["nexu.crash_kind"]
+      : null;
+
+  if (taggedKind) {
+    return taggedKind;
+  }
+
+  const electronContext = event.contexts?.electron as
+    | Record<string, unknown>
+    | undefined;
+  const crashpadKind = electronContext?.["crashpad.nexu.crash_kind"];
+
+  return typeof crashpadKind === "string" ? crashpadKind : null;
+}
+
 if (sentryDsn) {
   const sentryBuildMetadata = getDesktopSentryBuildMetadata(
     runtimeConfig.buildInfo,
@@ -78,21 +118,45 @@ if (sentryDsn) {
     release: sentryBuildMetadata.release,
     ...(sentryBuildMetadata.dist ? { dist: sentryBuildMetadata.dist } : {}),
     beforeSend(event) {
-      const testTitle =
-        typeof event.tags?.["nexu.test_title"] === "string"
-          ? event.tags["nexu.test_title"]
-          : typeof event.extra?.["nexu.test_title"] === "string"
-            ? event.extra["nexu.test_title"]
-            : null;
+      const testTitle = readNativeCrashTestTitle(event);
 
       if (!testTitle) {
         return event;
       }
 
+      const testKind = readNativeCrashTestKind(event);
+      const firstException = event.exception?.values?.[0];
+      const updatedException = event.exception?.values
+        ? {
+            ...event.exception,
+            values: [
+              {
+                ...firstException,
+                type: "Error",
+                value: testTitle,
+              },
+              ...event.exception.values.slice(1),
+            ],
+          }
+        : {
+            values: [
+              {
+                type: "Error",
+                value: testTitle,
+              },
+            ],
+          };
+
       return {
         ...event,
         message: testTitle,
+        exception: updatedException,
         fingerprint: [testTitle],
+        tags: {
+          ...event.tags,
+          "nexu.crash_title": testTitle,
+          ...(testKind ? { "nexu.crash_kind": testKind } : {}),
+        },
       };
     },
   });
@@ -167,6 +231,22 @@ function installApplicationMenu(): void {
     ],
   };
 
+  const helpMenu: MenuItemConstructorOptions = {
+    role: "help",
+    submenu: [
+      {
+        label: "Export Diagnostics…",
+        click: () => {
+          void exportDiagnostics({
+            orchestrator,
+            runtimeConfig,
+            source: "help-menu",
+          }).catch(() => undefined);
+        },
+      },
+    ],
+  };
+
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === "darwin"
       ? ([{ role: "appMenu" }] satisfies MenuItemConstructorOptions[])
@@ -176,13 +256,14 @@ function installApplicationMenu(): void {
     { role: "viewMenu" },
     developMenu,
     { role: "windowMenu" },
+    helpMenu,
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 function getDesktopLogFilePath(name: string): string {
-  return resolve(app.getPath("logs"), name);
+  return resolve(app.getPath("userData"), "logs", name);
 }
 
 function getMainWindowId(): number | null {
@@ -196,6 +277,18 @@ function logColdStart(message: string): void {
     kind: "lifecycle",
     message,
     logFilePath: getDesktopLogFilePath("cold-start.log"),
+    windowId: getMainWindowId(),
+  });
+}
+
+function logLaunchTimeline(message: string): void {
+  const launchId = process.env.NEXU_DESKTOP_LAUNCH_ID ?? "unknown";
+  writeDesktopMainLog({
+    source: "launch-timeline",
+    stream: "system",
+    kind: "lifecycle",
+    message: `${message} launchId=${launchId}`,
+    logFilePath: getDesktopLogFilePath("desktop-main.log"),
     windowId: getMainWindowId(),
   });
 }
@@ -362,6 +455,7 @@ app.on("second-instance", () => {
 });
 
 function createMainWindow(): BrowserWindow {
+  logLaunchTimeline("main window creation requested");
   const window = new BrowserWindow({
     width: 1400,
     height: 920,
@@ -445,6 +539,7 @@ function createMainWindow(): BrowserWindow {
   });
 
   window.once("ready-to-show", () => {
+    logLaunchTimeline("main window ready-to-show");
     window.show();
     focusMainWindow();
   });
@@ -456,6 +551,7 @@ function createMainWindow(): BrowserWindow {
   });
 
   void window.loadFile(resolve(__dirname, "../../dist/index.html"));
+  logLaunchTimeline("main window loadFile dispatched");
   mainWindow = window;
   return window;
 }
@@ -531,12 +627,16 @@ app.on("web-contents-created", (_event, contents) => {
   });
 });
 
+logLaunchTimeline("electron main module evaluated");
+
 app.whenReady().then(async () => {
+  logLaunchTimeline("app.whenReady resolved");
   installApplicationMenu();
   installDesktopAuthRecoveryHooks();
   registerIpcHandlers(orchestrator, runtimeConfig);
   diagnosticsReporter = new DesktopDiagnosticsReporter(orchestrator);
   const unsubscribeDiagnostics = diagnosticsReporter.start();
+  const win = createMainWindow();
 
   void (async () => {
     const healthCheck = new StartupHealthCheck();
@@ -566,14 +666,14 @@ app.whenReady().then(async () => {
       });
     }
 
-    const win = createMainWindow();
-
-    if (app.isPackaged) {
+    if (app.isPackaged && runtimeConfig.updates.autoUpdateEnabled) {
       const updateMgr = new UpdateManager(win, orchestrator, {
         feedUrl: runtimeConfig.urls.updateFeed,
       });
       setUpdateManager(updateMgr);
       updateMgr.startPeriodicCheck();
+    } else {
+      setUpdateManager(null);
     }
 
     const compUpdater = new ComponentUpdater();

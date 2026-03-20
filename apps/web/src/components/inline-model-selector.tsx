@@ -102,22 +102,20 @@ export function InlineModelSelector() {
   const updateModel = useMutation({
     mutationFn: async (modelId: string) => {
       const toastId = toast.loading(t("models.switchingModel"));
-      const { data, error } = await putApiInternalDesktopDefaultModel({
+      const { error } = await putApiInternalDesktopDefaultModel({
         body: { modelId },
       });
       if (error) {
         toast.error(t("models.modelSwitchFailed"), { id: toastId });
         throw new Error("Failed to update model");
       }
-      const synced = (data as { configPushed?: boolean })?.configPushed;
-      if (synced) {
-        toast.success(t("models.modelSwitchedAndSynced"), { id: toastId });
-      } else {
-        toast.warning(t("models.modelSwitchedSyncFailed"), { id: toastId });
-      }
+      toast.success(t("models.modelSwitched"), { id: toastId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["desktop-default-model"] });
+      // Config push triggers SIGUSR1 restart; immediately refetch live status
+      // so the UI reflects the restart sooner.
+      queryClient.invalidateQueries({ queryKey: ["channels-live-status"] });
     },
   });
 
@@ -147,9 +145,10 @@ export function InlineModelSelector() {
     () => new Set(currentGroupKey ? [currentGroupKey] : []),
   );
 
-  // Expand current model's provider when opened
+  // Expand current model's provider only when dropdown opens (not on refetch)
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       const groupKey = currentModel ? getGroupKey(currentModel) : "";
       setExpandedProviders(
         new Set(
@@ -161,6 +160,7 @@ export function InlineModelSelector() {
         ),
       );
     }
+    prevOpenRef.current = open;
   }, [open, currentModel, modelsByProvider]);
 
   const query = search.toLowerCase().trim();
@@ -182,11 +182,11 @@ export function InlineModelSelector() {
       <button
         type="button"
         onClick={() => navigate("/workspace/models?tab=providers")}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-surface-0 hover:border-border-hover hover:bg-surface-1 transition-all text-[12px] text-text-primary"
+        className="flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary transition-colors"
       >
-        <Cpu size={13} className="text-text-muted" />
-        <span className="font-medium">{t("models.noModelConfigured")}</span>
-        <ChevronDown size={10} className="text-text-muted" />
+        <Cpu size={10} />
+        <span>{t("models.noModelConfigured")}</span>
+        <ChevronDown size={9} />
       </button>
     );
   }
@@ -199,13 +199,13 @@ export function InlineModelSelector() {
         onClick={() => setOpen(!open)}
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-surface-0 hover:border-border-hover hover:bg-surface-1 transition-all text-[12px] text-text-primary"
       >
-        {currentGroupKey ? (
-          <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+        <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+          {currentGroupKey ? (
             <ProviderLogo provider={currentGroupKey} size={14} />
-          </span>
-        ) : (
-          <Cpu size={13} className="text-text-muted" />
-        )}
+          ) : (
+            <Cpu size={13} className="text-text-muted" />
+          )}
+        </span>
         <span className="font-medium">{modelName}</span>
         <ChevronDown
           size={10}

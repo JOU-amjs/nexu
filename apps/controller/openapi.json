@@ -915,6 +915,59 @@
         }
       }
     },
+    "/api/internal/desktop/ready": {
+      "get": {
+        "tags": [
+          "Desktop"
+        ],
+        "responses": {
+          "200": {
+            "description": "Desktop runtime ready status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ready": {
+                      "type": "boolean"
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "number",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "status"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "degraded",
+                        "unhealthy"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ready",
+                    "runtime",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/desktop/cloud-status": {
       "get": {
         "tags": [
@@ -1161,11 +1214,15 @@
                     },
                     "modelId": {
                       "type": "string"
+                    },
+                    "configPushed": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "ok",
-                    "modelId"
+                    "modelId",
+                    "configPushed"
                   ]
                 }
               }
@@ -1872,6 +1929,186 @@
         }
       }
     },
+    "/api/v1/channels/live-status": {
+      "get": {
+        "tags": [
+          "Channels"
+        ],
+        "responses": {
+          "200": {
+            "description": "Live channel and agent status from OpenClaw gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "gatewayConnected": {
+                      "type": "boolean"
+                    },
+                    "channels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "channelType": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "accountId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "connected",
+                              "connecting",
+                              "disconnected",
+                              "error",
+                              "restarting"
+                            ]
+                          },
+                          "ready": {
+                            "type": "boolean"
+                          },
+                          "connected": {
+                            "type": "boolean"
+                          },
+                          "running": {
+                            "type": "boolean"
+                          },
+                          "configured": {
+                            "type": "boolean"
+                          },
+                          "lastError": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "channelType",
+                          "channelId",
+                          "accountId",
+                          "status",
+                          "ready",
+                          "connected",
+                          "running",
+                          "configured",
+                          "lastError"
+                        ]
+                      }
+                    },
+                    "agent": {
+                      "type": "object",
+                      "properties": {
+                        "modelId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "modelName": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "alive": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "modelId",
+                        "modelName",
+                        "alive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "gatewayConnected",
+                    "channels",
+                    "agent"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channels/{channelId}/readiness": {
+      "get": {
+        "tags": [
+          "Channels"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "channelId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Channel readiness status from OpenClaw gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ready": {
+                      "type": "boolean"
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "lastError": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "gatewayConnected": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ready",
+                    "connected",
+                    "running",
+                    "configured",
+                    "lastError",
+                    "gatewayConnected"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Channel not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/sessions": {
       "post": {
         "tags": [
@@ -2524,6 +2761,108 @@
           },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/messages": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat messages for the session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "assistant"
+                            ]
+                          },
+                          "content": {
+                            "nullable": true
+                          },
+                          "timestamp": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "role",
+                          "timestamp",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "sessionKey": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "messages",
+                    "sessionKey"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -4424,127 +4763,6 @@
                   },
                   "required": [
                     "ok"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/skills": {
-      "get": {
-        "tags": [
-          "Skills"
-        ],
-        "responses": {
-          "200": {
-            "description": "Skills catalog",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "skills": {
-                      "type": "object",
-                      "properties": {
-                        "version": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "exclusiveMinimum": true,
-                          "default": 1
-                        },
-                        "defaults": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean",
-                              "default": true
-                            },
-                            "source": {
-                              "type": "string",
-                              "enum": [
-                                "inline",
-                                "local-path"
-                              ],
-                              "default": "inline"
-                            }
-                          },
-                          "default": {
-                            "enabled": true,
-                            "source": "inline"
-                          }
-                        },
-                        "items": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "type": "object",
-                            "properties": {
-                              "name": {
-                                "type": "string"
-                              },
-                              "enabled": {
-                                "type": "boolean",
-                                "default": true
-                              },
-                              "source": {
-                                "type": "string",
-                                "enum": [
-                                  "inline",
-                                  "local-path"
-                                ],
-                                "default": "inline"
-                              },
-                              "content": {
-                                "type": "string",
-                                "default": ""
-                              },
-                              "localPath": {
-                                "type": "string"
-                              },
-                              "files": {
-                                "type": "object",
-                                "additionalProperties": {
-                                  "type": "string"
-                                },
-                                "default": {}
-                              },
-                              "metadata": {
-                                "type": "object",
-                                "properties": {
-                                  "title": {
-                                    "type": "string"
-                                  },
-                                  "description": {
-                                    "type": "string"
-                                  },
-                                  "owner": {
-                                    "type": "string"
-                                  },
-                                  "tags": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "category": {
-                                    "type": "string"
-                                  }
-                                },
-                                "default": {}
-                              }
-                            },
-                            "required": [
-                              "name"
-                            ]
-                          },
-                          "default": {}
-                        }
-                      }
-                    }
-                  },
-                  "required": [
-                    "skills"
                   ]
                 }
               }

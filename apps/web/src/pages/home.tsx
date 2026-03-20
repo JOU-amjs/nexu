@@ -1,15 +1,48 @@
+import { ActivityFeed } from "@/components/activity-feed";
 import { ChannelConnectModal } from "@/components/channel-connect-modal";
 import { InlineModelSelector } from "@/components/inline-model-selector";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ArrowUpRight, Cable } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import "@/lib/api";
 import {
   deleteApiV1ChannelsByChannelId,
+  getApiInternalDesktopReady,
   getApiV1Channels,
+  getApiV1ChannelsLiveStatus,
   getApiV1Sessions,
 } from "../../lib/api/sdk.gen";
+
+type ChannelLiveStatus =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "error"
+  | "restarting";
+
+type ChannelLiveStatusEntry = {
+  channelType: string;
+  channelId: string;
+  accountId: string;
+  status: ChannelLiveStatus;
+  ready: boolean;
+  connected: boolean;
+  running: boolean;
+  configured: boolean;
+  lastError: string | null;
+};
+
+type LiveStatusResponse = {
+  gatewayConnected: boolean;
+  channels: ChannelLiveStatusEntry[];
+  agent: {
+    modelId: string | null;
+    modelName: string | null;
+    alive: boolean;
+  };
+};
 
 function formatRelativeTime(
   date: string | null | undefined,
@@ -134,6 +167,44 @@ function getChannelOptions(t: (key: string) => string) {
   ];
 }
 
+function getChannelStatusMeta(
+  status: ChannelLiveStatus | undefined,
+  t: (key: string) => string,
+): { colorClass: string; pulse: boolean; label: string } {
+  switch (status) {
+    case "connected":
+      return {
+        colorClass: "bg-[var(--color-success)]",
+        pulse: false,
+        label: t("home.connected"),
+      };
+    case "connecting":
+      return {
+        colorClass: "bg-[var(--color-warning)]",
+        pulse: true,
+        label: t("home.channelConnecting"),
+      };
+    case "restarting":
+      return {
+        colorClass: "bg-[var(--color-warning)]",
+        pulse: true,
+        label: t("home.channel.restarting"),
+      };
+    case "error":
+      return {
+        colorClass: "bg-[var(--color-danger)]",
+        pulse: false,
+        label: t("home.channel.error"),
+      };
+    default:
+      return {
+        colorClass: "bg-text-muted/40",
+        pulse: false,
+        label: t("home.channel.disconnected"),
+      };
+  }
+}
+
 export function HomePage() {
   const { t } = useTranslation();
   const [modalChannel, setModalChannel] = useState<
@@ -142,18 +213,127 @@ export function HomePage() {
   const queryClient = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoHover, setVideoHover] = useState(false);
+  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const connectingToastIdRef = useRef<string | number | null>(null);
+  const previousLiveStatusesRef = useRef<Record<string, ChannelLiveStatus>>({});
+  // Suppress status-change toasts during startup grace period (first config
+  // push triggers SIGUSR1 → brief disconnect → reconnect cycle).
+  const mountedAtRef = useRef(Date.now());
+  const STARTUP_GRACE_MS = 15_000;
 
   const CHANNEL_OPTIONS = useMemo(() => getChannelOptions(t), [t]);
 
+  // Runtime health status (polls every 5s)
+  const { data: runtimeData } = useQuery({
+    queryKey: ["runtime-ready"],
+    queryFn: async () => {
+      const { data } = await getApiInternalDesktopReady();
+      return data;
+    },
+    refetchInterval: 5000,
+  });
+
+  const runtimeDisplay = useMemo(() => {
+    if (!runtimeData) {
+      // Still loading — show starting
+      return {
+        label: t("home.status.starting"),
+        color: "var(--color-warning)",
+        pulse: true,
+      } as const;
+    }
+    switch (runtimeData.status) {
+      case "active":
+        return {
+          label: t("home.running"),
+          color: "var(--color-success)",
+          pulse: false,
+        } as const;
+      case "degraded":
+        return {
+          label: t("home.status.degraded"),
+          color: "var(--color-warning)",
+          pulse: true,
+        } as const;
+      case "unhealthy":
+        return {
+          label: t("home.status.offline"),
+          color: "var(--color-danger)",
+          pulse: true,
+        } as const;
+      default:
+        return {
+          label: t("home.status.starting"),
+          color: "var(--color-warning)",
+          pulse: true,
+        } as const;
+    }
+  }, [runtimeData, t]);
+
+  // Idle scene status (no channels)
+  const idleDisplay = useMemo(() => {
+    if (!runtimeData) {
+      return {
+        label: t("home.status.starting"),
+        subtitle: t("home.status.subtitle.starting"),
+        color: "var(--color-warning)",
+        pulse: true,
+      } as const;
+    }
+    switch (runtimeData.status) {
+      case "active":
+        return {
+          label: t("home.status.ready"),
+          subtitle: t("home.status.subtitle.idle"),
+          color: "var(--color-success)",
+          pulse: false,
+        } as const;
+      case "degraded":
+        return {
+          label: t("home.status.degraded"),
+          subtitle: t("home.status.subtitle.degraded"),
+          color: "var(--color-warning)",
+          pulse: true,
+        } as const;
+      case "unhealthy":
+        return {
+          label: t("home.status.offline"),
+          subtitle: t("home.status.subtitle.offline"),
+          color: "var(--color-danger)",
+          pulse: true,
+        } as const;
+      default:
+        return {
+          label: t("home.status.starting"),
+          subtitle: t("home.status.subtitle.starting"),
+          color: "var(--color-warning)",
+          pulse: true,
+        } as const;
+    }
+  }, [runtimeData, t]);
+
   const handleConnected = async () => {
     await queryClient.refetchQueries({ queryKey: ["channels"] });
+    await queryClient.refetchQueries({ queryKey: ["channels-live-status"] });
     setModalChannel(null);
   };
 
-  const handleDisconnectChannel = async (channelId: string) => {
-    await deleteApiV1ChannelsByChannelId({ path: { channelId } });
-    await queryClient.refetchQueries({ queryKey: ["channels"] });
-  };
+  const disconnectChannel = useMutation({
+    mutationFn: async (channelId: string) => {
+      const toastId = toast.loading(t("home.disconnecting"));
+      const { error } = await deleteApiV1ChannelsByChannelId({
+        path: { channelId },
+      });
+      if (error) {
+        toast.error(t("home.disconnectFailed"), { id: toastId });
+        throw new Error("Failed to disconnect channel");
+      }
+      toast.success(t("home.disconnected"), { id: toastId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+    },
+  });
 
   const { data: channelsData, isLoading: channelsLoading } = useQuery({
     queryKey: ["channels"],
@@ -191,6 +371,102 @@ export function HomePage() {
   const connectedCount = channels.length;
   const hasChannel = connectedCount > 0;
   const connectedTypes = new Set<string>(channels.map((c) => c.channelType));
+
+  const { data: liveStatus } = useQuery({
+    queryKey: ["channels-live-status"],
+    queryFn: async () => {
+      const { data } = await getApiV1ChannelsLiveStatus();
+      return data as LiveStatusResponse | undefined;
+    },
+    refetchInterval: hasChannel ? 3000 : false,
+    enabled: hasChannel,
+  });
+
+  const liveStatusByChannelType = useMemo(() => {
+    const entries = liveStatus?.channels ?? [];
+    return new Map(entries.map((entry) => [entry.channelType, entry]));
+  }, [liveStatus]);
+
+  const liveStatusByChannelId = useMemo(() => {
+    const entries = liveStatus?.channels ?? [];
+    return new Map(entries.map((entry) => [entry.channelId, entry]));
+  }, [liveStatus]);
+
+  const agentIndicator = useMemo(() => {
+    if (!hasChannel || !liveStatus?.agent) {
+      return null;
+    }
+    return liveStatus.agent.alive
+      ? {
+          colorClass: "bg-[var(--color-success)]",
+          pulse: false,
+          label: t("home.agent.alive"),
+        }
+      : {
+          colorClass: "bg-[var(--color-warning)]",
+          pulse: true,
+          label: t("home.agent.starting"),
+        };
+  }, [hasChannel, liveStatus, t]);
+
+  const handleChannelCreated = useCallback(
+    (channelId: string) => {
+      setPendingChannelId(channelId);
+      connectingToastIdRef.current = toast.loading(
+        t("home.channel.phase.connecting"),
+      );
+      void queryClient.refetchQueries({ queryKey: ["channels-live-status"] });
+    },
+    [queryClient, t],
+  );
+
+  useEffect(() => {
+    const toastId = connectingToastIdRef.current;
+    if (!toastId || !pendingChannelId) {
+      return;
+    }
+    const pending = liveStatusByChannelId.get(pendingChannelId);
+    if (!pending) {
+      toast.loading(t("home.channel.phase.configuring"), { id: toastId });
+      return;
+    }
+    if (pending.status === "connected") {
+      toast.success(t("home.channel.phase.done"), { id: toastId });
+      connectingToastIdRef.current = null;
+      setPendingChannelId(null);
+      return;
+    }
+    if (pending.status === "error") {
+      toast.error(pending.lastError ?? t("home.channel.error"), {
+        id: toastId,
+      });
+      connectingToastIdRef.current = null;
+      setPendingChannelId(null);
+      return;
+    }
+    if (pending.status === "restarting") {
+      toast.loading(t("home.channel.phase.configuring"), { id: toastId });
+      return;
+    }
+    toast.loading(t("home.channel.phase.almostReady"), { id: toastId });
+  }, [liveStatusByChannelId, pendingChannelId, t]);
+
+  useEffect(() => {
+    const previous = previousLiveStatusesRef.current;
+    const inGracePeriod = Date.now() - mountedAtRef.current < STARTUP_GRACE_MS;
+    for (const entry of liveStatus?.channels ?? []) {
+      const last = previous[entry.channelId];
+      // Skip channels being tracked by the pending-channel toast above,
+      // and suppress during the startup grace period where the initial
+      // config push causes a brief disconnect → reconnect cycle.
+      if (entry.channelId !== pendingChannelId && !inGracePeriod) {
+        if (last && last !== "connected" && entry.status === "connected") {
+          toast.success(t("home.channel.phase.done"));
+        }
+      }
+      previous[entry.channelId] = entry.status;
+    }
+  }, [liveStatus, pendingChannelId, t]);
 
   // Video playback effects — reset when channel state changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: hasChannel triggers reset intentionally
@@ -235,10 +511,11 @@ export function HomePage() {
             >
               <video
                 ref={videoRef}
-                src="https://static.refly.ai/video/nexu-alpha.mp4"
+                src="/nexu-alpha.mp4"
                 poster="/nexu-alpha-poster.jpg"
                 preload="auto"
                 autoPlay
+                loop
                 muted
                 playsInline
                 className="w-full h-full object-contain"
@@ -251,11 +528,20 @@ export function HomePage() {
               nexu alpha
             </h2>
             <div className="flex items-center gap-3 text-[11px] text-text-muted">
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] animate-pulse" />
-                Idle
+              <span
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${idleDisplay.color} 10%, transparent)`,
+                  color: idleDisplay.color,
+                }}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${idleDisplay.pulse ? "animate-pulse" : ""}`}
+                  style={{ backgroundColor: idleDisplay.color }}
+                />
+                {idleDisplay.label}
               </span>
-              <span>Waiting for activation</span>
+              <span>{idleDisplay.subtitle}</span>
             </div>
 
             {/* Speech bubble — minimal pill */}
@@ -316,6 +602,7 @@ export function HomePage() {
             channelType={modalChannel}
             onClose={() => setModalChannel(null)}
             onConnected={handleConnected}
+            onConnectedChannelCreated={handleChannelCreated}
           />
         )}
       </div>
@@ -327,20 +614,21 @@ export function HomePage() {
      ══════════════════════════════════════════════════════════════════════ */
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        {/* ═══ TOP: Compact Hero — Bot + CTA ═══ */}
-        <div className="flex items-center gap-4">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
+        {/* ═══ TOP: Hero — Bot running (horizontal layout) ═══ */}
+        <div className="flex items-center gap-6">
           <div
-            className="relative w-28 h-28 shrink-0 cursor-default"
+            className="relative w-24 h-24 cursor-default shrink-0"
             onMouseEnter={() => setVideoHover(true)}
             onMouseLeave={() => setVideoHover(false)}
           >
             <video
               ref={videoRef}
-              src="https://static.refly.ai/video/nexu-alpha.mp4"
+              src="/nexu-alpha.mp4"
               poster="/nexu-alpha-poster.jpg"
               preload="auto"
               autoPlay
+              loop
               muted
               playsInline
               className="w-full h-full object-contain"
@@ -354,13 +642,33 @@ export function HomePage() {
               >
                 nexu alpha
               </h2>
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[var(--color-success)]/10 text-[var(--color-success)] text-[10px] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
-                {t("home.running")}
+              <span
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${runtimeDisplay.color} 10%, transparent)`,
+                  color: runtimeDisplay.color,
+                }}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${runtimeDisplay.pulse ? "animate-pulse" : ""}`}
+                  style={{ backgroundColor: runtimeDisplay.color }}
+                />
+                {runtimeDisplay.label}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <InlineModelSelector />
+              {agentIndicator && (
+                <span
+                  className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  title={agentIndicator.label}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${agentIndicator.colorClass} ${agentIndicator.pulse ? "animate-pulse" : ""}`}
+                  />
+                  {agentIndicator.label}
+                </span>
+              )}
               <div className="flex items-center gap-2 text-[11px] text-text-muted ml-3">
                 <span>
                   {sessionsData
@@ -383,26 +691,36 @@ export function HomePage() {
               Channels
             </h2>
           </div>
-          <div className="px-5 pb-5">
-            <div className="space-y-3">
-              {/* Connected channels — horizontal rows */}
-              {channels.length > 0 && (
-                <div className="space-y-1.5">
-                  {channels.map((channel) => {
-                    const chOption = CHANNEL_OPTIONS.find(
-                      (c) => c.id === channel.channelType,
+          <div className="px-5 pb-5 space-y-3">
+            {/* Connected channels — full width rows with green dot */}
+            {CHANNEL_OPTIONS.filter((ch) => connectedTypes.has(ch.id)).length >
+              0 && (
+              <div className="space-y-1.5">
+                {CHANNEL_OPTIONS.filter((ch) => connectedTypes.has(ch.id)).map(
+                  (ch) => {
+                    const connectedChannel = channels.find(
+                      (c) => c.channelType === ch.id,
                     );
-                    const channelChatUrl = getChatUrl(
-                      channel.channelType,
-                      channel.appId,
-                      channel.botUserId,
-                      channel.accountId,
+                    const statusEntry = connectedChannel
+                      ? liveStatusByChannelId.get(connectedChannel.id)
+                      : liveStatusByChannelType.get(ch.id);
+                    const statusMeta = getChannelStatusMeta(
+                      statusEntry?.status,
+                      t,
                     );
+                    const channelChatUrl = connectedChannel
+                      ? getChatUrl(
+                          ch.id,
+                          connectedChannel.appId,
+                          connectedChannel.botUserId,
+                          connectedChannel.accountId,
+                        )
+                      : "";
                     return (
                       <button
                         type="button"
-                        key={channel.id}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 cursor-pointer transition-all hover:bg-surface-1 text-left w-full"
+                        key={ch.id}
+                        className="flex w-full items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 cursor-pointer transition-all hover:bg-surface-1 text-left"
                         onClick={() =>
                           window.open(
                             channelChatUrl,
@@ -412,41 +730,53 @@ export function HomePage() {
                         }
                       >
                         <div className="w-8 h-8 rounded-[10px] flex items-center justify-center border border-border bg-white shrink-0">
-                          {chOption?.icon}
+                          {ch.icon}
                         </div>
                         <div className="flex-1 min-w-0 flex items-center gap-2">
                           <span className="text-[13px] font-semibold text-text-primary">
-                            {chOption?.name ?? channel.channelType}
+                            {ch.name}
                           </span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] shrink-0" />
+                          <span
+                            title={statusEntry?.lastError ?? statusMeta.label}
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.colorClass} ${statusMeta.pulse ? "animate-pulse" : ""}`}
+                          />
                         </div>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDisconnectChannel(channel.id);
+                            if (connectedChannel) {
+                              disconnectChannel.mutate(connectedChannel.id);
+                            }
                           }}
-                          className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary hover:text-[var(--color-danger)] hover:bg-surface-3 transition-colors shrink-0"
+                          disabled={disconnectChannel.isPending}
+                          className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium bg-surface-2 text-text-secondary hover:text-[var(--color-danger)] hover:bg-surface-3 transition-colors shrink-0 disabled:opacity-50"
                         >
-                          Connected
+                          {statusMeta.label}
                         </button>
-                        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary hover:text-text-primary transition-colors ml-3 shrink-0 leading-none">
+                        <a
+                          href={channelChatUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary hover:text-text-primary transition-colors ml-3 shrink-0 leading-none"
+                        >
                           Chat
                           <ArrowUpRight size={12} className="-mt-px" />
-                        </span>
+                        </a>
                       </button>
                     );
-                  })}
-                </div>
-              )}
+                  },
+                )}
+              </div>
+            )}
 
-              {/* Not-yet-connected channels — dashed border small cards */}
-              {CHANNEL_OPTIONS.filter((ch) => !connectedTypes.has(ch.id))
-                .length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {CHANNEL_OPTIONS.filter(
-                    (ch) => !connectedTypes.has(ch.id),
-                  ).map((ch) => (
+            {/* Not-yet-connected channels — dashed border grid */}
+            {CHANNEL_OPTIONS.filter((ch) => !connectedTypes.has(ch.id)).length >
+              0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {CHANNEL_OPTIONS.filter((ch) => !connectedTypes.has(ch.id)).map(
+                  (ch) => (
                     <button
                       key={ch.id}
                       type="button"
@@ -461,17 +791,20 @@ export function HomePage() {
                       <span className="text-[12px] font-medium text-text-muted group-hover:text-text-secondary flex-1 truncate">
                         {ch.name}
                       </span>
-                      <Cable
+                      <ArrowRight
                         size={12}
                         className="text-text-muted group-hover:text-text-primary transition-colors shrink-0"
                       />
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Activity Feed */}
+        <ActivityFeed />
       </div>
 
       {modalChannel && (
@@ -479,6 +812,7 @@ export function HomePage() {
           channelType={modalChannel}
           onClose={() => setModalChannel(null)}
           onConnected={handleConnected}
+          onConnectedChannelCreated={handleChannelCreated}
         />
       )}
     </div>
