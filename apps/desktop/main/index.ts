@@ -49,7 +49,8 @@ const electronRoot = app.isPackaged
   : getDesktopAppRoot();
 const runtimeConfig = getDesktopRuntimeConfig(process.env, {
   appVersion: app.getVersion(),
-  resourcesPath: electronRoot,
+  resourcesPath: app.isPackaged ? electronRoot : undefined,
+  useBuildConfig: app.isPackaged,
 });
 const orchestrator = new RuntimeOrchestrator(
   createRuntimeUnitManifests(
@@ -67,6 +68,44 @@ app.commandLine.appendSwitch("disable-popup-blocking");
 
 const sentryDsn = runtimeConfig.sentryDsn;
 
+function readNativeCrashTestTitle(event: Sentry.Event): string | null {
+  const taggedTitle =
+    typeof event.tags?.["nexu.crash_title"] === "string"
+      ? event.tags["nexu.crash_title"]
+      : typeof event.extra?.["nexu.crash_title"] === "string"
+        ? event.extra["nexu.crash_title"]
+        : null;
+
+  if (taggedTitle) {
+    return taggedTitle;
+  }
+
+  const electronContext = event.contexts?.electron as
+    | Record<string, unknown>
+    | undefined;
+  const crashpadTitle = electronContext?.["crashpad.nexu.crash_title"];
+
+  return typeof crashpadTitle === "string" ? crashpadTitle : null;
+}
+
+function readNativeCrashTestKind(event: Sentry.Event): string | null {
+  const taggedKind =
+    typeof event.tags?.["nexu.crash_kind"] === "string"
+      ? event.tags["nexu.crash_kind"]
+      : null;
+
+  if (taggedKind) {
+    return taggedKind;
+  }
+
+  const electronContext = event.contexts?.electron as
+    | Record<string, unknown>
+    | undefined;
+  const crashpadKind = electronContext?.["crashpad.nexu.crash_kind"];
+
+  return typeof crashpadKind === "string" ? crashpadKind : null;
+}
+
 if (sentryDsn) {
   const sentryBuildMetadata = getDesktopSentryBuildMetadata(
     runtimeConfig.buildInfo,
@@ -78,21 +117,45 @@ if (sentryDsn) {
     release: sentryBuildMetadata.release,
     ...(sentryBuildMetadata.dist ? { dist: sentryBuildMetadata.dist } : {}),
     beforeSend(event) {
-      const testTitle =
-        typeof event.tags?.["nexu.test_title"] === "string"
-          ? event.tags["nexu.test_title"]
-          : typeof event.extra?.["nexu.test_title"] === "string"
-            ? event.extra["nexu.test_title"]
-            : null;
+      const testTitle = readNativeCrashTestTitle(event);
 
       if (!testTitle) {
         return event;
       }
 
+      const testKind = readNativeCrashTestKind(event);
+      const firstException = event.exception?.values?.[0];
+      const updatedException = event.exception?.values
+        ? {
+            ...event.exception,
+            values: [
+              {
+                ...firstException,
+                type: "Error",
+                value: testTitle,
+              },
+              ...event.exception.values.slice(1),
+            ],
+          }
+        : {
+            values: [
+              {
+                type: "Error",
+                value: testTitle,
+              },
+            ],
+          };
+
       return {
         ...event,
         message: testTitle,
+        exception: updatedException,
         fingerprint: [testTitle],
+        tags: {
+          ...event.tags,
+          "nexu.crash_title": testTitle,
+          ...(testKind ? { "nexu.crash_kind": testKind } : {}),
+        },
       };
     },
   });
