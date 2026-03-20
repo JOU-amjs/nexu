@@ -2,6 +2,7 @@ import { GitHubStarCta } from "@/components/github-star-cta";
 import { Switch } from "@/components/ui/switch";
 import {
   useCommunitySkills,
+  useImportSkill,
   useInstallSkill,
   useRefreshCatalog,
   useUninstallSkill,
@@ -174,6 +175,24 @@ export function SkillsPage() {
   const { locale } = useLocale();
   const { data, isLoading, isError } = useCommunitySkills();
   const refreshMutation = useRefreshCatalog();
+  const importMutation = useImportSkill();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await importMutation.mutateAsync(file);
+    } catch {
+      // Error handled by mutation state
+    }
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 150);
@@ -226,8 +245,10 @@ export function SkillsPage() {
       .map(([tag, count]) => ({ tag, count }));
   }, [allSkills]);
 
-  // Build skill lists based on tabs
-  const exploreSkills = allSkills.filter((s) => !installedSlugs.has(s.slug));
+  // Build skill lists based on tabs — explore sorted by downloads desc
+  const exploreSkills = [...allSkills]
+    .filter((s) => !installedSlugs.has(s.slug))
+    .sort((a, b) => b.downloads - a.downloads);
   const yourSkillsList = useMemo(() => {
     const installed = installedSkills.map((is) => {
       const catalogEntry = allSkills.find((s) => s.slug === is.slug);
@@ -246,10 +267,20 @@ export function SkillsPage() {
     });
 
     if (yoursSubTab === "recommended") {
-      return installed.filter((s) => s.tags.includes("curated"));
+      const recommendedSlugs = new Set(
+        installedSkills
+          .filter((is) => is.source === "curated" || is.source === "managed")
+          .map((is) => is.slug),
+      );
+      return installed.filter((s) => recommendedSlugs.has(s.slug));
     }
     if (yoursSubTab === "installed") {
-      return installed.filter((s) => !s.tags.includes("curated"));
+      const customSlugs = new Set(
+        installedSkills
+          .filter((is) => is.source === "custom")
+          .map((is) => is.slug),
+      );
+      return installed.filter((s) => customSlugs.has(s.slug));
     }
     return installed;
   }, [installedSkills, allSkills, yoursSubTab]);
@@ -331,10 +362,12 @@ export function SkillsPage() {
   }, [topTab, exploreSkills, yourSkillsList, topTags, locale, t]);
 
   // Yours sub-tab counts
-  const recommendedCount = yourSkillsList.filter((s) =>
-    s.tags.includes("curated"),
+  const recommendedCount = installedSkills.filter(
+    (is) => is.source === "curated" || is.source === "managed",
   ).length;
-  const installedCount = yourSkillsList.length - recommendedCount;
+  const customCount = installedSkills.filter(
+    (is) => is.source === "custom",
+  ).length;
 
   if (isLoading) {
     return (
@@ -406,12 +439,27 @@ export function SkillsPage() {
                 className="w-48 pl-9 pr-3 py-1.5 rounded-lg border border-border bg-surface-1 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[var(--color-brand-primary)]/30 focus:ring-1 focus:ring-[var(--color-brand-primary)]/20 transition-colors"
               />
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-text-primary text-white text-[12px] font-medium hover:opacity-85 transition-opacity"
+              onClick={handleImportClick}
+              disabled={importMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-text-primary text-white text-[12px] font-medium hover:opacity-85 transition-opacity disabled:opacity-50"
             >
-              <Plus size={12} />
-              {t("skills.import")}
+              {importMutation.isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Plus size={12} />
+              )}
+              {importMutation.isPending
+                ? t("skills.importing", "Importing...")
+                : t("skills.import")}
             </button>
           </div>
         </div>
@@ -452,7 +500,7 @@ export function SkillsPage() {
               >
                 <TabIcon size={14} />
                 {tab.label}
-                {tab.id === "yours" && installedSkills.length > 0 && (
+                {tab.id === "yours" && installedSkills.length > 0 && active && (
                   <span
                     className={cn(
                       "tabular-nums text-[12px]",
@@ -485,7 +533,7 @@ export function SkillsPage() {
                 {
                   id: "installed" as const,
                   label: t("skills.installed"),
-                  count: installedCount,
+                  count: customCount,
                 },
               ] as const
             ).map((tab) => {

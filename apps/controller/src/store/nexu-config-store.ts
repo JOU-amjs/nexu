@@ -24,7 +24,6 @@ import { LowDbStore } from "./lowdb-store.js";
 import {
   type ControllerProvider,
   type ControllerRuntimeConfig,
-  type ControllerSkills,
   type NexuConfig,
   nexuConfigSchema,
   type storedProviderResponseSchema,
@@ -212,14 +211,6 @@ export class NexuConfigStore {
         integrations: [],
         channels: [],
         templates: {},
-        skills: {
-          version: 1,
-          defaults: {
-            enabled: true,
-            source: "inline",
-          },
-          items: {},
-        },
         desktop: {},
         secrets: {},
       }),
@@ -1253,79 +1244,6 @@ export class NexuConfigStore {
         .update(JSON.stringify(payload))
         .digest("hex"),
       templates: payload,
-      createdAt,
-    };
-  }
-
-  async getSkills(): Promise<ControllerSkills> {
-    const config = await this.getConfig();
-    return config.skills;
-  }
-
-  async upsertSkill(input: {
-    name: string;
-    content: string;
-    files?: Record<string, string>;
-    status?: "active" | "inactive";
-    metadata?: ControllerSkills["items"][string]["metadata"];
-  }): Promise<{ ok: true; name: string; version: number }> {
-    const timestamp = now();
-    await this.store.update((config) => ({
-      ...config,
-      skills: {
-        ...config.skills,
-        items: {
-          ...config.skills.items,
-          [input.name]: {
-            name: input.name,
-            enabled: input.status !== "inactive",
-            source: "inline",
-            content: input.content,
-            files: input.files ?? {},
-            metadata: input.metadata ?? {},
-          },
-        },
-      },
-      app: {
-        ...config.app,
-        skillsUpdatedAt: timestamp,
-      },
-    }));
-
-    const skills = await this.getSkills();
-    return {
-      ok: true,
-      name: input.name,
-      version: Object.keys(skills.items).length,
-    };
-  }
-
-  async getRuntimeSkillsSnapshot(): Promise<{
-    version: number;
-    skillsHash: string;
-    skills: Record<string, Record<string, string>>;
-    createdAt: string;
-  }> {
-    const skills = await this.getSkills();
-    const payload = Object.fromEntries(
-      Object.entries(skills.items)
-        .filter(([, item]) => item.enabled)
-        .map(([name, item]) => [
-          name,
-          {
-            "SKILL.md": item.content,
-            ...item.files,
-          },
-        ]),
-    );
-    const createdAt = now();
-    return {
-      version: Object.keys(payload).length,
-      skillsHash: crypto
-        .createHash("sha256")
-        .update(JSON.stringify(payload))
-        .digest("hex"),
-      skills: payload,
       createdAt,
     };
   }

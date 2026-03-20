@@ -1830,66 +1830,6 @@ export type GetApiV1ArtifactsByIdResponses = {
 
 export type GetApiV1ArtifactsByIdResponse = GetApiV1ArtifactsByIdResponses[keyof GetApiV1ArtifactsByIdResponses];
 
-export type GetApiInternalSkillsLatestData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/internal/skills/latest';
-};
-
-export type GetApiInternalSkillsLatestResponses = {
-    /**
-     * Latest skill runtime snapshot
-     */
-    200: {
-        version: number;
-        skillsHash: string;
-        skills: {
-            [key: string]: {
-                [key: string]: string;
-            };
-        };
-        createdAt: string;
-    };
-};
-
-export type GetApiInternalSkillsLatestResponse = GetApiInternalSkillsLatestResponses[keyof GetApiInternalSkillsLatestResponses];
-
-export type PutApiInternalSkillsByNameData = {
-    body?: {
-        content: string;
-        files?: {
-            [key: string]: string;
-        };
-        status?: 'active' | 'inactive';
-        metadata?: {
-            title?: string;
-            description?: string;
-            owner?: string;
-            tags?: Array<string>;
-            category?: string;
-        };
-    };
-    path: {
-        name: string;
-    };
-    query?: never;
-    url: '/api/internal/skills/{name}';
-};
-
-export type PutApiInternalSkillsByNameResponses = {
-    /**
-     * Upserted skill
-     */
-    200: {
-        ok: boolean;
-        name: string;
-        version: number;
-    };
-};
-
-export type PutApiInternalSkillsByNameResponse = PutApiInternalSkillsByNameResponses[keyof PutApiInternalSkillsByNameResponses];
-
 export type GetApiV1SkillhubCatalogData = {
     body?: never;
     path?: never;
@@ -1915,9 +1855,10 @@ export type GetApiV1SkillhubCatalogResponses = {
         installedSlugs: Array<string>;
         installedSkills: Array<{
             slug: string;
-            source: 'curated' | 'managed';
+            source: 'curated' | 'managed' | 'custom';
             name: string;
             description: string;
+            installedAt: string;
         }>;
         meta: {
             version: string;
@@ -2031,6 +1972,40 @@ export type GetApiV1SkillhubSkillsBySlugResponses = {
 };
 
 export type GetApiV1SkillhubSkillsBySlugResponse = GetApiV1SkillhubSkillsBySlugResponses[keyof GetApiV1SkillhubSkillsBySlugResponses];
+
+export type PostApiV1SkillhubImportData = {
+    body?: {
+        file: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/skillhub/import';
+};
+
+export type PostApiV1SkillhubImportErrors = {
+    /**
+     * Bad request
+     */
+    400: {
+        ok: false;
+        error: string;
+    };
+};
+
+export type PostApiV1SkillhubImportError = PostApiV1SkillhubImportErrors[keyof PostApiV1SkillhubImportErrors];
+
+export type PostApiV1SkillhubImportResponses = {
+    /**
+     * Import result
+     */
+    200: {
+        ok: boolean;
+        slug?: string;
+        error?: string;
+    };
+};
+
+export type PostApiV1SkillhubImportResponse = PostApiV1SkillhubImportResponses[keyof PostApiV1SkillhubImportResponses];
 
 export type GetApiV1MeData = {
     body?: never;
