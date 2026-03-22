@@ -137,9 +137,22 @@ const FEISHU_PRE_LLM_SINGLE_AGENT_SEARCH = `
 `.trim();
 const FEISHU_PRE_LLM_SINGLE_AGENT_REPLACEMENT = [
   "      // --- Single-agent dispatch (existing behavior) ---",
+  "      const ctxPayload = buildCtxPayloadForAgent(",
+  "        route.sessionKey,",
+  "        route.accountId,",
+  "        ctx.mentionedBot,",
+  "      );",
   "      const syntheticFailureTriggerPrefix = process.env.NEXU_FEISHU_TEST_TRIGGER_PREFIX?.trim();",
   "      if (syntheticFailureTriggerPrefix && ctx.content.includes(syntheticFailureTriggerPrefix)) {",
   "        const syntheticInput = ctx.content.slice(ctx.content.indexOf(syntheticFailureTriggerPrefix) + syntheticFailureTriggerPrefix.length).trim();",
+  "        void core.channel.session.recordSessionMetaFromInbound({",
+  "          storePath,",
+  "          sessionKey: route.sessionKey,",
+  "          ctx: ctxPayload,",
+  "          createIfMissing: true,",
+  "        }).catch((err) => {",
+  "          runtime.error?.(`feishu[${account.accountId}]: synthetic pre-llm session meta failed: ${String(err)}`);",
+  "        });",
   "        runtime.log?.(`NEXU_EVENT channel.reply_outcome ${JSON.stringify({",
   '          channel: "feishu",',
   '          status: "failed",',
@@ -158,7 +171,6 @@ const FEISHU_PRE_LLM_SINGLE_AGENT_REPLACEMENT = [
   "        );",
   "        return;",
   "      }",
-  "      const ctxPayload = buildCtxPayloadForAgent(",
 ].join("\n");
 const LEGACY_FEISHU_TRIGGER_CALLSITE = `
         accountId: account.accountId,

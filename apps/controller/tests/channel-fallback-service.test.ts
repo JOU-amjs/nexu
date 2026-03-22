@@ -121,4 +121,39 @@ describe("ChannelFallbackService", () => {
       fallbackReason: "unsupported_channel",
     });
   });
+
+  it("renders synthetic override params into unknown fallback template", async () => {
+    const source = createEventSource();
+    const sendChannelMessage = vi.fn().mockResolvedValue({
+      messageId: "om_unknown",
+      channel: "feishu",
+    });
+    const service = new ChannelFallbackService(
+      source,
+      { sendChannelMessage },
+      { getLocale: () => "en" },
+    );
+
+    service.start();
+    source.emit("channel.reply_outcome", {
+      channel: "feishu",
+      status: "failed",
+      accountId: "acc-1",
+      chatId: "oc_123",
+      replyToMessageId: "om_unknown_root",
+      reasonCode: "synthetic_pre_llm_failure",
+      syntheticInput: JSON.stringify({
+        errorCode: "not_exists",
+        params: { hint: "A1" },
+      }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendChannelMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("Diagnostic hint: A1"),
+      }),
+    );
+  });
 });
