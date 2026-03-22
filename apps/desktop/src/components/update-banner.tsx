@@ -49,10 +49,12 @@ export function UpdateBanner({
   onInstall,
   onDismiss,
 }: UpdateBannerProps) {
-  if (phase === "idle" || phase === "checking" || dismissed) {
+  if (phase === "idle" || dismissed) {
     return null;
   }
 
+  const isChecking = phase === "checking";
+  const isUpToDate = phase === "up-to-date";
   const isDownloading = phase === "downloading";
   const isReady = phase === "ready";
   const isError = phase === "error";
@@ -70,13 +72,15 @@ export function UpdateBanner({
             <span className="update-dot" />
           </span>
           <span className="update-card-title">
+            {isChecking && "Checking for updates..."}
+            {isUpToDate && "You're up to date"}
             {isDownloading && "Downloading update\u2026"}
             {isAvailable && `v${version} available`}
             {isReady && `v${version} ready`}
             {isError && "Update failed"}
           </span>
         </div>
-        {!isDownloading && (
+        {!isDownloading && !isChecking && (
           <button
             className="update-card-close"
             onClick={onDismiss}
@@ -100,6 +104,14 @@ export function UpdateBanner({
           </button>
         )}
       </div>
+
+      {(isChecking || isUpToDate) && (
+        <div className="update-card-message">
+          {isChecking
+            ? "Contacting the update feed and comparing the latest release..."
+            : "This channel is already on the latest available version."}
+        </div>
+      )}
 
       {/* Downloading — percentage + progress bar */}
       {isDownloading && (

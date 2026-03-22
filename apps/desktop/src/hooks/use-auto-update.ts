@@ -4,6 +4,7 @@ import { checkForUpdate, downloadUpdate, installUpdate } from "../lib/host-api";
 export type UpdatePhase =
   | "idle"
   | "checking"
+  | "up-to-date"
   | "available"
   | "downloading"
   | "ready"
@@ -57,7 +58,11 @@ export function useAutoUpdate() {
 
     disposers.push(
       updater.onEvent("update:up-to-date", () => {
-        setState((prev) => ({ ...prev, phase: "idle" }));
+        setState((prev) => ({
+          ...prev,
+          phase: "up-to-date",
+          errorMessage: null,
+        }));
       }),
     );
 
@@ -98,6 +103,22 @@ export function useAutoUpdate() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (state.phase !== "up-to-date") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setState((prev) =>
+        prev.phase === "up-to-date" ? { ...prev, phase: "idle" } : prev,
+      );
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [state.phase]);
 
   const check = useCallback(async () => {
     try {
