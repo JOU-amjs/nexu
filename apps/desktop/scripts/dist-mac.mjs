@@ -41,96 +41,106 @@ const rmWithRetriesOptions = {
 };
 
 /**
- * Recursively dereference all symlinks in a directory using cp -RL.
- * Node.js fs.cp with dereference:true only dereferences the top-level source,
- * not nested symlinks inside directories. We need cp -RL for full recursion.
- */
-async function copyWithFullDereference(src, dest) {
-  await rm(dest, rmWithRetriesOptions);
-  await mkdir(dirname(dest), { recursive: true });
-  // cp -RL: -R recursive, -L dereference symlinks
-  execFileSync("cp", ["-RL", src, dest], { stdio: "inherit" });
-}
-
-/**
- * Dereference pnpm symlinks for extraResources that electron-builder
- * copies into the bundle. Without this, symlinks point to non-existent
- * paths in the final .app bundle, causing codesign to fail.
+ * Dereference ALL pnpm symlinks in node_modules.
+ * pnpm uses symlinks extensively, but codesign fails when .app bundles
+ * contain symlinks pointing outside the bundle.
+ *
+ * Strategy: Find all symlinks, resolve their real paths, then replace
+ * each symlink with a full copy of the target using cp -RL.
  */
 async function dereferencePnpmSymlinks() {
-  const sharpPath = resolve(electronRoot, "node_modules/sharp");
-  const imgPath = resolve(electronRoot, "node_modules/@img");
+  const nodeModulesPath = resolve(electronRoot, "node_modules");
 
-  // First, resolve paths BEFORE any modifications
-  let realSharpPath = null;
-  let pnpmImgPath = null;
-
+  // Find all symlinks in node_modules
+  let symlinks = [];
   try {
-    const sharpStat = await lstat(sharpPath);
-    if (sharpStat.isSymbolicLink()) {
-      realSharpPath = await realpath(sharpPath);
-      // @img is a sibling of sharp in .pnpm/sharp@x.x.x/node_modules/@img
-      pnpmImgPath = resolve(dirname(realSharpPath), "@img");
-      console.log(
-        `[dist:mac] resolved pnpm paths: sharp=${realSharpPath}, @img=${pnpmImgPath}`,
-      );
-    }
-  } catch (err) {
-    console.log(`[dist:mac] failed to resolve pnpm paths: ${err.message}`);
-  }
-
-  // Now dereference sharp using cp -RL for full symlink resolution
-  if (realSharpPath) {
-    try {
-      console.log(
-        `[dist:mac] dereferencing sharp: ${sharpPath} -> ${realSharpPath}`,
-      );
-      await copyWithFullDereference(realSharpPath, sharpPath);
-    } catch (err) {
-      console.log(`[dist:mac] failed to dereference sharp: ${err.message}`);
-    }
-  }
-
-  // Copy @img from pnpm directory using cp -RL for full symlink resolution
-  if (pnpmImgPath) {
-    try {
-      const pnpmImgStat = await lstat(pnpmImgPath).catch(() => null);
-      if (pnpmImgStat) {
-        console.log(
-          `[dist:mac] copying @img from pnpm: ${pnpmImgPath} -> ${imgPath}`,
-        );
-        await copyWithFullDereference(pnpmImgPath, imgPath);
-      } else {
-        console.log(`[dist:mac] @img not found at: ${pnpmImgPath}`);
-      }
-    } catch (err) {
-      console.log(`[dist:mac] failed to copy @img: ${err.message}`);
-    }
-  }
-
-  // Debug: find any remaining symlinks in node_modules
-  try {
-    const nodeModulesPath = resolve(electronRoot, "node_modules");
-    const findResult = execFileSync("find", [nodeModulesPath, "-type", "l"], {
-      encoding: "utf8",
-      maxBuffer: 10 * 1024 * 1024,
-    }).trim();
+    const findResult = execFileSync(
+      "find",
+      [nodeModulesPath, "-type", "l", "-maxdepth", "2"],
+      { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
     if (findResult) {
-      const lines = findResult.split("\n");
+      symlinks = findResult.split("\n").filter(Boolean);
+    }
+  } catch {
+    // No symlinks found
+  }
+
+  if (symlinks.length === 0) {
+    console.log(`[dist:mac] no symlinks found in node_modules`);
+    return;
+  }
+
+  console.log(
+    `[dist:mac] dereferencing ${symlinks.length} pnpm symlinks in node_modules`,
+  );
+
+  // Collect symlink -> realpath mappings BEFORE modifying anything
+  const mappings = [];
+  for (const symlinkPath of symlinks) {
+    try {
+      const realPath = await realpath(symlinkPath);
+      mappings.push({ symlinkPath, realPath });
+    } catch (err) {
       console.log(
-        `[dist:mac] WARNING: ${lines.length} symlinks remaining in node_modules:`,
+        `[dist:mac] failed to resolve ${symlinkPath}: ${err.message}`,
       );
-      console.log(lines.slice(0, 30).join("\n"));
-    } else {
-      console.log(`[dist:mac] OK: no symlinks remaining in node_modules`);
+    }
+  }
+
+  // Now replace each symlink with the actual content
+  for (const { symlinkPath, realPath } of mappings) {
+    try {
+      await rm(symlinkPath, rmWithRetriesOptions);
+      // cp -RL: recursive + dereference all nested symlinks
+      execFileSync("cp", ["-RL", realPath, symlinkPath], { stdio: "pipe" });
+    } catch (err) {
+      console.log(
+        `[dist:mac] failed to dereference ${symlinkPath}: ${err.message}`,
+      );
+    }
+  }
+
+  // Also handle @img which is a peer dependency of sharp in pnpm store
+  const sharpPath = resolve(nodeModulesPath, "sharp");
+  const imgPath = resolve(nodeModulesPath, "@img");
+  try {
+    const stat = await lstat(sharpPath).catch(() => null);
+    if (stat?.isDirectory()) {
+      // sharp is now a real directory, find @img in pnpm store
+      const pnpmSharpPath = mappings.find((m) =>
+        m.symlinkPath.endsWith("/sharp"),
+      )?.realPath;
+      if (pnpmSharpPath) {
+        const pnpmImgPath = resolve(dirname(pnpmSharpPath), "@img");
+        const pnpmImgStat = await lstat(pnpmImgPath).catch(() => null);
+        if (pnpmImgStat) {
+          console.log(`[dist:mac] copying @img from pnpm store`);
+          await rm(imgPath, rmWithRetriesOptions);
+          execFileSync("cp", ["-RL", pnpmImgPath, imgPath], { stdio: "pipe" });
+        }
+      }
     }
   } catch (err) {
-    // find returns exit code 0 even with no results, so check stderr
-    if (err.stdout?.trim()) {
-      console.log(`[dist:mac] symlinks found:`, err.stdout.trim());
+    console.log(`[dist:mac] failed to copy @img: ${err.message}`);
+  }
+
+  // Verify no symlinks remain
+  try {
+    const remaining = execFileSync(
+      "find",
+      [nodeModulesPath, "-type", "l"],
+      { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
+    if (remaining) {
+      const lines = remaining.split("\n");
+      console.log(`[dist:mac] WARNING: ${lines.length} symlinks still remain`);
+      console.log(lines.slice(0, 10).join("\n"));
     } else {
-      console.log(`[dist:mac] failed to check for symlinks: ${err.message}`);
+      console.log(`[dist:mac] OK: all symlinks dereferenced`);
     }
+  } catch {
+    console.log(`[dist:mac] OK: no symlinks remaining`);
   }
 }
 
