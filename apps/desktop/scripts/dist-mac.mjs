@@ -49,50 +49,56 @@ async function dereferencePnpmSymlinks() {
   const sharpPath = resolve(electronRoot, "node_modules/sharp");
   const imgPath = resolve(electronRoot, "node_modules/@img");
 
-  // First, dereference sharp if it's a symlink
+  // First, resolve paths BEFORE any modifications
+  let realSharpPath = null;
+  let pnpmImgPath = null;
+
   try {
     const sharpStat = await lstat(sharpPath);
     if (sharpStat.isSymbolicLink()) {
-      const realSharpPath = await realpath(sharpPath);
+      realSharpPath = await realpath(sharpPath);
+      // @img is a sibling of sharp in .pnpm/sharp@x.x.x/node_modules/@img
+      pnpmImgPath = resolve(dirname(realSharpPath), "@img");
       console.log(
-        `[dist:mac] dereferencing pnpm symlink: ${sharpPath} -> ${realSharpPath}`,
+        `[dist:mac] resolved pnpm paths: sharp=${realSharpPath}, @img=${pnpmImgPath}`,
+      );
+    }
+  } catch (err) {
+    console.log(`[dist:mac] failed to resolve pnpm paths: ${err.message}`);
+  }
+
+  // Now dereference sharp
+  if (realSharpPath) {
+    try {
+      console.log(
+        `[dist:mac] dereferencing sharp: ${sharpPath} -> ${realSharpPath}`,
       );
       await rm(sharpPath, rmWithRetriesOptions);
       await cp(realSharpPath, sharpPath, {
         recursive: true,
         dereference: true,
       });
+    } catch (err) {
+      console.log(`[dist:mac] failed to dereference sharp: ${err.message}`);
     }
-  } catch (err) {
-    console.log(`[dist:mac] skipping sharp: ${err.message}`);
   }
 
-  // Then, copy @img from pnpm's sharp peer directory to top-level
-  // pnpm puts @img as a sibling of sharp in .pnpm/sharp@x.x.x/node_modules/@img
-  try {
-    // Find @img as sibling of the real sharp path
-    const realSharpPath = await realpath(sharpPath).catch(() => null);
-    const pnpmNodeModulesDir = realSharpPath ? dirname(realSharpPath) : null;
-    const pnpmImgPath = pnpmNodeModulesDir
-      ? resolve(pnpmNodeModulesDir, "@img")
-      : null;
-    const pnpmImgStat = pnpmImgPath
-      ? await lstat(pnpmImgPath).catch(() => null)
-      : null;
-
-    if (pnpmImgStat) {
-      console.log(
-        `[dist:mac] copying @img from pnpm: ${pnpmImgPath} -> ${imgPath}`,
-      );
-      await rm(imgPath, rmWithRetriesOptions);
-      await cp(pnpmImgPath, imgPath, { recursive: true, dereference: true });
-    } else {
-      console.log(
-        `[dist:mac] @img not found in pnpm dir: ${pnpmImgPath ?? "unknown"}`,
-      );
+  // Copy @img from pnpm directory
+  if (pnpmImgPath) {
+    try {
+      const pnpmImgStat = await lstat(pnpmImgPath).catch(() => null);
+      if (pnpmImgStat) {
+        console.log(
+          `[dist:mac] copying @img from pnpm: ${pnpmImgPath} -> ${imgPath}`,
+        );
+        await rm(imgPath, rmWithRetriesOptions);
+        await cp(pnpmImgPath, imgPath, { recursive: true, dereference: true });
+      } else {
+        console.log(`[dist:mac] @img not found at: ${pnpmImgPath}`);
+      }
+    } catch (err) {
+      console.log(`[dist:mac] failed to copy @img: ${err.message}`);
     }
-  } catch (err) {
-    console.log(`[dist:mac] skipping @img: ${err.message}`);
   }
 }
 
