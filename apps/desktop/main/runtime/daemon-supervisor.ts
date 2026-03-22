@@ -489,18 +489,31 @@ export class RuntimeOrchestrator {
 
       child.kill();
 
+      // Escalate to SIGKILL after 3s if SIGTERM was ignored
       setTimeout(() => {
         if (!settled) {
-          child.kill();
           this.logStateChange(record, {
             kind: "lifecycle",
             actionId,
             reasonCode: "stop_requested",
-            message: `runtime unit ${id} stop timeout reached; retrying kill`,
+            message: `runtime unit ${id} did not exit after SIGTERM; sending SIGKILL`,
+          });
+          child.kill("SIGKILL" as NodeJS.Signals);
+        }
+      }, 3_000);
+
+      // Final deadline: resolve after 5s regardless to avoid hanging quit
+      setTimeout(() => {
+        if (!settled) {
+          this.logStateChange(record, {
+            kind: "lifecycle",
+            actionId,
+            reasonCode: "stop_requested",
+            message: `runtime unit ${id} stop deadline reached after SIGKILL`,
           });
           finalize();
         }
-      }, 3_000);
+      }, 5_000);
     });
   }
 

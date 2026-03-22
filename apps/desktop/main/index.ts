@@ -787,9 +787,21 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
   sleepGuard?.dispose("app-before-quit");
   void diagnosticsReporter?.flushNow().catch(() => undefined);
   flushRuntimeLoggers();
-  void orchestrator.dispose();
+
+  // Prevent Electron from quitting until child processes are cleaned up.
+  // orchestrator.dispose() sends SIGTERM then escalates to SIGKILL, so this
+  // blocks for at most ~5 seconds per managed unit.
+  event.preventDefault();
+  orchestrator
+    .dispose()
+    .catch(() => undefined)
+    .finally(() => {
+      // Remove this handler so the next quit attempt goes through.
+      app.removeAllListeners("before-quit");
+      app.quit();
+    });
 });
