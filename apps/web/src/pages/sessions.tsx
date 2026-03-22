@@ -155,7 +155,8 @@ type Platform =
   | "whatsapp"
   | "telegram"
   | "web"
-  | "feishu";
+  | "feishu"
+  | "wechat";
 
 interface PlatformConfig {
   badgeClass: string;
@@ -200,6 +201,12 @@ const PLATFORM_CONFIG: Record<Platform, PlatformConfig> = {
       "border-[rgba(51,112,255,0.14)] bg-[rgba(51,112,255,0.08)] text-[#3370FF]",
     label: "Feishu",
     openLabel: "Open in Feishu",
+  },
+  wechat: {
+    badgeClass:
+      "border-[rgba(141,200,27,0.14)] bg-[rgba(141,200,27,0.08)] text-[#8DC81B]",
+    label: "WeChat",
+    openLabel: "Open in WeChat",
   },
   web: DEFAULT_PLATFORM_CONFIG,
 };
@@ -571,6 +578,7 @@ export function SessionsPage() {
               <span>Open Folder</span>
             </button>
             {platform !== "web" &&
+              platform !== "wechat" &&
               (externalChatUrl ? (
                 <a
                   href={externalChatUrl}
