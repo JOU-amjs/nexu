@@ -1,7 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  cp,
   lstat,
   mkdir,
   readFile,
@@ -67,7 +66,7 @@ async function dereferencePnpmSymlinks() {
   }
 
   if (symlinks.length === 0) {
-    console.log(`[dist:mac] no symlinks found in node_modules`);
+    console.log("[dist:mac] no symlinks found in node_modules");
     return;
   }
 
@@ -115,7 +114,7 @@ async function dereferencePnpmSymlinks() {
         const pnpmImgPath = resolve(dirname(pnpmSharpPath), "@img");
         const pnpmImgStat = await lstat(pnpmImgPath).catch(() => null);
         if (pnpmImgStat) {
-          console.log(`[dist:mac] copying @img from pnpm store`);
+          console.log("[dist:mac] copying @img from pnpm store");
           await rm(imgPath, rmWithRetriesOptions);
           execFileSync("cp", ["-RL", pnpmImgPath, imgPath], { stdio: "pipe" });
         }
@@ -127,20 +126,19 @@ async function dereferencePnpmSymlinks() {
 
   // Verify no symlinks remain
   try {
-    const remaining = execFileSync(
-      "find",
-      [nodeModulesPath, "-type", "l"],
-      { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
-    ).trim();
+    const remaining = execFileSync("find", [nodeModulesPath, "-type", "l"], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    }).trim();
     if (remaining) {
       const lines = remaining.split("\n");
       console.log(`[dist:mac] WARNING: ${lines.length} symlinks still remain`);
       console.log(lines.slice(0, 10).join("\n"));
     } else {
-      console.log(`[dist:mac] OK: all symlinks dereferenced`);
+      console.log("[dist:mac] OK: all symlinks dereferenced");
     }
   } catch {
-    console.log(`[dist:mac] OK: no symlinks remaining`);
+    console.log("[dist:mac] OK: no symlinks remaining");
   }
 }
 
