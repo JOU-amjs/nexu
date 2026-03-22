@@ -11,6 +11,10 @@ import { logger } from "../lib/logger.js";
 const MAX_CONSECUTIVE_RESTARTS = 10;
 const BASE_RESTART_DELAY_MS = 3000;
 const RESTART_WINDOW_MS = 120_000;
+// OpenClaw full-process restarts can take tens of seconds before the successor
+// starts listening again (observed ~20s during first-time Feishu enablement).
+// Keep a generous grace window so the outer supervisor does not spawn a second
+// gateway while the successor is still running doctor/startup work.
 const CONTROLLED_RESTART_GRACE_MS = 45_000;
 const CONTROLLED_RESTART_PROBE_INTERVAL_MS = 500;
 const NEXU_EVENT_MARKER = "NEXU_EVENT ";
@@ -62,7 +66,6 @@ export class OpenClawProcessManager {
       this.eventListeners.delete(listener);
     };
   }
-
   start(): void {
     if (!this.env.manageOpenclawProcess || this.child !== null) {
       return;
@@ -107,6 +110,7 @@ export class OpenClawProcessManager {
         ...process.env,
         ...extraEnv,
         OPENCLAW_LOG_LEVEL: "info",
+        // Explicitly pass config path so OpenClaw's file watcher monitors the correct file
         OPENCLAW_CONFIG_PATH: this.env.openclawConfigPath,
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -291,6 +295,9 @@ export class OpenClawProcessManager {
           return;
         }
 
+        // The successor process may stay alive for a long time before the WS
+        // port comes back. Treat a live successor as progress and keep waiting
+        // instead of falling back to a second controller-managed restart.
         if (successorAlive) {
           this.controlledRestartTimer = setTimeout(
             poll,
@@ -449,7 +456,6 @@ export class OpenClawProcessManager {
 
     return result;
   }
-
   private isGatewayPortOpen(): Promise<boolean> {
     return new Promise((resolve) => {
       const socket = net.createConnection({

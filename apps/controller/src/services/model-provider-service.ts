@@ -1,9 +1,11 @@
-import type {
-  Model,
-  verifyProviderBodySchema,
-  verifyProviderResponseSchema,
+import {
+  type Model,
+  selectPreferredModel,
+  type verifyProviderBodySchema,
+  type verifyProviderResponseSchema,
 } from "@nexu/shared";
 import type { z } from "zod";
+import type { ControllerEnv } from "../app/env.js";
 import { logger } from "../lib/logger.js";
 import type { NexuConfigStore } from "../store/nexu-config-store.js";
 
@@ -13,6 +15,8 @@ export interface ModelAutoSelectResult {
   newModelId: string | null;
   newModelName: string | null;
 }
+
+type DefaultModelValidity = "valid" | "invalid" | "unknown";
 
 const PROVIDER_BASE_URLS: Record<string, string> = {
   anthropic: "https://api.anthropic.com/v1",
@@ -45,7 +49,10 @@ type VerifyProviderBody = z.infer<typeof verifyProviderBodySchema>;
 type VerifyProviderResponse = z.infer<typeof verifyProviderResponseSchema>;
 
 export class ModelProviderService {
-  constructor(private readonly configStore: NexuConfigStore) {}
+  constructor(
+    private readonly configStore: NexuConfigStore,
+    _nodeEnv: ControllerEnv["nodeEnv"],
+  ) {}
 
   async listModels() {
     const config = await this.configStore.getConfig();
@@ -94,11 +101,11 @@ export class ModelProviderService {
    * change. Returns whether a switch happened and details for UI toast.
    */
   async ensureValidDefaultModel(): Promise<ModelAutoSelectResult> {
-    const { models } = await this.listModels();
+    const validity = await this.getDefaultModelValidity();
     const config = await this.configStore.getConfig();
     const currentId = config.runtime.defaultModelId;
 
-    if (models.some((m) => m.id === currentId)) {
+    if (validity !== "invalid") {
       return {
         changed: false,
         previousModelId: currentId,
@@ -106,6 +113,8 @@ export class ModelProviderService {
         newModelName: null,
       };
     }
+
+    const { models } = await this.listModels();
 
     if (models.length === 0) {
       return {
@@ -117,7 +126,7 @@ export class ModelProviderService {
     }
 
     // biome-ignore lint/style/noNonNullAssertion: length checked above
-    const selected = models[0]!;
+    const selected = selectPreferredModel(models) ?? models[0]!;
     await this.configStore.setDefaultModel(selected.id);
 
     logger.info(
@@ -131,6 +140,42 @@ export class ModelProviderService {
       newModelId: selected.id,
       newModelName: selected.name,
     };
+  }
+
+  private async getDefaultModelValidity(): Promise<DefaultModelValidity> {
+    const config = await this.configStore.getConfig();
+    const currentId = config.runtime.defaultModelId;
+    const desktopCloud = await this.configStore.getDesktopCloudStatus();
+    const inventory = await this.configStore.getDesktopCloudInventoryStatus();
+
+    const providers = config.providers.filter((provider) => provider.enabled);
+    const hasByokInventory = providers.some(
+      (provider) => provider.models.length > 0,
+    );
+    const hasKnownInventory = inventory.hasCloudInventory || hasByokInventory;
+
+    if (!hasKnownInventory) {
+      return "unknown";
+    }
+
+    const cloudModels: Model[] = (desktopCloud.models ?? []).map((model) => ({
+      id: model.id,
+      name: model.name || model.id,
+      provider: "nexu",
+      description: "Cloud model via Nexu Link",
+    }));
+    const byokModels: Model[] = providers.flatMap((provider) =>
+      provider.models.map((modelId) => ({
+        id: `${provider.providerId}/${modelId}`,
+        name: modelId,
+        provider: provider.providerId,
+      })),
+    );
+    const knownModels = [...cloudModels, ...byokModels];
+
+    return knownModels.some((model) => model.id === currentId)
+      ? "valid"
+      : "invalid";
   }
 
   async verifyProvider(

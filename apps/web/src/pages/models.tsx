@@ -4,6 +4,7 @@ import { ModelLogo, ProviderLogo } from "@/components/provider-logo";
 import { useGitHubStars } from "@/hooks/use-github-stars";
 import { openLocalFolderUrl, pathToFileUrl } from "@/lib/desktop-links";
 import { cn } from "@/lib/utils";
+import { selectPreferredModel } from "@nexu/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
@@ -184,7 +185,12 @@ const DEFAULT_MODELS: Record<string, string[]> = {
     "claude-3-5-haiku-20241022",
   ],
   openai: ["gpt-5.1", "gpt-5-mini", "gpt-5-nano", "o4-mini"],
-  google: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+  google: [
+    "gemini-3-pro",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+  ],
   siliconflow: [
     "deepseek-ai/DeepSeek-R1",
     "deepseek-ai/DeepSeek-V3",
@@ -1462,10 +1468,10 @@ function ByokProviderDetail({
       setApiKey("");
       setIsEditingApiKey(false);
       markSetupComplete();
-      // Auto-select first model if no model is currently selected
-      const firstModel = displayModels[0];
-      if (firstModel) {
-        onAutoSelectModel(firstModel);
+      // Auto-select preferred model if no model is currently selected
+      const preferred = selectPreferredModel(displayModels);
+      if (preferred) {
+        onAutoSelectModel(preferred);
       }
     },
   });

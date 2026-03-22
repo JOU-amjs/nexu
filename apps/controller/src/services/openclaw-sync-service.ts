@@ -1,12 +1,70 @@
+import { selectPreferredModel } from "@nexu/shared";
 import type { ControllerEnv } from "../app/env.js";
 import { logger } from "../lib/logger.js";
-import { compileOpenClawConfig } from "../lib/openclaw-config-compiler.js";
+import {
+  compileOpenClawConfig,
+  resolveModelId,
+} from "../lib/openclaw-config-compiler.js";
 import type { OpenClawConfigWriter } from "../runtime/openclaw-config-writer.js";
+import type { OpenClawRuntimeModelWriter } from "../runtime/openclaw-runtime-model-writer.js";
+import type { OpenClawRuntimePluginWriter } from "../runtime/openclaw-runtime-plugin-writer.js";
 import type { OpenClawWatchTrigger } from "../runtime/openclaw-watch-trigger.js";
 import type { WorkspaceTemplateWriter } from "../runtime/workspace-template-writer.js";
 import type { CompiledOpenClawStore } from "../store/compiled-openclaw-store.js";
 import type { NexuConfigStore } from "../store/nexu-config-store.js";
+import type { NexuConfig } from "../store/schemas.js";
 import type { OpenClawGatewayService } from "./openclaw-gateway-service.js";
+
+function resolvePrimaryModelRef(
+  model: string | { primary: string } | undefined,
+  config: NexuConfig,
+  compiled: ReturnType<typeof compileOpenClawConfig>,
+  env: ControllerEnv,
+): string {
+  const availableRuntimeModels = collectRuntimeModelRefs(compiled);
+
+  if (typeof model === "string") {
+    return resolveAvailableRuntimeModel(
+      resolveModelId(config, env, model),
+      availableRuntimeModels,
+    );
+  }
+
+  if (model && typeof model.primary === "string") {
+    return resolveAvailableRuntimeModel(
+      resolveModelId(config, env, model.primary),
+      availableRuntimeModels,
+    );
+  }
+
+  return resolveAvailableRuntimeModel(
+    resolveModelId(config, env, env.defaultModelId),
+    availableRuntimeModels,
+  );
+}
+
+function collectRuntimeModelRefs(
+  compiled: ReturnType<typeof compileOpenClawConfig>,
+): Array<{ id: string; name: string }> {
+  const providers = compiled.models?.providers ?? {};
+  return Object.entries(providers).flatMap(([providerKey, provider]) =>
+    (provider.models ?? []).map((model) => ({
+      id: `${providerKey}/${model.id}`,
+      name: model.name ?? model.id,
+    })),
+  );
+}
+
+function resolveAvailableRuntimeModel(
+  desiredRef: string,
+  availableRuntimeModels: Array<{ id: string; name: string }>,
+): string {
+  if (availableRuntimeModels.some((model) => model.id === desiredRef)) {
+    return desiredRef;
+  }
+
+  return selectPreferredModel(availableRuntimeModels)?.id ?? desiredRef;
+}
 
 export class OpenClawSyncService {
   private pendingSync: Promise<{ configPushed: boolean }> | null = null;
@@ -26,6 +84,8 @@ export class OpenClawSyncService {
     private readonly configStore: NexuConfigStore,
     private readonly compiledStore: CompiledOpenClawStore,
     private readonly configWriter: OpenClawConfigWriter,
+    private readonly runtimePluginWriter: OpenClawRuntimePluginWriter,
+    private readonly runtimeModelWriter: OpenClawRuntimeModelWriter,
     private readonly templateWriter: WorkspaceTemplateWriter,
     private readonly watchTrigger: OpenClawWatchTrigger,
     private readonly gatewayService: OpenClawGatewayService,
@@ -119,6 +179,19 @@ export class OpenClawSyncService {
     return this.doSync();
   }
 
+  async ensureRuntimeModelPlugin(): Promise<void> {
+    await this.runtimePluginWriter.ensurePlugins();
+    await this.runtimeModelWriter.writeFallback();
+  }
+
+  /**
+   * Write platform templates to a specific bot's workspace.
+   * Called when creating a new bot to seed workspace with platform files.
+   */
+  async writePlatformTemplatesForBot(botId: string): Promise<void> {
+    await this.templateWriter.write([{ id: botId, status: "active" }]);
+  }
+
   private async doSync(): Promise<{ configPushed: boolean }> {
     const seq = ++this.syncCounter;
     const config = await this.configStore.getConfig();
@@ -134,26 +207,35 @@ export class OpenClawSyncService {
       "doSync: pushing config to OpenClaw",
     );
 
-    // 1. Try WS push first (instant effect)
+    // 1. Decide whether this config differs from the last observed snapshot.
     let configPushed = false;
     if (this.gatewayService.isConnected()) {
       try {
-        configPushed = await this.gatewayService.pushConfig(compiled);
+        configPushed = await this.gatewayService.shouldPushConfig(compiled);
       } catch (err) {
         logger.warn(
           { error: err instanceof Error ? err.message : String(err) },
-          "openclaw WS push failed",
+          "openclaw config diff check failed",
         );
       }
     }
 
-    // 2. Always write files (persistence + cold-start fallback)
+    // 2. Always write files once (persistence + watcher hot-reload path).
     await this.configWriter.write(compiled);
+    this.gatewayService.noteConfigWritten(compiled);
+    const runtimeModelRef = resolvePrimaryModelRef(
+      compiled.agents.defaults?.model,
+      config,
+      compiled,
+      this.env,
+    );
+    logger.info({ seq, runtimeModelRef }, "doSync: resolved runtime model");
+    await this.runtimeModelWriter.write(runtimeModelRef);
     await this.compiledStore.saveConfig(compiled);
-    await this.templateWriter.write(Object.values(config.templates));
 
-    // 3. Only touch watch trigger when WS push failed (file-watch hot-reload)
-    if (!configPushed) {
+    // 3. If OpenClaw is not connected yet, nudge the file watcher after the
+    // write. Connected runtimes already see the single in-place overwrite.
+    if (!this.gatewayService.isConnected()) {
       await this.watchTrigger.touchConfig();
     }
 

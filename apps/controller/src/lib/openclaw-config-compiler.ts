@@ -146,7 +146,9 @@ function collectLitellmModelIds(config: NexuConfig): string[] {
       (value): value is string => typeof value === "string" && value.length > 0,
     )
     .map((value) => value.replace(/^litellm\//, ""))
-    .filter((value) => !value.startsWith("link/"));
+    .filter(
+      (value) => !value.startsWith("link/") && !value.startsWith("debug/"),
+    );
 }
 
 function compileModelsConfig(
@@ -222,7 +224,7 @@ function compileModelsConfig(
     : undefined;
 }
 
-function resolveModelId(
+export function resolveModelId(
   config: NexuConfig,
   env: ControllerEnv,
   rawModelId: string,
@@ -266,13 +268,18 @@ function resolveModelId(
 
   if (isDesktopCloudConfig(config.desktop.cloud)) {
     const cloudModels = config.desktop.cloud.models;
+    const slashIndex = rawModelId.indexOf("/");
+    const modelSuffix =
+      slashIndex > 0 ? rawModelId.slice(slashIndex + 1) : null;
     // Only use Link fallback if the model actually exists in Link's model list
     if (cloudModels.some((m) => m.id === rawModelId)) {
       return `link/${rawModelId}`;
     }
-    // Model not found in Link — pick the first available Link model
-    if (cloudModels.length > 0) {
-      return `link/${cloudModels[0]?.id}`;
+    if (
+      modelSuffix &&
+      cloudModels.some((m) => m.id === modelSuffix || m.name === modelSuffix)
+    ) {
+      return `link/${modelSuffix}`;
     }
   }
 
@@ -301,21 +308,23 @@ function compileAgentList(
     }));
 }
 
-function compilePlugins(config: NexuConfig): OpenClawConfig["plugins"] {
-  const hasFeishu = config.channels.some(
-    (channel) =>
-      channel.channelType === "feishu" && channel.status === "connected",
-  );
-
-  return hasFeishu
-    ? {
-        entries: {
-          feishu: {
-            enabled: true,
-          },
-        },
-      }
-    : undefined;
+function compilePlugins(
+  _config: NexuConfig,
+  env: ControllerEnv,
+): OpenClawConfig["plugins"] {
+  return {
+    load: {
+      paths: [env.openclawExtensionsDir],
+    },
+    entries: {
+      feishu: {
+        enabled: true,
+      },
+      "nexu-runtime-model": {
+        enabled: true,
+      },
+    },
+  };
 }
 
 export function compileOpenClawConfig(
@@ -413,7 +422,7 @@ export function compileOpenClawConfig(
       secrets: config.secrets,
     }),
     bindings: compileChannelBindings(config.bots, config.channels),
-    plugins: compilePlugins(config),
+    plugins: compilePlugins(config, env),
     skills: {
       load: {
         watch: true,

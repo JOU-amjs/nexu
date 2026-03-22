@@ -4,7 +4,7 @@
  * High-level business API for communicating with the OpenClaw Gateway via
  * WebSocket RPC. Wraps the low-level OpenClawWsClient to provide:
  *
- * - Config push (config.apply with optimistic concurrency)
+ * - Config push (direct file write for hot-reload without restart)
  * - Channel status query (channels.status)
  * - Single-channel readiness check
  */
@@ -94,7 +94,7 @@ interface LiveStatusChannelInput {
 // ---------------------------------------------------------------------------
 
 export class OpenClawGatewayService {
-  /** SHA-256 hash of the last config we successfully pushed. */
+  /** SHA-256 hash of the last config we successfully observed. */
   private lastPushedConfigHash: string | null = null;
 
   constructor(private readonly wsClient: OpenClawWsClient) {}
@@ -113,41 +113,18 @@ export class OpenClawGatewayService {
     this.lastPushedConfigHash = this.configHash(config);
   }
 
-  /**
-   * Push a full configuration to OpenClaw.
-   *
-   * Flow:
-   * 1. Call `config.get` to obtain the current config hash (optimistic concurrency)
-   * 2. Call `config.apply` with `baseHash` to push the new configuration
-   * 3. OpenClaw validates -> persists to openclaw.json -> SIGUSR1 hot-reload
-   *
-   * Returns true if the config was actually pushed (skips if unchanged).
-   * @throws If the WS is not connected or the RPC fails
-   */
-  async pushConfig(config: OpenClawConfig): Promise<boolean> {
+  async shouldPushConfig(config: OpenClawConfig): Promise<boolean> {
     const hash = this.configHash(config);
 
-    // Skip redundant pushes to avoid push -> restart -> reconnect -> push loop
     if (hash === this.lastPushedConfigHash) {
       logger.info({}, "openclaw_push_skipped_unchanged");
       return false;
     }
-
-    // config.apply requires baseHash for optimistic concurrency control.
-    const current = await this.wsClient.request<{ hash?: string }>(
-      "config.get",
-    );
-    const baseHash = current?.hash;
-
-    await this.wsClient.request("config.apply", {
-      raw: JSON.stringify(config, null, 2),
-      note: "pushed from nexu-controller",
-      ...(baseHash ? { baseHash } : {}),
-    });
-
-    this.lastPushedConfigHash = hash;
-    logger.info({}, "openclaw_config_pushed");
     return true;
+  }
+
+  noteConfigWritten(config: OpenClawConfig): void {
+    this.lastPushedConfigHash = this.configHash(config);
   }
 
   /**
@@ -247,20 +224,28 @@ export class OpenClawGatewayService {
           const connected = snapshot.connected === true;
           const running = snapshot.running === true;
           const configured = snapshot.configured === true;
+          const enabled = snapshot.enabled !== false;
           const hasProbeOk = snapshot.probe?.ok === true;
-          const ready = connected || (running && configured && hasProbeOk);
-          const lastError = snapshot.lastError?.trim()
+          const rawLastError = snapshot.lastError?.trim()
             ? snapshot.lastError
             : null;
+          const lastError = rawLastError === "disabled" ? null : rawLastError;
 
           // For channels like Feishu where `connected` is always false
           // (they use long-polling/WS to Feishu servers, not a direct
           // inbound connection), running + configured + no error means
           // the channel is operational.
           const operationalWithoutProbe = running && configured && !lastError;
+          const ready =
+            enabled &&
+            (connected ||
+              (running && configured && hasProbeOk) ||
+              operationalWithoutProbe);
 
           let derivedStatus: ChannelLiveStatus;
-          if (lastError) {
+          if (!enabled) {
+            derivedStatus = "disconnected";
+          } else if (lastError) {
             derivedStatus = "error";
           } else if (snapshot.restartPending === true) {
             derivedStatus = "restarting";
@@ -278,8 +263,8 @@ export class OpenClawGatewayService {
             accountId: channel.accountId,
             status: derivedStatus,
             ready,
-            connected,
-            running,
+            connected: enabled && connected,
+            running: enabled && running,
             configured,
             lastError,
           };
@@ -350,6 +335,18 @@ export class OpenClawGatewayService {
 
       // WebSocket-based channels (Slack, Discord): connected === true
       // Webhook-based channels (Feishu): running && configured && probe.ok
+      const isEnabled = snapshot.enabled !== false;
+      if (!isEnabled) {
+        return {
+          ready: false,
+          connected: false,
+          running: false,
+          configured: snapshot.configured ?? false,
+          lastError: null,
+          gatewayConnected: true,
+        };
+      }
+
       const isConnected = snapshot.connected === true;
       const isWebhookReady =
         snapshot.running === true &&
