@@ -67,23 +67,29 @@ async function dereferencePnpmSymlinks() {
     console.log(`[dist:mac] skipping sharp: ${err.message}`);
   }
 
-  // Then, copy @img from sharp's node_modules to top-level if it doesn't exist
-  // (pnpm hoists @img inside sharp's node_modules, not at top level)
+  // Then, copy @img from pnpm's sharp peer directory to top-level
+  // pnpm puts @img as a sibling of sharp in .pnpm/sharp@x.x.x/node_modules/@img
   try {
-    const sharpImgPath = resolve(sharpPath, "node_modules/@img");
-    const sharpImgStat = await lstat(sharpImgPath).catch(() => null);
+    // Find @img as sibling of the real sharp path
+    const realSharpPath = await realpath(sharpPath).catch(() => null);
+    const pnpmNodeModulesDir = realSharpPath ? dirname(realSharpPath) : null;
+    const pnpmImgPath = pnpmNodeModulesDir
+      ? resolve(pnpmNodeModulesDir, "@img")
+      : null;
+    const pnpmImgStat = pnpmImgPath
+      ? await lstat(pnpmImgPath).catch(() => null)
+      : null;
 
-    if (sharpImgStat) {
+    if (pnpmImgStat) {
       console.log(
-        `[dist:mac] copying @img from sharp's node_modules: ${sharpImgPath} -> ${imgPath}`,
+        `[dist:mac] copying @img from pnpm: ${pnpmImgPath} -> ${imgPath}`,
       );
       await rm(imgPath, rmWithRetriesOptions);
-      await mkdir(resolve(electronRoot, "node_modules/@img"), {
-        recursive: true,
-      });
-      await cp(sharpImgPath, imgPath, { recursive: true, dereference: true });
+      await cp(pnpmImgPath, imgPath, { recursive: true, dereference: true });
     } else {
-      console.log(`[dist:mac] @img not found in sharp's node_modules`);
+      console.log(
+        `[dist:mac] @img not found in pnpm dir: ${pnpmImgPath ?? "unknown"}`,
+      );
     }
   } catch (err) {
     console.log(`[dist:mac] skipping @img: ${err.message}`);
