@@ -109,6 +109,7 @@ async function createTestContainer(
 
   return {
     env,
+    configStore,
     gatewayClient: {
       fetchJson: vi.fn(),
     } as unknown as ControllerContainer["gatewayClient"],
@@ -288,5 +289,22 @@ describe("controller route compatibility", () => {
       "/api/internal/workspace-templates/latest",
     );
     expect(latestTemplates.status).toBe(200);
+  });
+
+  it("returns the default bot workspace path for desktop ready", async () => {
+    const bot = await container.configStore.createBot({
+      name: "Nexu Assistant",
+      slug: "nexu-assistant",
+      modelId: "anthropic/claude-sonnet-4",
+    });
+    const app = createApp(container);
+
+    const response = await app.request("/api/internal/desktop/ready");
+    expect(response.status).toBe(200);
+
+    const payload = (await response.json()) as { workspacePath: string };
+    expect(payload.workspacePath).toBe(
+      path.join(rootDir, ".openclaw", "agents", bot.id),
+    );
   });
 });

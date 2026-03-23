@@ -17,6 +17,12 @@ vi.mock("react-i18next", () => ({
       if (key === "sessions.chat.lastActive" && values?.time != null) {
         return `Last active ${String(values.time)}`;
       }
+      if (key === "sessions.chat.toolActivity") {
+        return "Tool";
+      }
+      if (key === "sessions.chat.toolCompleted") {
+        return "Completed";
+      }
       return key;
     },
   }),
@@ -104,6 +110,17 @@ describe("SessionsPage", () => {
     expect(markup).not.toContain("[message_id:");
     expect(markup).toContain("google-calendar");
     expect(markup).toContain("Open in Slack");
+  });
+
+  it("renders assistant tool activity as a compact execution chip", () => {
+    const markup = renderSessionsPage();
+
+    expect(markup).toContain('data-chat-layout="centered"');
+    expect(markup).toContain('data-tool-card="google-calendar"');
+    expect(markup).toContain('data-tool-card-variant="inline-chip"');
+    expect(markup).toContain(">Completed<");
+    expect(markup).toContain("Google Calendar");
+    expect(markup).not.toContain(">Tool<");
   });
 
   it("renders markdown formatting with safe links and escaped raw html", () => {

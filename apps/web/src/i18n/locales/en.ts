@@ -509,6 +509,8 @@ const en = {
   "sessions.chat.unavailable": "Runtime unavailable",
   "sessions.chat.unavailableDesc": "Cannot connect to the chat runtime.",
   "sessions.chat.loading": "Loading messages...",
+  "sessions.chat.toolActivity": "Tool",
+  "sessions.chat.toolCompleted": "Completed",
 
   // ── Integrations Page ──
   "integrations.pageTitle": "Integrations",

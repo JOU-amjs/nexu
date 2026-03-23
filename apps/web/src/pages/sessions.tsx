@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
+  CheckCircle2,
   FolderOpen,
   Loader2,
   MessageSquare,
@@ -148,6 +149,37 @@ function formatRelativeTime(iso: string | null | undefined): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
   return d.toLocaleDateString();
+}
+
+function formatToolCallSummary(summary: string | null): string | null {
+  if (!summary) return null;
+
+  const uppercaseTokens = new Set([
+    "api",
+    "ci",
+    "csv",
+    "db",
+    "gh",
+    "pdf",
+    "qa",
+    "sql",
+    "ui",
+    "ux",
+  ]);
+
+  return summary
+    .split(/[_-\s]+/)
+    .filter(Boolean)
+    .map((token) => {
+      const normalized = token.trim();
+      if (normalized.length === 0) return "";
+      if (/^[A-Z0-9]+$/.test(normalized)) return normalized;
+      if (uppercaseTokens.has(normalized.toLowerCase())) {
+        return normalized.toUpperCase();
+      }
+      return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    })
+    .join(" ");
 }
 
 type Platform =
@@ -311,16 +343,26 @@ interface ChatMessageData {
 }
 
 function ArtifactCard({ summary }: { summary: string | null }) {
+  const { t } = useTranslation();
+  const formattedSummary =
+    formatToolCallSummary(summary) ?? t("sessions.chat.toolActivity");
+
   return (
-    <div className="mt-2 inline-block rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-[13px]">
-      <div className="flex items-center gap-1.5 text-emerald-500 font-medium">
-        <span>Done!</span>
-      </div>
-      {summary && (
-        <div className="flex items-center gap-1.5 mt-1 text-text-secondary">
-          <span>{summary}</span>
-        </div>
-      )}
+    <div
+      data-tool-card={summary ?? undefined}
+      data-tool-card-variant="inline-chip"
+      className="mt-0.5 inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-500/12 bg-[rgba(16,185,129,0.06)] px-2.5 py-1.5 text-[12px] shadow-none"
+    >
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[rgba(16,185,129,0.12)] text-emerald-600">
+        <CheckCircle2 className="size-[13px]" />
+      </span>
+      <span className="min-w-0 max-w-[16rem] truncate font-medium text-text-primary">
+        {formattedSummary}
+      </span>
+      <span className="shrink-0 text-text-muted/70">·</span>
+      <span className="shrink-0 text-[11px] font-medium text-emerald-700">
+        {t("sessions.chat.toolCompleted")}
+      </span>
     </div>
   );
 }
@@ -361,7 +403,7 @@ function ChatBubble({ msg }: { msg: ChatMessageData }) {
     <div
       data-chat-message={msg.id}
       data-chat-role={msg.role}
-      className={`flex gap-3 ${isBot ? "" : "flex-row-reverse"}`}
+      className={`flex gap-3 ${isBot ? "items-start" : "flex-row-reverse items-end"}`}
     >
       {isBot ? (
         <img
@@ -381,12 +423,17 @@ function ChatBubble({ msg }: { msg: ChatMessageData }) {
           </span>
         </div>
       )}
-      <div className={`max-w-[75%] ${isBot ? "" : "text-right"}`}>
+      <div
+        className={cn(
+          "flex max-w-[44rem] flex-col gap-2",
+          isBot ? "items-start" : "items-end text-right",
+        )}
+      >
         <div
           className={cn(
-            "inline-block px-3.5 py-2.5 rounded-xl text-[13px] break-words",
+            "inline-block max-w-full rounded-[20px] px-4 py-3 text-[13px] break-words shadow-[0_10px_24px_rgba(15,23,42,0.04)]",
             isBot
-              ? "bg-surface-1 border border-border text-text-primary rounded-tl-sm"
+              ? "border border-border bg-surface-1 text-text-primary rounded-tl-sm"
               : "bg-surface-3 text-text-primary rounded-tr-sm",
           )}
         >
@@ -395,7 +442,7 @@ function ChatBubble({ msg }: { msg: ChatMessageData }) {
         {isBot && hasToolCall && <ArtifactCard summary={toolCallSummary} />}
         {time && (
           <div
-            className={`text-[10px] text-text-muted mt-1 ${isBot ? "" : "text-right"}`}
+            className={`text-[10px] text-text-muted ${isBot ? "pl-1" : "pr-1 text-right"}`}
           >
             {time}
           </div>
@@ -620,8 +667,11 @@ export function SessionsPage() {
         ) : messages.length === 0 ? (
           <ChatEmpty />
         ) : (
-          <div data-chat-thread={id} className="px-6 py-6 space-y-8">
-            <div className="space-y-4">
+          <div data-chat-thread={id} className="px-4 py-8 sm:px-6">
+            <div
+              data-chat-layout="centered"
+              className="mx-auto flex w-full max-w-[920px] flex-col gap-5"
+            >
               {messages
                 .filter((msg) => {
                   const { text } = extractMessage(
