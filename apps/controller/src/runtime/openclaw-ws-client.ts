@@ -342,7 +342,7 @@ export class OpenClawWsClient {
       const nonce = payload?.nonce;
       if (!nonce) {
         logger.error({}, "openclaw_ws_missing_nonce");
-        this.ws?.close(1008, "missing nonce");
+        this.ws?.close(4008, "missing nonce");
         return;
       }
       this.sendConnectRequest(nonce);
@@ -459,7 +459,7 @@ export class OpenClawWsClient {
     const timer = setTimeout(() => {
       this.pending.delete(id);
       logger.error({}, "openclaw_ws_connect_timeout");
-      this.ws?.close(1008, "connect timeout");
+      this.ws?.close(4008, "connect timeout");
     }, 10_000);
 
     this.pending.set(id, {
@@ -490,7 +490,7 @@ export class OpenClawWsClient {
       },
       reject: (err) => {
         logger.error({ error: err.message }, "openclaw_ws_connect_failed");
-        this.ws?.close(1008, "connect failed");
+        this.ws?.close(4008, "connect failed");
       },
       timer,
     });
