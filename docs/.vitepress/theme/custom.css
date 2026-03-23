@@ -4,6 +4,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
+  /* ── Lighter shadows ── */
+  --vp-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.02), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --vp-shadow-2: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --vp-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+  --vp-shadow-4: 0 10px 32px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --vp-shadow-5: 0 14px 40px rgba(0, 0, 0, 0.08), 0 3px 8px rgba(0, 0, 0, 0.04);
+
   /* ── Brand — teal ── */
   --vp-c-brand-1: #3DB9CE;
   --vp-c-brand-2: #5ac5d6;
@@ -58,7 +65,7 @@
 /* ── Typography — nexu font stack ── */
 
 body {
-  font-family: 'Manrope', 'Inter', 'PingFang SC', -apple-system, 'Noto Sans SC', sans-serif;
+  font-family: Manrope, Inter, 'PingFang SC', -apple-system, 'Noto Sans SC', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -68,30 +75,30 @@ body {
 .vp-doc h1,
 .vp-doc h2,
 .vp-doc h3 {
-  font-family: 'Manrope', 'Inter', -apple-system, sans-serif;
+  font-family: Manrope, Inter, -apple-system, sans-serif;
 }
 
 /* ── Feature cards — card style ── */
 
 .VPFeature {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   background: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   border-radius: 16px;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .VPFeature:hover {
-  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
 }
 
 .dark .VPFeature {
   background: #1a1a1f;
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .dark .VPFeature:hover {
-  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.12);
 }
 
 /* ── Content links ── */
@@ -108,4 +115,61 @@ body {
 
 .VPSocialLinks {
   display: none !important;
+}
+
+/* ── Hide default appearance toggle (replaced by ThemeToggle icon button) ── */
+
+.VPNavBarAppearance {
+  display: none !important;
+}
+
+/* ── Hide default language switcher (replaced by LanguageSwitcher component) ── */
+
+.VPNavBarTranslations {
+  display: none !important;
+}
+
+/* ── Prev / Next page navigation ── */
+
+.VPDocFooter .pager-link {
+  position: relative;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--vp-c-bg-elv);
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+.VPDocFooter .pager-link:hover {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+.dark .VPDocFooter .pager-link:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.VPDocFooter .pager-link .desc {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vp-c-text-3);
+  margin-bottom: 2px;
+}
+.VPDocFooter .pager-link.prev .desc::before {
+  content: "←";
+  font-size: 11px;
+}
+.VPDocFooter .pager-link.next .desc::after {
+  content: "→";
+  font-size: 11px;
+}
+.VPDocFooter .pager-link .title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+}
+.VPDocFooter .pager-link:hover .title {
+  color: var(--vp-c-text-1);
 }

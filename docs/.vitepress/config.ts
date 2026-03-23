@@ -185,6 +185,9 @@ export default defineConfig({
   },
   head: [
     ["meta", { name: "theme-color", content: "#3DB9CE" }],
+    ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
+    ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
+    ["link", { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" }],
     ["script", {}, localePreferenceScript],
     ["link", { rel: "icon", href: "/favicon/favicon.ico", sizes: "any" }],
     [
