@@ -434,6 +434,8 @@ function ReplyContextCard({
   text: string;
   isBot: boolean;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div
       data-reply-context={text}
@@ -447,7 +449,7 @@ function ReplyContextCard({
       <span className="mt-0.5 h-8 w-1 shrink-0 rounded-full bg-[rgba(148,163,184,0.6)]" />
       <div className="min-w-0">
         <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-          Reply
+          {t("sessions.chat.replyLabel")}
         </div>
         <div className="mt-1 max-w-[28rem] truncate text-[12px] leading-5">
           {text}
@@ -479,10 +481,17 @@ function SessionPlatformBadge({
   );
 }
 
-function ChatBubble({ msg }: { msg: ChatMessageData }) {
-  const extracted = extractMessage(msg as unknown as Record<string, unknown>);
+function ChatBubble({
+  msg,
+  extracted,
+}: {
+  msg: ChatMessageData;
+  extracted?: ExtractedMessage;
+}) {
+  const resolvedExtracted =
+    extracted ?? extractMessage(msg as unknown as Record<string, unknown>);
   const { text, replyContextText, senderName, hasToolCall, toolCallSummary } =
-    extracted;
+    resolvedExtracted;
   const time = formatTs(msg.timestamp);
   const isBot = msg.role === "assistant";
   const hasText = text.trim().length > 0;
@@ -771,17 +780,22 @@ export function SessionsPage() {
               className="mx-auto flex w-full max-w-[920px] flex-col gap-5"
             >
               {messages
-                .filter((msg) => {
-                  const { text, replyContextText, hasToolCall } =
-                    extractMessage(msg as unknown as Record<string, unknown>);
+                .map((msg) => ({
+                  msg,
+                  extracted: extractMessage(
+                    msg as unknown as Record<string, unknown>,
+                  ),
+                }))
+                .filter(({ extracted }) => {
+                  const { text, replyContextText, hasToolCall } = extracted;
                   return (
                     text.trim().length > 0 ||
                     (replyContextText?.trim().length ?? 0) > 0 ||
                     hasToolCall
                   );
                 })
-                .map((msg) => (
-                  <ChatBubble key={msg.id} msg={msg} />
+                .map(({ msg, extracted }) => (
+                  <ChatBubble key={msg.id} msg={msg} extracted={extracted} />
                 ))}
               <div ref={endRef} />
             </div>

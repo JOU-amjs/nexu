@@ -23,6 +23,9 @@ vi.mock("react-i18next", () => ({
       if (key === "sessions.chat.toolCompleted") {
         return "Completed";
       }
+      if (key === "sessions.chat.replyLabel") {
+        return "Localized Reply";
+      }
       return key;
     },
   }),
@@ -572,6 +575,8 @@ describe("SessionsPage", () => {
     expect(markup).toContain('data-reply-context="[Interactive Card]"');
     expect(markup).toContain("Interactive Card");
     expect(markup).toContain("你是谁");
+    expect(markup).toContain("Localized Reply");
+    expect(markup).not.toContain(">Reply<");
     expect(markup).not.toContain(
       "[Replying to: &quot;[Interactive Card]&quot;]",
     );

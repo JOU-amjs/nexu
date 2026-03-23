@@ -486,6 +486,7 @@ const zhCN = {
   "sessions.chat.unavailable": "运行时不可用",
   "sessions.chat.unavailableDesc": "无法连接到聊天运行时。",
   "sessions.chat.loading": "加载消息中...",
+  "sessions.chat.replyLabel": "回复",
   "sessions.chat.toolActivity": "工具",
   "sessions.chat.toolCompleted": "已完成",
 
