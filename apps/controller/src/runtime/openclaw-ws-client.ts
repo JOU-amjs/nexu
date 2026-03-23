@@ -173,7 +173,7 @@ type Frame = RequestFrame | ResponseFrame | EventFrame;
 // ---------------------------------------------------------------------------
 
 const PROTOCOL_VERSION = 3;
-const MAX_BACKOFF_MS = 30_000;
+const MAX_BACKOFF_MS = 4_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 interface Pending {
