@@ -255,11 +255,6 @@ function installApplicationMenu(): void {
     role: "help",
     submenu: [
       {
-        label: "Check for Updates…",
-        click: () => triggerUpdateCheck(),
-      },
-      { type: "separator" },
-      {
         label: "Export Diagnostics…",
         click: () => {
           void exportDiagnostics({
@@ -274,7 +269,26 @@ function installApplicationMenu(): void {
 
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === "darwin"
-      ? ([{ role: "appMenu" }] satisfies MenuItemConstructorOptions[])
+      ? ([
+          {
+            role: "appMenu",
+            submenu: [
+              { role: "about" },
+              {
+                label: "Check for Updates…",
+                click: () => triggerUpdateCheck(),
+              },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ] satisfies MenuItemConstructorOptions[])
       : []),
     { role: "fileMenu" },
     { role: "editMenu" },
