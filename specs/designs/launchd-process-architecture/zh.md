@@ -341,7 +341,8 @@ Electron Main Process 内置 HTTP Server，复用现有 Web Sidecar 逻辑：
 // apps/desktop/src/main/embedded-web-server.ts
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { createReadStream, existsSync, statSync } from "fs";
+import { createReadStream } from "fs";
+import { access, stat, constants } from "fs/promises";
 import * as path from "path";
 
 const MIME_TYPES: Record<string, string> = {
@@ -353,6 +354,15 @@ const MIME_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
 };
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function startEmbeddedWebServer(opts: {
   port: number;
@@ -378,16 +388,22 @@ export function startEmbeddedWebServer(opts: {
       let filePath = path.join(webRoot, url.pathname);
 
       // SPA fallback: 文件不存在或是目录则返回 index.html
-      if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+      const exists = await fileExists(filePath);
+      if (!exists) {
         filePath = path.join(webRoot, "index.html");
+      } else {
+        const st = await stat(filePath);
+        if (st.isDirectory()) {
+          filePath = path.join(webRoot, "index.html");
+        }
       }
 
       const ext = path.extname(filePath);
       const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
       try {
-        const stat = statSync(filePath);
-        res.writeHead(200, { "Content-Type": contentType, "Content-Length": stat.size });
+        const st = await stat(filePath);
+        res.writeHead(200, { "Content-Type": contentType, "Content-Length": st.size });
         createReadStream(filePath).pipe(res);
       } catch {
         res.writeHead(404);
@@ -495,7 +511,14 @@ export class LaunchdManager {
     // 检查服务是否已注册，避免重复 bootstrap
     const isRegistered = await this.isServiceRegistered(label);
     if (!isRegistered) {
-      await execFileAsync("launchctl", ["bootstrap", this.domain, plistPath]);
+      try {
+        const { stdout, stderr } = await execFileAsync("launchctl", ["bootstrap", this.domain, plistPath]);
+        if (stdout) console.log(`Bootstrap ${label}:`, stdout);
+        if (stderr) console.warn(`Bootstrap ${label} warnings:`, stderr);
+      } catch (err) {
+        console.error(`Failed to bootstrap ${label}:`, err instanceof Error ? err.message : err);
+        throw err;
+      }
     }
   }
 
