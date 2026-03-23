@@ -268,7 +268,13 @@ export function resolveLaunchdPaths(
         "dist",
         "index.js",
       ),
-      openclawPath: path.join(runtimeDir, "openclaw-runtime", "openclaw.mjs"),
+      openclawPath: path.join(
+        runtimeDir,
+        "openclaw",
+        "node_modules",
+        "openclaw",
+        "openclaw.mjs",
+      ),
       controllerCwd: path.join(runtimeDir, "controller"),
       openclawCwd: runtimeDir,
     };

@@ -53,8 +53,9 @@ full_cleanup() {
   sleep 1
 
   # 3. Kill any remaining orphan processes
-  pkill -f "openclaw.mjs gateway" 2>/dev/null || true
-  pkill -f "controller/dist/index.js" 2>/dev/null || true
+  pkill -9 -f "openclaw.mjs gateway" 2>/dev/null || true
+  pkill -9 -f "controller/dist/index.js" 2>/dev/null || true
+  pkill -9 -f "chrome_crashpad_handler" 2>/dev/null || true
 
   # 4. Wait for ports to be free (with timeout)
   local max_wait=10
@@ -85,7 +86,7 @@ stop_services() {
   pkill -9 -f "Electron.*apps/desktop" 2>/dev/null || true
   pkill -f "vite.*apps/desktop" 2>/dev/null || true
 
-  # Bootout launchd services (stops + unregisters atomically)
+  # Bootout launchd services (sends SIGTERM + unregisters)
   if launchctl print "$DOMAIN/$OPENCLAW_LABEL" &>/dev/null; then
     echo "  Stopping $OPENCLAW_LABEL..."
     launchctl bootout "$DOMAIN/$OPENCLAW_LABEL" 2>/dev/null || true
@@ -95,11 +96,22 @@ stop_services() {
     launchctl bootout "$DOMAIN/$CONTROLLER_LABEL" 2>/dev/null || true
   fi
 
-  sleep 1
+  # Wait for ports to be freed (OpenClaw graceful shutdown can take a few seconds)
+  local max_wait=8
+  local waited=0
+  while [ $waited -lt $max_wait ]; do
+    local port_busy=0
+    lsof -i ":$CONTROLLER_PORT" -P -n &>/dev/null && port_busy=1
+    lsof -i ":$OPENCLAW_PORT" -P -n &>/dev/null && port_busy=1
+    [ $port_busy -eq 0 ] && break
+    sleep 1
+    waited=$((waited + 1))
+  done
 
-  # Kill any remaining orphan processes
-  pkill -f "openclaw.mjs gateway" 2>/dev/null || true
-  pkill -f "controller/dist/index.js" 2>/dev/null || true
+  # Force-kill any remaining orphan processes
+  pkill -9 -f "openclaw.mjs gateway" 2>/dev/null || true
+  pkill -9 -f "controller/dist/index.js" 2>/dev/null || true
+  pkill -9 -f "chrome_crashpad_handler" 2>/dev/null || true
 
   echo "Services stopped."
 }
