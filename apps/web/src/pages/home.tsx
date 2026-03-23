@@ -174,6 +174,7 @@ function getChannelOptions(t: (key: string) => string) {
 function getChannelStatusMeta(
   status: ChannelLiveStatus | undefined,
   t: (key: string) => string,
+  lastError?: string | null,
 ): { colorClass: string; pulse: boolean; label: string } {
   switch (status) {
     case "connected":
@@ -194,12 +195,18 @@ function getChannelStatusMeta(
         pulse: true,
         label: t("home.channel.restarting"),
       };
-    case "error":
+    case "error": {
+      const errorKey = lastError ? `home.channel.errorDetail.${lastError}` : "";
+      const errorLabel =
+        lastError && t(errorKey) !== errorKey
+          ? t(errorKey)
+          : t("home.channel.error");
       return {
         colorClass: "bg-[var(--color-danger)]",
         pulse: false,
-        label: t("home.channel.error"),
+        label: errorLabel,
       };
+    }
     default:
       return {
         colorClass: "bg-text-muted/40",
@@ -774,6 +781,7 @@ export function HomePage() {
                     const statusMeta = getChannelStatusMeta(
                       statusEntry?.status,
                       t,
+                      statusEntry?.lastError,
                     );
                     const channelChatUrl = connectedChannel
                       ? getChannelChatUrl(

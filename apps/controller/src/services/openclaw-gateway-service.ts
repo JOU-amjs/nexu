@@ -264,6 +264,16 @@ export class OpenClawGatewayService {
             : null;
           const lastError = rawLastError === "disabled" ? null : rawLastError;
 
+          // WeChat "not configured" typically means session expired — the
+          // plugin paused after errcode -14 and gateway sees the channel as
+          // unconfigured. Surface a friendlier error.
+          const friendlyError =
+            openclawChannelId === "openclaw-weixin" &&
+            lastError === "not configured" &&
+            !running
+              ? "session expired"
+              : lastError;
+
           // For channels like Feishu where `connected` is always false
           // (they use long-polling/WS to Feishu servers, not a direct
           // inbound connection), running + configured + no error means
@@ -299,7 +309,7 @@ export class OpenClawGatewayService {
             connected: enabled && connected,
             running: enabled && running,
             configured,
-            lastError,
+            lastError: friendlyError,
           };
         }),
       };
