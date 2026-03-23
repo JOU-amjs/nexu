@@ -466,6 +466,8 @@ export class SessionsRuntime {
         continue;
       }
 
+      // Preserve unknown blocks for forward compatibility, but only text,
+      // replyContext, and tool blocks count as visible transcript content.
       normalizedBlocks.push(block);
     }
 
@@ -565,7 +567,7 @@ export class SessionsRuntime {
     text: string,
     channelType?: string | null,
   ): string {
-    if (channelType !== "feishu") {
+    if (channelType?.toLowerCase() !== "feishu") {
       return text;
     }
 

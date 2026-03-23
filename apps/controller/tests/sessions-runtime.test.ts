@@ -650,6 +650,125 @@ describe("SessionsRuntime", () => {
     ]);
   });
 
+  it("strips Feishu system suffixes even when channelType casing differs", async () => {
+    rootDir = await mkdtemp(path.join(tmpdir(), "nexu-sessions-runtime-"));
+    const runtime = new SessionsRuntime(
+      createEnv({
+        openclawStateDir: rootDir,
+        openclawConfigPath: path.join(rootDir, "openclaw.json"),
+        openclawSkillsDir: path.join(rootDir, "skills"),
+        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
+      }),
+    );
+
+    const sessionsDir = path.join(rootDir, "agents", "bot-feishu", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const sessionPath = path.join(sessionsDir, "feishu-casing.jsonl");
+    await writeFile(
+      sessionPath.replace(/\.jsonl$/, ".meta.json"),
+      JSON.stringify(
+        {
+          title: "Feishu casing",
+          channelType: "FEISHU",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await writeFile(
+      sessionPath,
+      `${JSON.stringify({
+        type: "message",
+        id: "msg-user",
+        timestamp: "2026-03-23T02:02:00.000Z",
+        message: {
+          role: "user",
+          timestamp: Date.parse("2026-03-23T02:02:00.000Z"),
+          content: [
+            {
+              type: "text",
+              text: [
+                "Please keep this literal text",
+                '[System: The content may include mention tags in the form <at user_id="...">name</at>. Treat these as real mentions of Feishu entities (users or bots).]',
+              ].join("\n"),
+            },
+          ],
+        },
+      })}\n`,
+      "utf8",
+    );
+
+    const result = await runtime.getChatHistory("feishu-casing.jsonl");
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.content).toStrictEqual([
+      {
+        type: "text",
+        text: "Please keep this literal text",
+      },
+    ]);
+  });
+
+  it("drops transcript entries that only contain unknown blocks", async () => {
+    rootDir = await mkdtemp(path.join(tmpdir(), "nexu-sessions-runtime-"));
+    const runtime = new SessionsRuntime(
+      createEnv({
+        openclawStateDir: rootDir,
+        openclawConfigPath: path.join(rootDir, "openclaw.json"),
+        openclawSkillsDir: path.join(rootDir, "skills"),
+        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
+      }),
+    );
+
+    const sessionsDir = path.join(rootDir, "agents", "bot-web", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const sessionPath = path.join(sessionsDir, "unknown-blocks.jsonl");
+    await writeFile(
+      sessionPath.replace(/\.jsonl$/, ".meta.json"),
+      JSON.stringify(
+        {
+          title: "Unknown blocks",
+          channelType: "web",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await writeFile(
+      sessionPath,
+      `${JSON.stringify({
+        type: "message",
+        id: "msg-unknown-only",
+        timestamp: "2026-03-23T02:04:00.000Z",
+        message: {
+          role: "assistant",
+          timestamp: Date.parse("2026-03-23T02:04:00.000Z"),
+          content: [
+            {
+              type: "customBlock",
+              payload: "opaque",
+            },
+          ],
+        },
+      })}\n`,
+      "utf8",
+    );
+
+    const result = await runtime.getChatHistory("unknown-blocks.jsonl");
+
+    expect(result.messages).toHaveLength(0);
+  });
+
   it("extracts reply context for other channel-specific quote prefixes", async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), "nexu-sessions-runtime-"));
     const runtime = new SessionsRuntime(

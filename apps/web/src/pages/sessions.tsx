@@ -220,7 +220,7 @@ function formatToolCallSummary(summary: string | null): string | null {
     "ux",
   ]);
 
-  return summary
+  const formatted = summary
     .split(/[_-\s]+/)
     .filter(Boolean)
     .map((token) => {
@@ -232,7 +232,14 @@ function formatToolCallSummary(summary: string | null): string | null {
       }
       return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     })
-    .join(" ");
+    .join(" ")
+    .trim();
+
+  if (formatted.length === 0 || formatted.toLowerCase() === "tool") {
+    return null;
+  }
+
+  return formatted;
 }
 
 type Platform =

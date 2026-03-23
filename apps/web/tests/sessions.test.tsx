@@ -18,7 +18,7 @@ vi.mock("react-i18next", () => ({
         return `Last active ${String(values.time)}`;
       }
       if (key === "sessions.chat.toolActivity") {
-        return "Tool";
+        return "Localized Tool Activity";
       }
       if (key === "sessions.chat.toolCompleted") {
         return "Completed";
@@ -120,7 +120,7 @@ describe("SessionsPage", () => {
     expect(markup).toContain('data-tool-card-variant="inline-chip"');
     expect(markup).toContain(">Completed<");
     expect(markup).toContain("Google Calendar");
-    expect(markup).not.toContain(">Tool<");
+    expect(markup).not.toContain(">Localized Tool Activity<");
   });
 
   it("renders markdown formatting with safe links and escaped raw html", () => {
@@ -453,6 +453,72 @@ describe("SessionsPage", () => {
     expect(markup).not.toContain("[[reply_to_current]]");
     expect(markup).toContain('data-tool-card="feishu_bitable_list_records"');
     expect(markup).toContain("Feishu Bitable List Records");
+  });
+
+  it("falls back to the localized tool label for placeholder tool names", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    queryClient.setQueryData(["session-meta", "sess-tool-fallback"], {
+      id: "sess-tool-fallback",
+      title: "Placeholder tool names",
+      channelType: "web",
+      messageCount: 2,
+      lastMessageAt: "2026-03-23T03:35:00.000Z",
+      metadata: {},
+    });
+    queryClient.setQueryData(["chat-history", "sess-tool-fallback"], {
+      messages: [
+        {
+          id: "msg-placeholder-name",
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              name: "tool",
+            },
+          ],
+          timestamp: new Date("2026-03-23T03:34:00.000Z").getTime(),
+          createdAt: "2026-03-23T03:34:00.000Z",
+        },
+        {
+          id: "msg-separator-name",
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              name: "---",
+            },
+          ],
+          timestamp: new Date("2026-03-23T03:35:00.000Z").getTime(),
+          createdAt: "2026-03-23T03:35:00.000Z",
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter
+          initialEntries={["/workspace/sessions/sess-tool-fallback"]}
+        >
+          <Routes>
+            <Route path="/workspace/sessions/:id" element={<SessionsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const fallbackMatches = markup.match(/Localized Tool Activity/g) ?? [];
+
+    expect(markup).toContain('data-tool-card="tool"');
+    expect(markup).toContain('data-tool-card="---"');
+    expect(markup).not.toContain(">Tool<");
+    expect(fallbackMatches).toHaveLength(2);
   });
 
   it("renders reply context as quote UI instead of raw metadata", () => {
