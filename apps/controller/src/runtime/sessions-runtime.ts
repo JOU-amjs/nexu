@@ -38,6 +38,14 @@ type SessionMetadata = {
 };
 
 type SessionMetadataRecord = Record<string, unknown>;
+type NormalizedTextPart = {
+  type: "text" | "replyContext";
+  text: string;
+};
+type SanitizedUserMessageText = {
+  text: string;
+  replyContext: string | null;
+};
 type SessionHints = {
   senderName?: string;
   channelType?: string;
@@ -371,8 +379,20 @@ export class SessionsRuntime {
     channelType?: string | null,
   ): unknown | null {
     if (typeof content === "string") {
-      const text = this.sanitizeMessageText(role, content, channelType);
-      return text.trim().length > 0 ? text : null;
+      const normalizedParts = this.normalizeTextParts(
+        role,
+        content,
+        channelType,
+      );
+      if (normalizedParts.length === 0) {
+        return null;
+      }
+
+      if (normalizedParts.length === 1 && normalizedParts[0]?.type === "text") {
+        return normalizedParts[0].text;
+      }
+
+      return normalizedParts;
     }
 
     if (!Array.isArray(content)) {
@@ -400,14 +420,41 @@ export class SessionsRuntime {
           continue;
         }
 
-        const text = this.sanitizeMessageText(role, rawText, channelType);
-        if (text.trim().length === 0) {
+        const normalizedParts = this.normalizeTextParts(
+          role,
+          rawText,
+          channelType,
+        );
+        if (normalizedParts.length === 0) {
+          continue;
+        }
+
+        for (const normalizedPart of normalizedParts) {
+          if (normalizedPart.type === "replyContext") {
+            normalizedBlocks.push(normalizedPart);
+            hasVisibleContent = true;
+            continue;
+          }
+
+          normalizedBlocks.push({
+            ...block,
+            text: normalizedPart.text,
+          });
+          hasVisibleContent = true;
+        }
+        continue;
+      }
+
+      if (blockType === "replyContext") {
+        const replyText =
+          typeof block.text === "string" ? block.text.trim() : "";
+        if (replyText.length === 0) {
           continue;
         }
 
         normalizedBlocks.push({
           ...block,
-          text,
+          text: replyText,
         });
         hasVisibleContent = true;
         continue;
@@ -425,43 +472,73 @@ export class SessionsRuntime {
     return hasVisibleContent ? normalizedBlocks : null;
   }
 
-  private sanitizeMessageText(
+  private normalizeTextParts(
     role: ChatMessage["role"],
     text: string,
     channelType?: string | null,
-  ): string {
+  ): NormalizedTextPart[] {
     if (role === "assistant") {
-      return this.stripAssistantReplyPrefix(text).trim();
+      const normalizedText = this.stripAssistantReplyPrefix(text).trim();
+      return normalizedText.length > 0
+        ? [{ type: "text", text: normalizedText }]
+        : [];
     }
 
-    return this.sanitizeUserMessageText(text, channelType);
+    const sanitized = this.sanitizeUserMessageText(text, channelType);
+    const normalizedParts: NormalizedTextPart[] = [];
+
+    if (sanitized.replyContext) {
+      normalizedParts.push({
+        type: "replyContext",
+        text: sanitized.replyContext,
+      });
+    }
+    if (sanitized.text.length > 0) {
+      normalizedParts.push({
+        type: "text",
+        text: sanitized.text,
+      });
+    }
+
+    return normalizedParts;
   }
 
   private sanitizeUserMessageText(
     text: string,
     channelType?: string | null,
-  ): string {
+  ): SanitizedUserMessageText {
+    const replyContextFromMetadata = this.extractReplyContextFromMetadata(text);
     const withoutMetadata = this.stripTranscriptMetadataBlocks(text);
     const withoutChannelSuffix = this.stripChannelSystemSuffix(
       withoutMetadata,
       channelType,
     );
 
+    let normalizedText = withoutChannelSuffix.trim();
     const markerMatch = withoutChannelSuffix.match(
       /\[message_id:\s*[^\]]+\](?:\n|\\n)(.+?):\s*([\s\S]*)$/,
     );
     if (markerMatch?.[2] != null) {
-      return markerMatch[2].trim();
+      normalizedText = markerMatch[2].trim();
+    } else {
+      const timestampMatch = withoutChannelSuffix.match(
+        /^\[(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+GMT[+-]\d+\]\s*([\s\S]*)$/,
+      );
+      if (timestampMatch?.[1] != null) {
+        normalizedText = timestampMatch[1].trim();
+      }
     }
 
-    const timestampMatch = withoutChannelSuffix.match(
-      /^\[(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+GMT[+-]\d+\]\s*([\s\S]*)$/,
+    const extractedReplyContext = this.extractReplyContextPrefix(
+      normalizedText,
+      channelType,
     );
-    if (timestampMatch?.[1] != null) {
-      return timestampMatch[1].trim();
-    }
 
-    return withoutChannelSuffix.trim();
+    return {
+      text: extractedReplyContext.text.trim(),
+      replyContext:
+        replyContextFromMetadata ?? extractedReplyContext.replyContext,
+    };
   }
 
   private stripAssistantReplyPrefix(text: string): string {
@@ -476,6 +553,10 @@ export class SessionsRuntime {
       )
       .replace(
         /Sender \(untrusted metadata\):\s*```json\s*[\s\S]*?```\s*/gu,
+        "",
+      )
+      .replace(
+        /Replied message \(untrusted, for context\):\s*```json\s*[\s\S]*?```\s*/gu,
         "",
       );
   }
@@ -493,6 +574,88 @@ export class SessionsRuntime {
     normalized = normalized.replace(FEISHU_MENTION_TAGS_SYSTEM_LINE, "");
 
     return normalized.trimEnd();
+  }
+
+  private extractReplyContextFromMetadata(text: string): string | null {
+    const replyMeta = this.parseJsonMetadataBlock(
+      text,
+      "Replied message (untrusted, for context)",
+    );
+    if (!replyMeta) {
+      return null;
+    }
+
+    return (
+      this.readStringValue(replyMeta, "body") ??
+      this.readStringValue(replyMeta, "text") ??
+      this.readStringValue(replyMeta, "message") ??
+      this.readStringValue(replyMeta, "title") ??
+      this.readStringValue(replyMeta, "content") ??
+      null
+    );
+  }
+
+  private extractReplyContextPrefix(
+    text: string,
+    channelType?: string | null,
+  ): SanitizedUserMessageText {
+    const normalizedChannelType = channelType?.toLowerCase() ?? "";
+    const matchers = [
+      normalizedChannelType === "feishu"
+        ? this.matchEnglishReplyContextPrefix(text)
+        : null,
+      normalizedChannelType === "openclaw-weixin" ||
+      normalizedChannelType === "wechat"
+        ? this.matchChineseReplyContextPrefix(text)
+        : null,
+      normalizedChannelType.length === 0
+        ? (this.matchEnglishReplyContextPrefix(text) ??
+          this.matchChineseReplyContextPrefix(text))
+        : null,
+    ].filter((match): match is SanitizedUserMessageText => match != null);
+
+    return (
+      matchers[0] ?? {
+        text,
+        replyContext: null,
+      }
+    );
+  }
+
+  private matchEnglishReplyContextPrefix(
+    text: string,
+  ): SanitizedUserMessageText | null {
+    const match = text.match(
+      /^\[Replying to:\s*(?:"([\s\S]*?)"|([^\]]+))\]\s*(?:(?:\r?\n)|\\n)+([\s\S]*)$/u,
+    );
+    const replyContext = (match?.[1] ?? match?.[2] ?? "").trim();
+    const body = (match?.[3] ?? "").trim();
+    if (!match || replyContext.length === 0) {
+      return null;
+    }
+
+    return {
+      text: body,
+      replyContext,
+    };
+  }
+
+  private matchChineseReplyContextPrefix(
+    text: string,
+  ): SanitizedUserMessageText | null {
+    const match = text.match(
+      /^\[引用:\s*([\s\S]*?)\]\s*(?:(?:\r?\n)|\\n)+([\s\S]*)$/u,
+    );
+    const replyContext = (match?.[1] ?? "").trim();
+    const body = (match?.[2] ?? "").trim();
+    if (!match || replyContext.length === 0) {
+      return null;
+    }
+
+    return {
+      text: body,
+      replyContext,
+    };
   }
 
   async getSession(id: string): Promise<SessionResponse | null> {

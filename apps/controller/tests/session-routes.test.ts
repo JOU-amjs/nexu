@@ -184,8 +184,21 @@ describe("session routes", () => {
                   ),
                   "```",
                   "",
+                  "Replied message (untrusted, for context):",
+                  "```json",
+                  JSON.stringify(
+                    {
+                      body: "[Interactive Card]",
+                    },
+                    null,
+                    2,
+                  ),
+                  "```",
+                  "",
                   "[message_id: om_x100]",
-                  "唐其远: 请帮我检查待上线状态",
+                  '唐其远: [Replying to: "[Interactive Card]"]',
+                  "",
+                  "你是谁",
                   "",
                   '[System: The content may include mention tags in the form <at user_id="...">name</at>. Treat these as real mentions of Feishu entities (users or bots).]',
                   '[System: If user_id is "ou_123", that mention refers to you.]',
@@ -246,8 +259,12 @@ describe("session routes", () => {
         createdAt: "2026-03-23T02:00:00.000Z",
         content: [
           {
+            type: "replyContext",
+            text: "[Interactive Card]",
+          },
+          {
             type: "text",
-            text: "请帮我检查待上线状态",
+            text: "你是谁",
           },
         ],
       },

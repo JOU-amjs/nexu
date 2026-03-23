@@ -46,6 +46,10 @@ function stripMetadata(raw: string): string {
     /Sender \(untrusted metadata\):\s*```json\s*[\s\S]*?```\s*/g,
     "",
   );
+  const withoutReplyMeta = withoutSenderMeta.replace(
+    /Replied message \(untrusted, for context\):\s*```json\s*[\s\S]*?```\s*/g,
+    "",
+  );
 
   // Pattern 1 (Feishu/Slack): [message_id: ...]\nsenderName: actualMessage
   const markerMatch = raw.match(
@@ -61,8 +65,8 @@ function stripMetadata(raw: string): string {
   if (tsMatch?.[1] != null) {
     return tsMatch[1].trim();
   }
-  if (withoutSenderMeta !== raw) {
-    return withoutSenderMeta.trim();
+  if (withoutReplyMeta !== raw) {
+    return withoutReplyMeta.trim();
   }
   return raw;
 }
@@ -89,14 +93,46 @@ function extractSenderName(raw: string): string | null {
 
 interface ExtractedMessage {
   text: string;
+  replyContextText: string | null;
   senderName: string | null;
   hasToolCall: boolean;
   toolCallSummary: string | null;
 }
 
+function extractReplyContextPrefix(raw: string): {
+  text: string;
+  replyContextText: string | null;
+} {
+  const englishMatch = raw.match(
+    /^\[Replying to:\s*(?:"([\s\S]*?)"|([^\]]+))\]\s*(?:(?:\r?\n)|\\n)+([\s\S]*)$/u,
+  );
+  if (englishMatch) {
+    return {
+      replyContextText: (englishMatch[1] ?? englishMatch[2] ?? "").trim(),
+      text: (englishMatch[3] ?? "").trim(),
+    };
+  }
+
+  const chineseMatch = raw.match(
+    /^\[引用:\s*([\s\S]*?)\]\s*(?:(?:\r?\n)|\\n)+([\s\S]*)$/u,
+  );
+  if (chineseMatch) {
+    return {
+      replyContextText: (chineseMatch[1] ?? "").trim(),
+      text: (chineseMatch[2] ?? "").trim(),
+    };
+  }
+
+  return {
+    text: raw,
+    replyContextText: null,
+  };
+}
+
 /** Extract display text, sender name, and tool call info from various message content formats. */
 function extractMessage(msg: Record<string, unknown>): ExtractedMessage {
   let raw = "";
+  let replyContextText: string | null = null;
   let hasToolCall = false;
   let toolCallSummary: string | null = null;
 
@@ -113,6 +149,11 @@ function extractMessage(msg: Record<string, unknown>): ExtractedMessage {
     for (const b of blocks) {
       if (b?.type === "text") {
         textParts.push(String(b?.text ?? ""));
+      } else if (b?.type === "replyContext") {
+        const candidate = String(b?.text ?? "").trim();
+        if (candidate.length > 0) {
+          replyContextText = candidate;
+        }
       } else if (b?.type === "toolCall" || b?.type === "tool_use") {
         hasToolCall = true;
         const name = String(b?.name ?? b?.toolName ?? "tool");
@@ -123,13 +164,17 @@ function extractMessage(msg: Record<string, unknown>): ExtractedMessage {
   }
 
   const senderName = msg.role === "user" ? extractSenderName(raw) : null;
-  const text =
+  const sanitizedText =
     msg.role === "assistant"
       ? stripAssistantReplyPrefix(stripMetadata(raw))
       : stripMetadata(raw);
+  const extractedReply = extractReplyContextPrefix(sanitizedText);
+  const text = extractedReply.text;
+  replyContextText ??= extractedReply.replyContextText;
 
   return {
     text,
+    replyContextText,
     senderName,
     hasToolCall,
     toolCallSummary,
@@ -375,6 +420,36 @@ function ArtifactCard({ summary }: { summary: string | null }) {
   );
 }
 
+function ReplyContextCard({
+  text,
+  isBot,
+}: {
+  text: string;
+  isBot: boolean;
+}) {
+  return (
+    <div
+      data-reply-context={text}
+      className={cn(
+        "inline-flex max-w-full items-start gap-2 rounded-2xl border px-3 py-2 text-left shadow-[0_6px_18px_rgba(15,23,42,0.04)]",
+        isBot
+          ? "border-border bg-[rgba(248,250,252,0.95)] text-text-secondary"
+          : "border-border/70 bg-white/80 text-text-secondary",
+      )}
+    >
+      <span className="mt-0.5 h-8 w-1 shrink-0 rounded-full bg-[rgba(148,163,184,0.6)]" />
+      <div className="min-w-0">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+          Reply
+        </div>
+        <div className="mt-1 max-w-[28rem] truncate text-[12px] leading-5">
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SessionPlatformBadge({
   platform,
   className,
@@ -399,10 +474,12 @@ function SessionPlatformBadge({
 
 function ChatBubble({ msg }: { msg: ChatMessageData }) {
   const extracted = extractMessage(msg as unknown as Record<string, unknown>);
-  const { text, senderName, hasToolCall, toolCallSummary } = extracted;
+  const { text, replyContextText, senderName, hasToolCall, toolCallSummary } =
+    extracted;
   const time = formatTs(msg.timestamp);
   const isBot = msg.role === "assistant";
   const hasText = text.trim().length > 0;
+  const hasReplyContext = (replyContextText?.trim().length ?? 0) > 0;
 
   const displayName = senderName ?? "User";
   const gradient = getAvatarGradient(displayName);
@@ -438,6 +515,9 @@ function ChatBubble({ msg }: { msg: ChatMessageData }) {
           isBot ? "items-start" : "items-end text-right",
         )}
       >
+        {hasReplyContext && replyContextText && (
+          <ReplyContextCard text={replyContextText} isBot={isBot} />
+        )}
         {hasText && (
           <div
             className={cn(
@@ -685,10 +765,13 @@ export function SessionsPage() {
             >
               {messages
                 .filter((msg) => {
-                  const { text, hasToolCall } = extractMessage(
-                    msg as unknown as Record<string, unknown>,
+                  const { text, replyContextText, hasToolCall } =
+                    extractMessage(msg as unknown as Record<string, unknown>);
+                  return (
+                    text.trim().length > 0 ||
+                    (replyContextText?.trim().length ?? 0) > 0 ||
+                    hasToolCall
                   );
-                  return text.trim().length > 0 || hasToolCall;
                 })
                 .map((msg) => (
                   <ChatBubble key={msg.id} msg={msg} />

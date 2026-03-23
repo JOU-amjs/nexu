@@ -454,4 +454,60 @@ describe("SessionsPage", () => {
     expect(markup).toContain('data-tool-card="feishu_bitable_list_records"');
     expect(markup).toContain("Feishu Bitable List Records");
   });
+
+  it("renders reply context as quote UI instead of raw metadata", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    queryClient.setQueryData(["session-meta", "sess-reply"], {
+      id: "sess-reply",
+      title: "Feishu reply",
+      channelType: "feishu",
+      messageCount: 1,
+      lastMessageAt: "2026-03-23T03:25:00.000Z",
+      metadata: {},
+    });
+    queryClient.setQueryData(["chat-history", "sess-reply"], {
+      messages: [
+        {
+          id: "msg-reply-context",
+          role: "user",
+          content: [
+            {
+              type: "replyContext",
+              text: "[Interactive Card]",
+            },
+            {
+              type: "text",
+              text: "你是谁",
+            },
+          ],
+          timestamp: new Date("2026-03-23T03:25:00.000Z").getTime(),
+          createdAt: "2026-03-23T03:25:00.000Z",
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/workspace/sessions/sess-reply"]}>
+          <Routes>
+            <Route path="/workspace/sessions/:id" element={<SessionsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(markup).toContain('data-reply-context="[Interactive Card]"');
+    expect(markup).toContain("Interactive Card");
+    expect(markup).toContain("你是谁");
+    expect(markup).not.toContain(
+      "[Replying to: &quot;[Interactive Card]&quot;]",
+    );
+  });
 });

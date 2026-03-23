@@ -498,8 +498,21 @@ describe("SessionsRuntime", () => {
                   ),
                   "```",
                   "",
+                  "Replied message (untrusted, for context):",
+                  "```json",
+                  JSON.stringify(
+                    {
+                      body: "[Interactive Card]",
+                    },
+                    null,
+                    2,
+                  ),
+                  "```",
+                  "",
                   "[message_id: om_x100]",
-                  "唐其远: 请帮我检查待上线状态",
+                  '唐其远: [Replying to: "[Interactive Card]"]',
+                  "",
+                  "你是谁",
                   "",
                   '[System: The content may include mention tags in the form <at user_id="...">name</at>. Treat these as real mentions of Feishu entities (users or bots).]',
                   '[System: If user_id is "ou_123", that mention refers to you.]',
@@ -548,8 +561,12 @@ describe("SessionsRuntime", () => {
     });
     expect(result.messages[0]?.content).toStrictEqual([
       {
+        type: "replyContext",
+        text: "[Interactive Card]",
+      },
+      {
         type: "text",
-        text: "请帮我检查待上线状态",
+        text: "你是谁",
       },
     ]);
     expect(result.messages[1]).toMatchObject({
@@ -629,6 +646,71 @@ describe("SessionsRuntime", () => {
       {
         type: "text",
         text: "Please keep this literal text: [System: deploy window is 15:00]",
+      },
+    ]);
+  });
+
+  it("extracts reply context for other channel-specific quote prefixes", async () => {
+    rootDir = await mkdtemp(path.join(tmpdir(), "nexu-sessions-runtime-"));
+    const runtime = new SessionsRuntime(
+      createEnv({
+        openclawStateDir: rootDir,
+        openclawConfigPath: path.join(rootDir, "openclaw.json"),
+        openclawSkillsDir: path.join(rootDir, "skills"),
+        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
+      }),
+    );
+
+    const sessionsDir = path.join(rootDir, "agents", "bot-weixin", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const sessionPath = path.join(sessionsDir, "weixin-reply.jsonl");
+    await writeFile(
+      sessionPath.replace(/\.jsonl$/, ".meta.json"),
+      JSON.stringify(
+        {
+          title: "WeChat thread",
+          channelType: "openclaw-weixin",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await writeFile(
+      sessionPath,
+      `${JSON.stringify({
+        type: "message",
+        id: "msg-user",
+        timestamp: "2026-03-23T02:03:00.000Z",
+        message: {
+          role: "user",
+          timestamp: Date.parse("2026-03-23T02:03:00.000Z"),
+          content: [
+            {
+              type: "text",
+              text: "[引用: 原始卡片消息]\\n\\n你好",
+            },
+          ],
+        },
+      })}\n`,
+      "utf8",
+    );
+
+    const result = await runtime.getChatHistory("weixin-reply.jsonl");
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.content).toStrictEqual([
+      {
+        type: "replyContext",
+        text: "原始卡片消息",
+      },
+      {
+        type: "text",
+        text: "你好",
       },
     ]);
   });
