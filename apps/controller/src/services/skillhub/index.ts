@@ -6,6 +6,10 @@ export {
 } from "./install-queue.js";
 export type { InstallExecutor } from "./install-queue.js";
 export { SkillDb } from "./skill-db.js";
+export {
+  SkillDirWatcher,
+  type SkillDirWatcherLogFn,
+} from "./skill-dir-watcher.js";
 export type {
   SkillhubCatalogData,
   MinimalSkill,
