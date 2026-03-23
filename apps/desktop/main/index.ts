@@ -249,6 +249,12 @@ function notifyDesktopAuthSessionRestored(): void {
   });
 }
 
+function triggerUpdateCheck(): void {
+  mainWindow?.webContents.send("host:desktop-command", {
+    type: "desktop:check-for-updates",
+  });
+}
+
 function installApplicationMenu(): void {
   const developMenu: MenuItemConstructorOptions = {
     label: "Develop",
@@ -298,7 +304,29 @@ function installApplicationMenu(): void {
 
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === "darwin"
-      ? ([{ role: "appMenu" }] satisfies MenuItemConstructorOptions[])
+      ? ([
+          {
+            role: "appMenu",
+            submenu: [
+              { role: "about" },
+              {
+                id: "check-for-updates",
+                label: "Check for Updates…",
+                enabled:
+                  app.isPackaged && runtimeConfig.updates.autoUpdateEnabled,
+                click: () => triggerUpdateCheck(),
+              },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ] satisfies MenuItemConstructorOptions[])
       : []),
     { role: "fileMenu" },
     { role: "editMenu" },
@@ -784,6 +812,7 @@ app.whenReady().then(async () => {
 
     if (app.isPackaged && runtimeConfig.updates.autoUpdateEnabled) {
       const updateMgr = new UpdateManager(win, orchestrator, {
+        channel: runtimeConfig.updates.channel,
         feedUrl: runtimeConfig.urls.updateFeed,
       });
       setUpdateManager(updateMgr);

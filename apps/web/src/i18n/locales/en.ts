@@ -404,6 +404,22 @@ const en = {
   "skills.recommended": "Recommended",
   "skills.installed": "Installed",
   "skills.import": "Import",
+  "skills.importSkill": "Import Skill",
+  "skills.importSkillDesc":
+    "Add a custom skill from a zip file or GitHub repository",
+  "skills.uploadZip": "Upload Zip",
+  "skills.githubLink": "GitHub Link",
+  "skills.importSuccess": "Skill imported successfully",
+  "skills.dropZipHere": "Drag & drop a .zip skill file here",
+  "skills.orClickBrowse": "or click to browse",
+  "skills.clickToChange": "Click to change file",
+  "skills.zipHint":
+    "The zip should contain a SKILL.md manifest and any related prompt or config files.",
+  "skills.githubUrlLabel": "GitHub repository URL",
+  "skills.githubComingSoon":
+    "GitHub import is coming soon. Use the Upload Zip tab for now.",
+  "skills.importing": "Importing...",
+  "skills.cancel": "Cancel",
   "skills.loadingCatalog": "Downloading skill catalog...",
   "skills.catalogUnavailable": "Catalog unavailable",
   "skills.retrying": "Retrying...",

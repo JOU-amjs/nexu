@@ -199,7 +199,11 @@ export function WechatSetupView({
     phase === "connecting";
 
   return (
-    <div className="p-5 rounded-xl border bg-surface-1 border-border">
+    <div
+      className={
+        showHeader ? "p-5 rounded-xl border bg-surface-1 border-border" : "py-2"
+      }
+    >
       {showHeader && (
         <div className="flex gap-3 items-start mb-5">
           <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-green-500/10 shrink-0">

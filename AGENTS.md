@@ -77,6 +77,7 @@ This repo is desktop-first. Prefer the controller-first path and remove or ignor
 - Desktop runtime guide: `specs/guides/desktop-runtime-guide.md`.
 - The controller sidecar is packaged by `apps/desktop/scripts/prepare-controller-sidecar.mjs` which deep-copies all controller `dependencies` and their transitive deps into `.dist-runtime/controller/node_modules/`. Keep controller deps minimal to avoid bloating the desktop distributable.
 - SkillHub (catalog, install, uninstall) runs in the controller via HTTP — not in the Electron main process via IPC. The web app always uses HTTP SDK for skill operations.
+- Desktop auto-update is channel-specific. Packaged builds should embed `NEXU_DESKTOP_UPDATE_CHANNEL` (`stable` / `beta` / `nightly`) so the updater checks the matching feed, and update diagnostics should always log the effective feed URL plus remote `version` / `releaseDate` when available.
 
 ## Hard rules
 

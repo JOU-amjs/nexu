@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { UpdateChannelName } from "./host";
 import { getDesktopAppRoot } from "./workspace-paths";
 
 export const DEFAULT_CONTROLLER_PORT = 50_800;
@@ -28,6 +29,7 @@ type BuildConfig = {
   NEXU_DESKTOP_BUILD_BRANCH?: string;
   NEXU_DESKTOP_BUILD_COMMIT?: string;
   NEXU_DESKTOP_BUILD_TIME?: string;
+  NEXU_DESKTOP_UPDATE_CHANNEL?: UpdateChannelName;
 };
 
 function readBuildConfigString(
@@ -99,9 +101,25 @@ function loadBuildConfig(resourcesPath?: string): BuildConfig {
         record,
         "NEXU_DESKTOP_BUILD_TIME",
       ),
+      NEXU_DESKTOP_UPDATE_CHANNEL: readUpdateChannel(
+        readBuildConfigString(record, "NEXU_DESKTOP_UPDATE_CHANNEL"),
+      ),
     };
   } catch {
     return {};
+  }
+}
+
+function readUpdateChannel(
+  value: string | undefined,
+): UpdateChannelName | undefined {
+  switch (value) {
+    case "stable":
+    case "beta":
+    case "nightly":
+      return value;
+    default:
+      return undefined;
   }
 }
 
@@ -179,6 +197,7 @@ export type DesktopRuntimeConfig = {
   buildInfo: DesktopBuildInfo;
   updates: {
     autoUpdateEnabled: boolean;
+    channel: UpdateChannelName;
   };
   ports: {
     controller: number;
@@ -228,6 +247,10 @@ export function getDesktopRuntimeConfig(
       env.NEXU_DESKTOP_AUTO_UPDATE_ENABLED ??
         buildConfig.NEXU_DESKTOP_AUTO_UPDATE_ENABLED,
     ) ?? true;
+  const updateChannel =
+    readUpdateChannel(env.NEXU_DESKTOP_UPDATE_CHANNEL) ??
+    buildConfig.NEXU_DESKTOP_UPDATE_CHANNEL ??
+    "stable";
   const fallbackPackageVersion =
     readPackagedAppVersion(defaults?.resourcesPath) ??
     readDesktopPackageVersion();
@@ -285,6 +308,7 @@ export function getDesktopRuntimeConfig(
     },
     updates: {
       autoUpdateEnabled,
+      channel: updateChannel,
     },
     ports,
     urls,

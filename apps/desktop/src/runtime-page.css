@@ -963,6 +963,14 @@ body,
   padding-left: 16px;
 }
 
+.update-card-message {
+  padding-left: 16px;
+  padding-right: 12px;
+  font-size: 11px;
+  color: #787c80;
+  line-height: 1.45;
+}
+
 /* Btn base */
 .update-card-btn {
   border: 0;

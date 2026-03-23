@@ -162,6 +162,9 @@ export type HostDesktopCommand =
   | {
       type: "desktop:auth-session-restored";
       surface: "web";
+    }
+  | {
+      type: "desktop:check-for-updates";
     };
 
 export type RuntimeUnitSnapshot = Omit<RuntimeUnitState, "logTail">;
@@ -266,7 +269,7 @@ export type HostBootstrap = {
 };
 
 export type UpdateSource = "r2" | "github";
-export type UpdateChannelName = "stable" | "beta";
+export type UpdateChannelName = "stable" | "beta" | "nightly";
 
 export const updaterEvents = [
   "update:checking",
@@ -279,10 +282,25 @@ export const updaterEvents = [
 
 export type UpdaterEvent = (typeof updaterEvents)[number];
 
+export interface UpdateCheckDiagnostic {
+  channel: UpdateChannelName;
+  source: UpdateSource;
+  feedUrl: string;
+  currentVersion: string;
+  remoteVersion?: string;
+  remoteReleaseDate?: string;
+}
+
 export type UpdaterEventMap = {
-  "update:checking": Record<string, never>;
-  "update:available": { version: string; releaseNotes?: string };
-  "update:up-to-date": Record<string, never>;
+  "update:checking": UpdateCheckDiagnostic;
+  "update:available": {
+    version: string;
+    releaseNotes?: string;
+    diagnostic: UpdateCheckDiagnostic;
+  };
+  "update:up-to-date": {
+    diagnostic: UpdateCheckDiagnostic;
+  };
   "update:progress": {
     percent: number;
     bytesPerSecond: number;
@@ -290,7 +308,10 @@ export type UpdaterEventMap = {
     total: number;
   };
   "update:downloaded": { version: string };
-  "update:error": { message: string };
+  "update:error": {
+    message: string;
+    diagnostic?: UpdateCheckDiagnostic;
+  };
 };
 
 export type UpdaterBridge = {

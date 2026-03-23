@@ -20,6 +20,8 @@ import type {
   RuntimeUnitState,
 } from "../shared/host";
 import { getDesktopSentryBuildMetadata } from "../shared/sentry-build-metadata";
+import { UpdateBanner } from "./components/update-banner";
+import { useAutoUpdate } from "./hooks/use-auto-update";
 import {
   checkComponentUpdates,
   getAppInfo,
@@ -1003,6 +1005,7 @@ function DesktopShell() {
   const [webSurfaceVersion, setWebSurfaceVersion] = useState(0);
   const [runtimeConfig, setRuntimeConfig] =
     useState<DesktopRuntimeConfig | null>(null);
+  const update = useAutoUpdate();
   useEffect(() => {
     void getRuntimeConfig()
       .then(setRuntimeConfig)
@@ -1016,10 +1019,15 @@ function DesktopShell() {
         return;
       }
 
+      if (command.type === "desktop:check-for-updates") {
+        void update.check();
+        return;
+      }
+
       setActiveSurface(command.surface);
       setChromeMode(command.chromeMode);
     });
-  }, []);
+  }, [update]);
 
   // Poll the controller ready endpoint through the web sidecar proxy before mounting the webview.
   const [controllerReady, setControllerReady] = useState(false);
@@ -1191,6 +1199,17 @@ function DesktopShell() {
           <DiagnosticsPage runtimeConfig={runtimeConfig} />
         </div>
       </main>
+
+      <UpdateBanner
+        dismissed={update.dismissed}
+        errorMessage={update.errorMessage}
+        onDismiss={update.dismiss}
+        onDownload={() => void update.download()}
+        onInstall={() => void update.install()}
+        percent={update.percent}
+        phase={update.phase}
+        version={update.version}
+      />
     </div>
   );
 }
