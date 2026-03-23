@@ -46,6 +46,8 @@ export class InstallQueue {
   private readonly pending: MutableQueueItem[] = [];
   private readonly active: Map<string, MutableQueueItem> = new Map();
   private readonly completed: MutableQueueItem[] = [];
+  private readonly cleanupTimers = new Set<ReturnType<typeof setTimeout>>();
+  private pauseTimer: ReturnType<typeof setTimeout> | null = null;
   private pausedUntil = 0;
   private disposed = false;
 
@@ -105,6 +107,14 @@ export class InstallQueue {
 
   dispose(): void {
     this.disposed = true;
+    if (this.pauseTimer) {
+      clearTimeout(this.pauseTimer);
+      this.pauseTimer = null;
+    }
+    for (const timer of this.cleanupTimers) {
+      clearTimeout(timer);
+    }
+    this.cleanupTimers.clear();
   }
 
   private findItem(slug: string): MutableQueueItem | undefined {
@@ -196,7 +206,10 @@ export class InstallQueue {
   private pauseQueue(ms: number): void {
     this.pausedUntil = Date.now() + ms;
     this.log("warn", `Queue paused for ${ms}ms`);
-    setTimeout(() => {
+    if (this.pauseTimer) clearTimeout(this.pauseTimer);
+    this.pauseTimer = setTimeout(() => {
+      this.pauseTimer = null;
+      this.pausedUntil = 0;
       if (!this.disposed) {
         this.drain();
       }
@@ -204,12 +217,15 @@ export class InstallQueue {
   }
 
   private scheduleCleanup(item: MutableQueueItem): void {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      this.cleanupTimers.delete(timer);
+      if (this.disposed) return;
       const idx = this.completed.indexOf(item);
       if (idx !== -1) {
         this.completed.splice(idx, 1);
       }
     }, this.cleanupDelayMs);
+    this.cleanupTimers.add(timer);
   }
 
   private toReadonly(item: MutableQueueItem): QueueItem {

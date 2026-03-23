@@ -370,6 +370,26 @@ describe("InstallQueue", () => {
       // "b" should never have started
       expect(executor).toHaveBeenCalledTimes(1);
     });
+
+    it("does not mutate completed after dispose", async () => {
+      executor.mockResolvedValue(undefined);
+      createQueue({ cleanupDelayMs: 5000 });
+
+      queue.enqueue("a", "managed");
+      await vi.advanceTimersByTimeAsync(0);
+
+      // "a" is now in completed
+      const itemsBefore = queue.getQueue().length;
+      expect(itemsBefore).toBe(1);
+
+      queue.dispose();
+
+      // advance past cleanup delay — should not throw or mutate
+      await vi.advanceTimersByTimeAsync(6000);
+
+      // After dispose, completed list should still have the item (cleanup timer was cancelled)
+      expect(queue.getQueue()).toHaveLength(1);
+    });
   });
 
   describe("concurrency invariant", () => {
