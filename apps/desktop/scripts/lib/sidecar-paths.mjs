@@ -64,11 +64,23 @@ export async function linkOrCopyDirectory(
   }
 
   if (excludeNames.size === 0) {
-    await symlink(
-      sourcePath,
-      targetPath,
-      process.platform === "win32" ? "junction" : "dir",
-    );
+    try {
+      await symlink(
+        sourcePath,
+        targetPath,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+    } catch (error) {
+      if (process.platform !== "win32") {
+        throw error;
+      }
+
+      await cp(sourcePath, targetPath, {
+        recursive: true,
+        dereference: true,
+        filter: (source) => basename(source) !== ".bin",
+      });
+    }
     return;
   }
 
@@ -83,15 +95,28 @@ export async function linkOrCopyDirectory(
     const sourceEntryPath = resolve(sourcePath, entry);
     const sourceEntryStats = await lstat(sourceEntryPath);
 
-    await symlink(
-      sourceEntryPath,
-      resolve(targetPath, entry),
-      process.platform === "win32"
-        ? sourceEntryStats.isDirectory()
-          ? "junction"
-          : "file"
-        : undefined,
-    );
+    const targetEntryPath = resolve(targetPath, entry);
+
+    try {
+      await symlink(
+        sourceEntryPath,
+        targetEntryPath,
+        process.platform === "win32"
+          ? sourceEntryStats.isDirectory()
+            ? "junction"
+            : "file"
+          : undefined,
+      );
+    } catch (error) {
+      if (process.platform !== "win32") {
+        throw error;
+      }
+
+      await cp(sourceEntryPath, targetEntryPath, {
+        recursive: sourceEntryStats.isDirectory(),
+        dereference: true,
+      });
+    }
   }
 }
 

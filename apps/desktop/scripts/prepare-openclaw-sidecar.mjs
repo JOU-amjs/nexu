@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmod,
   cp,
@@ -228,6 +229,7 @@ const LEGACY_FEISHU_SINGLE_AGENT_TRIGGER_BLOCK = [
 const sidecarRoot = getSidecarRoot("openclaw");
 const sidecarBinDir = resolve(sidecarRoot, "bin");
 const sidecarNodeModules = resolve(sidecarRoot, "node_modules");
+const sidecarCacheMetadataPath = resolve(sidecarRoot, "prepare-cache.json");
 const packagedOpenclawEntry = resolve(
   sidecarNodeModules,
   "openclaw/openclaw.mjs",
@@ -239,6 +241,150 @@ const inheritEntitlementsPath = resolve(
 
 function formatDurationMs(durationMs) {
   return `${(durationMs / 1000).toFixed(2)}s`;
+}
+
+function isEnvFlagEnabled(name) {
+  const value = process.env[name]?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
+function shouldUsePreparationCache() {
+  return !(
+    isEnvFlagEnabled("NEXU_DESKTOP_DISABLE_OPENCLAW_SIDECAR_CACHE") ||
+    isEnvFlagEnabled("NEXU_DESKTOP_FORCE_FULL_START")
+  );
+}
+
+async function runTimedStep(label, action) {
+  const startedAt = Date.now();
+  console.log(`[openclaw-sidecar] step:start ${label}`);
+  try {
+    const result = await action();
+    console.log(
+      `[openclaw-sidecar] step:done ${label} durationMs=${Date.now() - startedAt}`,
+    );
+    return result;
+  } catch (error) {
+    console.log(
+      `[openclaw-sidecar] step:fail ${label} durationMs=${Date.now() - startedAt}`,
+    );
+    throw error;
+  }
+}
+
+async function collectFileTreeEntries(rootPath) {
+  if (!(await pathExists(rootPath))) {
+    return [];
+  }
+
+  const entries = await readdir(rootPath, { withFileTypes: true });
+  const nestedEntries = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = resolve(rootPath, entry.name);
+      if (entry.isDirectory()) {
+        const children = await collectFileTreeEntries(entryPath);
+        return children.map((child) => ({
+          relativePath: `${entry.name}/${child.relativePath}`,
+          content: child.content,
+        }));
+      }
+
+      if (!entry.isFile()) {
+        return [];
+      }
+
+      return [
+        {
+          relativePath: entry.name,
+          content: await readFile(entryPath),
+        },
+      ];
+    }),
+  );
+
+  return nestedEntries.flat().sort((a, b) =>
+    a.relativePath.localeCompare(b.relativePath),
+  );
+}
+
+async function computePreparationCacheKey() {
+  const hash = createHash("sha256");
+  const fingerprintFiles = [
+    resolve(openclawRuntimeRoot, "package.json"),
+    resolve(openclawRuntimeRoot, "package-lock.json"),
+    fileURLToPath(import.meta.url),
+  ];
+
+  for (const filePath of fingerprintFiles) {
+    if (!(await pathExists(filePath))) {
+      continue;
+    }
+
+    hash.update(filePath);
+    hash.update(await readFile(filePath));
+  }
+
+  for (const entry of await collectFileTreeEntries(openclawPackagePatchRoot)) {
+    hash.update(entry.relativePath);
+    hash.update(entry.content);
+  }
+
+  hash.update(JSON.stringify({
+    copyRuntimeDependencies: shouldCopyRuntimeDependencies(),
+  }));
+
+  return hash.digest("hex");
+}
+
+async function hasReusableSidecar(cacheKey) {
+  const requiredPaths = shouldCopyRuntimeDependencies()
+    ? [
+        resolve(sidecarRoot, "payload.tar.gz"),
+        resolve(sidecarRoot, "archive.json"),
+        resolve(sidecarRoot, "package.json"),
+      ]
+    : [
+        packagedOpenclawEntry,
+        resolve(sidecarRoot, "metadata.json"),
+        resolve(sidecarBinDir, "openclaw"),
+        resolve(sidecarBinDir, "openclaw.cmd"),
+        resolve(sidecarRoot, "package.json"),
+      ];
+
+  const requiredPathChecks = await Promise.all(
+    requiredPaths.map((candidatePath) => pathExists(candidatePath)),
+  );
+  if (!requiredPathChecks.every(Boolean)) {
+    return false;
+  }
+
+  if (!(await pathExists(sidecarCacheMetadataPath))) {
+    return false;
+  }
+
+  try {
+    const cacheMetadata = JSON.parse(
+      await readFile(sidecarCacheMetadataPath, "utf8"),
+    );
+    return cacheMetadata?.cacheKey === cacheKey;
+  } catch {
+    return false;
+  }
+}
+
+async function writePreparationCacheMetadata(cacheKey) {
+  await writeFile(
+    sidecarCacheMetadataPath,
+    `${JSON.stringify(
+      {
+        cacheKey,
+        preparedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}
+`,
+  );
 }
 
 function run(command, args, options = {}) {
@@ -752,51 +898,73 @@ async function stagePatchedOpenclawPackage() {
 }
 
 async function prepareOpenclawSidecar() {
-  if (!(await pathExists(openclawRoot))) {
-    throw new Error(
-      `OpenClaw runtime dependency not found at ${openclawRoot}. Run pnpm openclaw-runtime:install first.`,
+  await runTimedStep("prepare_openclaw_sidecar", async () => {
+    if (!(await pathExists(openclawRoot))) {
+      throw new Error(
+        `OpenClaw runtime dependency not found at ${openclawRoot}. Run pnpm openclaw-runtime:install first.`,
+      );
+    }
+
+    const cacheKey = await runTimedStep("compute_cache_key", () =>
+      computePreparationCacheKey(),
     );
-  }
+    if (!shouldUsePreparationCache()) {
+      console.log(
+        "[openclaw-sidecar] cache disabled by environment, rebuilding sidecar",
+      );
+    } else if (
+      await runTimedStep("check_cache_hit", () => hasReusableSidecar(cacheKey))
+    ) {
+      console.log("[openclaw-sidecar] cache hit, reusing prepared sidecar");
+      return;
+    }
 
-  await resetDir(sidecarRoot);
-  await mkdir(sidecarBinDir, { recursive: true });
-  const { stageRoot, stagedOpenclawRoot } = await stagePatchedOpenclawPackage();
-  try {
-    await linkOrCopyDirectory(openclawRuntimeNodeModules, sidecarNodeModules, {
-      excludeNames: ["openclaw"],
-    });
-    await rename(stagedOpenclawRoot, resolve(sidecarNodeModules, "openclaw"));
-  } finally {
-    await removePathIfExists(stageRoot);
-  }
+    await runTimedStep("reset_sidecar_root", () => resetDir(sidecarRoot));
+    await mkdir(sidecarBinDir, { recursive: true });
+    const { stageRoot, stagedOpenclawRoot } = await runTimedStep(
+      "stage_patched_openclaw_package",
+      () => stagePatchedOpenclawPackage(),
+    );
+    try {
+      await runTimedStep("link_or_copy_runtime_node_modules", () =>
+        linkOrCopyDirectory(openclawRuntimeNodeModules, sidecarNodeModules, {
+          excludeNames: ["openclaw"],
+        }),
+      );
+      await runTimedStep("install_patched_openclaw_package", () =>
+        rename(stagedOpenclawRoot, resolve(sidecarNodeModules, "openclaw")),
+      );
+    } finally {
+      await removePathIfExists(stageRoot);
+    }
 
-  await removePathIfExists(resolve(sidecarNodeModules, "electron"));
-  await removePathIfExists(resolve(sidecarNodeModules, "electron-builder"));
-  await chmod(packagedOpenclawEntry, 0o755).catch(() => null);
-  await writeFile(
-    resolve(sidecarRoot, "package.json"),
-    '{\n  "name": "openclaw-sidecar",\n  "private": true\n}\n',
-  );
-  await writeFile(
-    resolve(sidecarRoot, "metadata.json"),
-    `${JSON.stringify(
-      {
-        strategy: "sidecar-node-modules",
-        openclawEntry: packagedOpenclawEntry,
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  await writeFile(
-    resolve(sidecarBinDir, "openclaw.cmd"),
-    `@echo off\r\nnode "${packagedOpenclawEntry}" %*\r\n`,
-  );
+    await removePathIfExists(resolve(sidecarNodeModules, "electron"));
+    await removePathIfExists(resolve(sidecarNodeModules, "electron-builder"));
+    await chmod(packagedOpenclawEntry, 0o755).catch(() => null);
+    await writeFile(
+      resolve(sidecarRoot, "package.json"),
+      '{\n  "name": "openclaw-sidecar",\n  "private": true\n}\n',
+    );
+    await writeFile(
+      resolve(sidecarRoot, "metadata.json"),
+      `${JSON.stringify(
+        {
+          strategy: "sidecar-node-modules",
+          openclawEntry: packagedOpenclawEntry,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeFile(
+      resolve(sidecarBinDir, "openclaw.cmd"),
+      `@echo off\r\nnode "${packagedOpenclawEntry}" %*\r\n`,
+    );
 
-  const wrapperPath = resolve(sidecarBinDir, "openclaw");
-  await writeFile(
-    wrapperPath,
-    `#!/bin/sh
+    const wrapperPath = resolve(sidecarBinDir, "openclaw");
+    await writeFile(
+      wrapperPath,
+      `#!/bin/sh
 set -eu
 
 case "$0" in
@@ -830,35 +998,44 @@ fi
 echo "openclaw launcher could not find node or a bundled Electron executable" >&2
 exit 127
 `,
-  );
-  await chmod(wrapperPath, 0o755);
-  await signOpenclawNativeBinaries();
+    );
+    await chmod(wrapperPath, 0o755);
+    await runTimedStep("sign_native_binaries", () => signOpenclawNativeBinaries());
 
-  if (shouldCopyRuntimeDependencies()) {
-    const archivePath = resolve(
-      dirname(sidecarRoot),
-      "openclaw-sidecar.tar.gz",
-    );
-    await removePathIfExists(archivePath);
-    await run("tar", ["-czf", archivePath, "-C", sidecarRoot, "."]);
-    await resetDir(sidecarRoot);
-    await writeFile(
-      resolve(sidecarRoot, "archive.json"),
-      `${JSON.stringify(
-        {
-          format: "tar.gz",
-          path: "payload.tar.gz",
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    await writeFile(
-      resolve(sidecarRoot, "package.json"),
-      '{\n  "name": "openclaw-sidecar",\n  "private": true\n}\n',
-    );
-    await rename(archivePath, resolve(sidecarRoot, "payload.tar.gz"));
-  }
+    if (shouldCopyRuntimeDependencies()) {
+      const archivePath = resolve(
+        dirname(sidecarRoot),
+        "openclaw-sidecar.tar.gz",
+      );
+      await runTimedStep("archive_runtime_dependencies", async () => {
+        await removePathIfExists(archivePath);
+        await run("tar", ["-czf", archivePath, "-C", sidecarRoot, "."]);
+        await resetDir(sidecarRoot);
+        await writeFile(
+          resolve(sidecarRoot, "archive.json"),
+          `${JSON.stringify(
+            {
+              format: "tar.gz",
+              path: "payload.tar.gz",
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        await writeFile(
+          resolve(sidecarRoot, "package.json"),
+          '{\n  "name": "openclaw-sidecar",\n  "private": true\n}\n',
+        );
+        await rename(archivePath, resolve(sidecarRoot, "payload.tar.gz"));
+      });
+    }
+
+    if (shouldUsePreparationCache()) {
+      await runTimedStep("write_cache_metadata", () =>
+        writePreparationCacheMetadata(cacheKey),
+      );
+    }
+  });
 }
 
 await prepareOpenclawSidecar();

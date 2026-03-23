@@ -58,22 +58,26 @@ This repo is desktop-first. Prefer the controller-first path and remove or ignor
 ## Desktop local development
 
 - Use `pnpm install` first, then `pnpm start` / `pnpm stop` / `pnpm restart` / `pnpm status` as the standard local desktop workflow.
+- `pnpm start` is the canonical local desktop entrypoint and now applies safe startup optimizations by default: it reuses existing build artifacts when present and reuses the prepared OpenClaw sidecar cache when its inputs have not changed.
+- Temporary escape hatches exist for debugging or suspicious cache behavior: `NEXU_DESKTOP_FORCE_FULL_START=1` disables the optimized start path, `NEXU_DESKTOP_DISABLE_BUILD_REUSE=1` disables build artifact reuse only, and `NEXU_DESKTOP_DISABLE_OPENCLAW_SIDECAR_CACHE=1` disables the OpenClaw sidecar cache only.
+- `pnpm reset-state` is the reset button for the optimized path too: it stops the desktop runtime and clears repo-local runtime state plus cached sidecars under `.tmp/sidecars/`.
+- Keep the detailed startup optimization rules, cache invalidation behavior, and troubleshooting notes in `specs/guides/desktop-runtime-guide.md`; keep only the core workflow expectations here.
 - The repo also includes a local Slack reply smoke probe at `scripts/probe/slack-reply-probe.mjs` (`pnpm probe:slack prepare` / `pnpm probe:slack run`) for verifying the end-to-end Slack DM reply path after local runtime or OpenClaw changes.
 - The Slack smoke probe is not zero-setup: install Chrome Canary first, then manually log into Slack in the opened Canary window before running `pnpm probe:slack run`.
-- The desktop dev launcher is `apps/desktop/dev.sh`; it is the source of truth for tmux orchestration, sidecar builds, runtime cleanup, and stable repo-local path setup during local development.
+- The desktop dev launcher is `apps/desktop/scripts/dev-cli.mjs`; `apps/desktop/dev.sh` is only a thin compatibility wrapper.
 - Treat `pnpm start` as the canonical cold-start entrypoint for the full local desktop runtime.
 - The active desktop runtime path is controller-first: desktop launches `controller + web + openclaw` and no longer starts local `api`, `gateway`, or `pglite` sidecars.
 - Desktop local runtime should not depend on PostgreSQL; controller-owned local state lives under `~/.nexu/`, while desktop dev runtime state remains repo-scoped under `.tmp/desktop/`.
-- `tmux` is required for the desktop local-dev workflow.
+- `tmux` is no longer required for the desktop local-dev workflow; process state is tracked by the Node-based desktop dev launcher.
 - Local desktop runtime state is repo-scoped under `.tmp/desktop/` in development.
-- For startup troubleshooting, use `pnpm logs` and `./apps/desktop/dev.sh devlog`.
-- `pnpm reset-state` is a dev-only cleanup shortcut for `./apps/desktop/dev.sh reset-state`; it stops the stack and removes repo-local desktop runtime state under `.tmp/desktop/`, but it does not delete controller-owned state in `~/.nexu/`.
+- For startup troubleshooting, use `pnpm logs` and `node apps/desktop/scripts/dev-cli.mjs devlog`.
+- `pnpm reset-state` is a dev-only cleanup shortcut for `node apps/desktop/scripts/dev-cli.mjs reset-state`; it stops the stack and removes repo-local desktop runtime state under `.tmp/desktop/`, but it does not delete controller-owned state in `~/.nexu/`.
 - To fully reset local desktop + controller state, stop the stack, remove `.tmp/desktop/`, then remove `~/.nexu/`.
 - If `pnpm start` exits immediately because `electron/cli.js` cannot be resolved from `apps/desktop`, validate `pnpm -C apps/desktop exec electron --version` and consult `specs/guides/desktop-runtime-guide.md` before changing the launcher flow.
 - Desktop already exposes an agent-friendly runtime observability surface; prefer subscribing/querying before adding temporary UI or ad hoc debug logging.
 - For deeper desktop runtime inspection, use the existing event/query path (`onRuntimeEvent(...)`, `runtime:query-events`, `queryRuntimeEvents(...)`) instead of rebuilding one-off diagnostics.
 - Use `actionId`, `reasonCode`, and `cursor` / `nextCursor` as the primary correlation and incremental-fetch primitives for desktop runtime debugging.
-- To fully clear local desktop runtime state, use `./apps/desktop/dev.sh reset-state`.
+- To fully clear local desktop runtime state, use `node apps/desktop/scripts/dev-cli.mjs reset-state`.
 - Desktop runtime guide: `specs/guides/desktop-runtime-guide.md`.
 - The controller sidecar is packaged by `apps/desktop/scripts/prepare-controller-sidecar.mjs` which deep-copies all controller `dependencies` and their transitive deps into `.dist-runtime/controller/node_modules/`. Keep controller deps minimal to avoid bloating the desktop distributable.
 - SkillHub (catalog, install, uninstall) runs in the controller via HTTP — not in the Electron main process via IPC. The web app always uses HTTP SDK for skill operations.
