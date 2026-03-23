@@ -101,6 +101,13 @@ function generateOpenclawPlist(label: string, env: PlistEnv): string {
   const errorPath = path.join(env.logDir, "openclaw.error.log");
   const controllerLabel = SERVICE_LABELS.controller(env.isDev);
 
+  // In dev mode, use --auth none to simplify local development
+  const authArgs = env.isDev
+    ? `
+        <string>--auth</string>
+        <string>none</string>`
+    : "";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -110,9 +117,9 @@ function generateOpenclawPlist(label: string, env: PlistEnv): string {
 
     <key>ProgramArguments</key>
     <array>
+        <string>${escapeXml(env.nodePath)}</string>
         <string>${escapeXml(env.openclawPath)}</string>
-        <string>--config</string>
-        <string>${escapeXml(env.openclawConfigPath)}</string>
+        <string>gateway</string>${authArgs}
     </array>
 
     <key>WorkingDirectory</key>
@@ -120,6 +127,8 @@ function generateOpenclawPlist(label: string, env: PlistEnv): string {
 
     <key>EnvironmentVariables</key>
     <dict>
+        <key>OPENCLAW_CONFIG_PATH</key>
+        <string>${escapeXml(env.openclawConfigPath)}</string>
         <key>OPENCLAW_STATE_DIR</key>
         <string>${escapeXml(env.openclawStateDir)}</string>
         <key>OPENCLAW_LAUNCHD_LABEL</key>

@@ -44,10 +44,14 @@ describe("generatePlist", () => {
 
     expect(plist).toContain("<string>io.nexu.openclaw</string>");
     expect(plist).toContain("<string>/app/openclaw/openclaw.mjs</string>");
+    // Check OPENCLAW_CONFIG_PATH env var (not --config argument)
+    expect(plist).toContain("<key>OPENCLAW_CONFIG_PATH</key>");
     expect(plist).toContain("<key>OPENCLAW_STATE_DIR</key>");
     expect(plist).toContain("<key>OPENCLAW_LAUNCHD_LABEL</key>");
     expect(plist).toContain("<key>OPENCLAW_SERVICE_MARKER</key>");
     expect(plist).toContain("<string>launchd</string>");
+    // Should NOT use --config argument
+    expect(plist).not.toContain("--config");
     // Check dependency on controller
     expect(plist).toContain("<key>OtherJobEnabled</key>");
     expect(plist).toContain("<key>io.nexu.controller</key>");

@@ -22,7 +22,7 @@
 
 ## Current Task
 
-**Complete** - All phases done
+**Complete** - All phases done, manual testing verified
 
 ---
 
@@ -40,6 +40,10 @@
 - [x] Dev mode script (`scripts/dev-launchd.sh`)
 - [x] Integration into index.ts (behind feature flag)
 - [x] Unit tests for LaunchdManager and PlistGenerator
+- [x] Fix OpenClaw config paths (match controller defaults in env.ts)
+- [x] Fix OpenClaw startup (use `gateway` subcommand + `OPENCLAW_CONFIG_PATH` env var)
+- [x] Fix dev mode auth (use `--auth none` for local development)
+- [x] Manual testing with `./scripts/dev-launchd.sh` verified working
 
 ---
 
@@ -49,47 +53,8 @@ None currently.
 
 ---
 
-## TODO Checklist
+## Next Steps (Post-Merge)
 
-### Phase 1: LaunchdManager Service
-- [ ] Create `apps/desktop/src/main/services/launchd-manager.ts`
-- [ ] Implement `installService()`, `uninstallService()`
-- [ ] Implement `startService()`, `stopService()`, `stopServiceGracefully()`
-- [ ] Implement `getServiceStatus()`, `isServiceRegistered()`, `isServiceInstalled()`
-- [ ] Add unit tests
-
-### Phase 2: Plist Generation
-- [ ] Create `apps/desktop/src/main/services/plist-generator.ts`
-- [ ] Controller plist template
-- [ ] OpenClaw plist template
-- [ ] Dev vs prod label handling
-
-### Phase 3: Embedded Web Server
-- [ ] Create `apps/desktop/src/main/embedded-web-server.ts`
-- [ ] Static file serving with async fs
-- [ ] API proxy to Controller
-- [ ] SPA fallback logic
-
-### Phase 4: Bootstrap Flow
-- [ ] Modify `apps/desktop/main/index.ts` for launchd bootstrap
-- [ ] Service installation on first run
-- [ ] Health check and readiness waiting
-
-### Phase 5: Exit Behavior
-- [ ] Implement quit dialog (Quit Completely / Run in Background / Cancel)
-- [ ] Graceful service shutdown
-
-### Phase 6: Dev Mode
-- [ ] Create `scripts/dev-launchd.sh`
-- [ ] Dev plist templates
-- [ ] Cleanup on script exit
-
-### Phase 7: Logging
-- [ ] Unify log paths to `~/.nexu/logs/`
-- [ ] Update Controller log config
-- [ ] Update OpenClaw log config
-
-### Phase 8: Testing
-- [ ] LaunchdManager unit tests
-- [ ] Embedded web server tests
-- [ ] Integration tests
+- Manual testing with `NEXU_USE_LAUNCHD=1`
+- Gradual rollout to beta users
+- Remove feature flag once stable

@@ -490,13 +490,13 @@ async function runLaunchdColdStart(): Promise<void> {
   const isDev = !app.isPackaged;
   const paths = resolveLaunchdPaths(app.isPackaged, electronRoot);
 
-  // Derive openclaw paths from nexuHome
+  // Derive openclaw paths from nexuHome (must match controller defaults in env.ts)
   const nexuHome = runtimeConfig.paths.nexuHome.replace(
     /^~/,
     process.env.HOME ?? "",
   );
-  const openclawConfigPath = resolve(nexuHome, "openclaw.yaml");
-  const openclawStateDir = resolve(nexuHome, "openclaw");
+  const openclawStateDir = resolve(nexuHome, "runtime", "openclaw", "state");
+  const openclawConfigPath = resolve(openclawStateDir, "openclaw.json");
 
   launchdResult = await bootstrapWithLaunchd({
     isDev,

@@ -28,8 +28,9 @@ WEB_PORT="${WEB_PORT:-50810}"
 NODE_PATH="${NODE_PATH:-$(which node)}"
 CONTROLLER_ENTRY="$REPO_ROOT/apps/controller/dist/index.js"
 OPENCLAW_PATH="$REPO_ROOT/openclaw-runtime/node_modules/openclaw/openclaw.mjs"
-OPENCLAW_CONFIG="$HOME/.nexu/openclaw.yaml"
-OPENCLAW_STATE_DIR="$HOME/.nexu/openclaw"
+# Must match controller defaults in apps/controller/src/app/env.ts
+OPENCLAW_STATE_DIR="$HOME/.nexu/runtime/openclaw/state"
+OPENCLAW_CONFIG="$OPENCLAW_STATE_DIR/openclaw.json"
 
 mkdir -p "$LOG_DIR" "$PLIST_DIR" "$OPENCLAW_STATE_DIR"
 
@@ -94,13 +95,16 @@ generate_openclaw_plist() {
     <array>
         <string>$NODE_PATH</string>
         <string>$OPENCLAW_PATH</string>
-        <string>--config</string>
-        <string>$OPENCLAW_CONFIG</string>
+        <string>gateway</string>
+        <string>--auth</string>
+        <string>none</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$REPO_ROOT</string>
     <key>EnvironmentVariables</key>
     <dict>
+        <key>OPENCLAW_CONFIG_PATH</key>
+        <string>$OPENCLAW_CONFIG</string>
         <key>OPENCLAW_STATE_DIR</key>
         <string>$OPENCLAW_STATE_DIR</string>
         <key>OPENCLAW_LAUNCHD_LABEL</key>
