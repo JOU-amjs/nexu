@@ -116,11 +116,6 @@ stop_services() {
   echo "Services stopped."
 }
 
-build_controller() {
-  echo "Building controller..."
-  pnpm --filter @nexu/controller build
-}
-
 # Remove stale plist files so Electron regenerates them on next boot
 purge_plists() {
   rm -f "$PLIST_DIR"/*.plist 2>/dev/null || true
@@ -137,8 +132,11 @@ start_services() {
   echo "Log directory: $LOG_DIR"
   echo ""
 
-  # Build controller (always, to pick up code changes)
-  build_controller
+  # Build controller + web (always, to pick up code changes)
+  echo "Building controller..."
+  pnpm --filter @nexu/controller build
+  echo "Building web..."
+  pnpm --filter @nexu/web build
 
   # Remove stale plist files so Electron generates fresh ones
   purge_plists
