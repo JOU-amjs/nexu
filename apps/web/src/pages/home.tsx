@@ -236,10 +236,11 @@ export function HomePage() {
   const CHANNEL_OPTIONS = useMemo(() => getChannelOptions(t), [t]);
 
   // Runtime health status (polls every 2s for faster feedback)
-  const { data: runtimeData } = useQuery({
+  const { data: runtimeData, error: runtimeError } = useQuery({
     queryKey: ["runtime-ready"],
     queryFn: async () => {
-      const { data } = await getApiInternalDesktopReady();
+      const { data, error } = await getApiInternalDesktopReady();
+      console.log("[home:runtime-ready]", { status: data?.status, error });
       return data;
     },
     refetchInterval: 2000,
@@ -248,12 +249,14 @@ export function HomePage() {
   const runtimeDisplay = useMemo(() => {
     if (!runtimeData) {
       // Still loading — show starting
+      console.log("[home:runtimeDisplay] no data yet, showing starting");
       return {
         label: t("home.status.starting"),
         color: "var(--color-warning)",
         pulse: true,
       } as const;
     }
+    console.log("[home:runtimeDisplay] status=", runtimeData.status);
     switch (runtimeData.status) {
       case "active":
         return {
@@ -406,6 +409,14 @@ export function HomePage() {
     queryKey: ["channels-live-status"],
     queryFn: async () => {
       const { data } = await getApiV1ChannelsLiveStatus();
+      console.log(
+        "[home:live-status]",
+        data?.gatewayConnected,
+        data?.channels?.map(
+          (c: { channelType: string; status: string }) =>
+            `${c.channelType}=${c.status}`,
+        ),
+      );
       return data as LiveStatusResponse | undefined;
     },
     refetchInterval: hasChannel ? 3000 : false,

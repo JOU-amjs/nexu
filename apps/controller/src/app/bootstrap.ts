@@ -43,13 +43,12 @@ export async function bootstrapController(
   });
 
   // When WS handshake completes, push current config (skipped if unchanged)
+  // and mark boot as complete so health loop treats future gateway-unreachable
+  // as "unhealthy" instead of "starting".
   container.wsClient.onConnected(() => {
+    container.runtimeState.bootPhase = "ready";
     void container.openclawSyncService.syncAll().catch(() => {});
   });
-
-  // Mark boot as complete — health loop will now treat gateway-unreachable
-  // as "unhealthy" instead of "starting".
-  container.runtimeState.bootPhase = "ready";
 
   return container.startBackgroundLoops();
 }
