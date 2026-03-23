@@ -9,9 +9,9 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 1. LaunchdManager service | Not Started | Core launchd wrapper |
-| 2. Plist generation | Not Started | Controller + OpenClaw templates |
-| 3. Embedded Web Server | Not Started | Replace web sidecar |
+| 1. LaunchdManager service | **Done** | Core launchd wrapper |
+| 2. Plist generation | **Done** | Controller + OpenClaw templates |
+| 3. Embedded Web Server | **Done** | Replace web sidecar |
 | 4. Bootstrap flow | Not Started | Desktop startup sequence |
 | 5. Exit behavior | Not Started | Quit dialog + graceful shutdown |
 | 6. Dev mode scripts | Not Started | launchd-based dev workflow |
@@ -22,7 +22,7 @@
 
 ## Current Task
 
-**None** - Starting implementation
+**Phase 4** - Bootstrap flow integration
 
 ---
 
@@ -30,7 +30,10 @@
 
 - [x] Design document (PR #356 merged)
 - [x] Cherry-pick WebSocket close code fix (PR #365)
-- [x] Change namespace to `io.nexu.*` (pending)
+- [x] Change namespace to `io.nexu.*`
+- [x] LaunchdManager service (`apps/desktop/main/services/launchd-manager.ts`)
+- [x] Plist generator (`apps/desktop/main/services/plist-generator.ts`)
+- [x] Embedded web server (`apps/desktop/main/services/embedded-web-server.ts`)
 
 ---
 
