@@ -448,9 +448,6 @@ async function main() {
     notarizeEnv.NEXU_APPLE_TEAM_ID = appleTeamId;
   }
 
-  const controllerPort =
-    process.env.NEXU_CONTROLLER_PORT ?? process.env.NEXU_API_PORT ?? "50800";
-
   await rm(releaseRoot, rmWithRetriesOptions);
   await rm(resolve(electronRoot, ".dist-runtime"), rmWithRetriesOptions);
 
@@ -468,11 +465,7 @@ async function main() {
     env,
   });
   await run("pnpm", ["--dir", repoRoot, "--filter", "@nexu/web", "build"], {
-    env: {
-      ...env,
-      VITE_API_BASE_URL: `http://127.0.0.1:${controllerPort}`,
-      VITE_AUTH_BASE_URL: `http://127.0.0.1:${controllerPort}`,
-    },
+    env,
   });
   await run("pnpm", ["run", "build"], { cwd: electronRoot, env });
   await run("node", [resolve(scriptDir, "upload-sourcemaps.mjs")], {

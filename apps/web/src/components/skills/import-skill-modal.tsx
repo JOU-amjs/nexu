@@ -13,8 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useImportSkill } from "@/hooks/use-community-catalog";
 import { AlertCircle, CheckCircle2, Lock } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  createAutoCloseController,
+  getSelectedZipFile,
+} from "./import-skill-modal-state";
 
 type ImportTab = "zip" | "github";
 
@@ -33,15 +37,23 @@ export default function ImportSkillModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [done, setDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoCloseControllerRef = useRef(createAutoCloseController());
   const importMutation = useImportSkill();
 
   const reset = useCallback(() => {
+    autoCloseControllerRef.current.cancel();
     setTab("zip");
     setDragOver(false);
     setSelectedFile(null);
     setDone(false);
     importMutation.reset();
   }, [importMutation]);
+
+  useEffect(() => {
+    return () => {
+      autoCloseControllerRef.current.cancel();
+    };
+  }, []);
 
   const handleClose = () => {
     reset();
@@ -54,9 +66,7 @@ export default function ImportSkillModal({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file?.name.endsWith(".zip")) {
-      setSelectedFile(file);
-    }
+    setSelectedFile(getSelectedZipFile(file));
     // Reset input so the same file can be re-selected
     e.target.value = "";
   };
@@ -65,9 +75,7 @@ export default function ImportSkillModal({
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file?.name.endsWith(".zip")) {
-      setSelectedFile(file);
-    }
+    setSelectedFile(getSelectedZipFile(file));
   };
 
   const handleImport = async () => {
@@ -75,7 +83,7 @@ export default function ImportSkillModal({
     try {
       await importMutation.mutateAsync(selectedFile);
       setDone(true);
-      setTimeout(() => handleClose(), 1200);
+      autoCloseControllerRef.current.schedule(handleClose, 1200);
     } catch {
       // Error state handled by mutation
     }
