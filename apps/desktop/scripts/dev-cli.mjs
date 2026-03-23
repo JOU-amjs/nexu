@@ -23,7 +23,6 @@ const sidecarRoot = resolve(rootDir, ".tmp", "sidecars");
 
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const gitCommand = process.platform === "win32" ? "git.exe" : "git";
-
 function createCommandSpec(command, args) {
   if (process.platform === "win32" && (command === "pnpm" || command === "pnpm.cmd")) {
     return {
@@ -37,6 +36,59 @@ function createCommandSpec(command, args) {
 
 function timestamp() {
   return new Date().toISOString().replace("T", " ").replace("Z", "");
+}
+
+function stripTerminalControl(input) {
+  let result = "";
+
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+
+    if (code === 0x1b) {
+      const next = input[index + 1];
+
+      if (next === "[") {
+        index += 2;
+        while (index < input.length) {
+          const current = input.charCodeAt(index);
+          if (current >= 0x40 && current <= 0x7e) {
+            break;
+          }
+          index += 1;
+        }
+        continue;
+      }
+
+      if (next === "]") {
+        index += 2;
+        while (index < input.length) {
+          const current = input.charCodeAt(index);
+          if (current === 0x07) {
+            break;
+          }
+          if (current === 0x1b && input[index + 1] === "\\") {
+            index += 1;
+            break;
+          }
+          index += 1;
+        }
+        continue;
+      }
+
+      continue;
+    }
+
+    if (
+      code === 0x09 ||
+      code === 0x0a ||
+      code === 0x0d ||
+      (code >= 0x20 && code !== 0x7f)
+    ) {
+      result += input[index];
+    }
+  }
+
+  return result;
 }
 
 function isEnvFlagEnabled(name) {
@@ -66,6 +118,10 @@ function shouldReuseBuildArtifacts() {
 function createLauncherEnv() {
   return {
     ...process.env,
+    NO_COLOR: "1",
+    FORCE_COLOR: "0",
+    CLICOLOR: "0",
+    npm_config_color: "false",
     ...(shouldForceFullStart()
       ? {
           NEXU_DESKTOP_FORCE_FULL_START: "1",
@@ -75,7 +131,7 @@ function createLauncherEnv() {
 }
 
 async function appendLine(filePath, message) {
-  await appendFile(filePath, `[${timestamp()}] ${message}\n`);
+  await appendFile(filePath, `[${timestamp()}] ${stripTerminalControl(message)}\n`);
 }
 
 async function log(message) {
@@ -369,13 +425,13 @@ async function runLogged(command, args, options = {}) {
     child.stdout.on("data", async (chunk) => {
       const text = chunk.toString();
       process.stdout.write(text);
-      await appendFile(logFile, text);
+      await appendFile(logFile, stripTerminalControl(text));
     });
 
     child.stderr.on("data", async (chunk) => {
       const text = chunk.toString();
       process.stderr.write(text);
-      await appendFile(logFile, text);
+      await appendFile(logFile, stripTerminalControl(text));
     });
 
     child.once("error", rejectPromise);
