@@ -42,7 +42,10 @@ export class SkillhubService {
     });
 
     const installQueue = new InstallQueue({
-      executor: (slug) => catalogManager.executeInstall(slug),
+      executor: async (slug, source) => {
+        await catalogManager.executeInstall(slug);
+        skillDb.recordInstall(slug, source);
+      },
       log,
     });
 

@@ -1,6 +1,9 @@
 import type { QueueItem, QueueItemStatus, SkillSource } from "./types.js";
 
-export type InstallExecutor = (slug: string) => Promise<void>;
+export type InstallExecutor = (
+  slug: string,
+  source: SkillSource,
+) => Promise<void>;
 
 type LogFn = (level: "info" | "error" | "warn", message: string) => void;
 
@@ -152,7 +155,7 @@ export class InstallQueue {
   private execute(item: MutableQueueItem): void {
     this.log("info", `Executing install for: ${item.slug}`);
 
-    this.executor(item.slug).then(
+    this.executor(item.slug, item.source).then(
       () => {
         if (this.disposed) return;
         item.status = "done";

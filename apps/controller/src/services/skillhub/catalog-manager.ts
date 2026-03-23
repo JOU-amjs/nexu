@@ -311,7 +311,10 @@ export class CatalogManager {
   getCuratedSlugsToEnqueue(): string[] {
     return CURATED_SKILL_SLUGS.filter(
       (slug) =>
-        !this.db.isInstalled(slug, "curated") && !this.db.isRemovedByUser(slug),
+        !this.db.isInstalled(slug, "curated") &&
+        !this.db.isInstalled(slug, "managed") &&
+        !this.db.isInstalled(slug, "custom") &&
+        !this.db.isRemovedByUser(slug),
     );
   }
 

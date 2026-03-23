@@ -93,7 +93,7 @@ describe("InstallQueue", () => {
 
       expect(item.slug).toBe("weather");
       expect(item.status).toBe("downloading");
-      expect(executor).toHaveBeenCalledWith("weather");
+      expect(executor).toHaveBeenCalledWith("weather", "managed");
 
       d.resolve(undefined);
       await vi.advanceTimersByTimeAsync(0);
