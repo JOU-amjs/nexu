@@ -119,6 +119,30 @@ export function startEmbeddedWebServer(
     const server = createServer(async (req, res) => {
       const url = new URL(req.url ?? "/", `http://localhost:${port}`);
 
+      // Desktop local auth — better-auth client calls /api/auth/get-session
+      // but there's no better-auth server in launchd mode. Return a mock
+      // desktop session so the web app proceeds past AuthLayout.
+      if (url.pathname === "/api/auth/get-session") {
+        const body = JSON.stringify({
+          session: {
+            id: "desktop-local-session",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+          user: {
+            id: "desktop-local-user",
+            email: "desktop@nexu.local",
+            name: "Desktop User",
+            image: null,
+          },
+        });
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        });
+        res.end(body);
+        return;
+      }
+
       // API proxy -> Controller (including /openapi.json)
       if (
         url.pathname.startsWith("/api") ||
