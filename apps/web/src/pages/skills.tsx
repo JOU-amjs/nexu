@@ -17,11 +17,20 @@ import { Compass, Loader2, Plus, Search, Settings2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 type TopTab = "explore" | "yours";
 type YoursSubTab = "all" | "recommended" | "installed";
 
 const PAGE_SIZE = 50;
+
+function getSkillType(tags: readonly string[]): string | null {
+  const primaryTag = tags[0]?.trim();
+  if (!primaryTag) {
+    return null;
+  }
+  return primaryTag.toLowerCase();
+}
 
 function useDebounce<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -37,11 +46,19 @@ function useDebounce<T>(value: T, delayMs: number): T {
 function SkillCard({
   skill,
   isInstalled,
+  queueStatus,
   categoryLabel,
   skillSource,
 }: {
   skill: MinimalSkill;
   isInstalled: boolean;
+  queueStatus?:
+    | "queued"
+    | "downloading"
+    | "installing-deps"
+    | "done"
+    | "failed"
+    | null;
   categoryLabel?: string;
   skillSource: "builtin" | "explore" | "custom";
 }) {
@@ -51,15 +68,33 @@ function SkillCard({
     "install" | "uninstall" | null
   >(null);
 
-  const isBusy = pendingAction !== null;
+  const isQueueActive =
+    queueStatus === "queued" ||
+    queueStatus === "downloading" ||
+    queueStatus === "installing-deps";
+  const isMutating = pendingAction !== null;
 
   async function handleInstall() {
     setPendingAction("install");
+    const skillType = getSkillType(skill.tags);
     try {
       await installMutation.mutateAsync(skill.slug);
+      track("workspace_skill_install", {
+        skill_name: skill.name,
+        skill_type: skillType,
+        skill_source: skillSource,
+        success: true,
+      });
       track("workspace_skill_enable", {
         name: skill.name,
         skill_source: skillSource,
+      });
+    } catch {
+      track("workspace_skill_install", {
+        skill_name: skill.name,
+        skill_type: skillType,
+        skill_source: skillSource,
+        success: false,
       });
     } finally {
       setPendingAction(null);
@@ -69,11 +104,25 @@ function SkillCard({
   async function handleToggle(checked: boolean) {
     if (checked) {
       setPendingAction("install");
+      const skillType = getSkillType(skill.tags);
       try {
         await installMutation.mutateAsync(skill.slug);
+        track("workspace_skill_install", {
+          skill_name: skill.name,
+          skill_type: skillType,
+          skill_source: skillSource,
+          success: true,
+        });
         track("workspace_skill_enable", {
           name: skill.name,
           skill_source: skillSource,
+        });
+      } catch {
+        track("workspace_skill_install", {
+          skill_name: skill.name,
+          skill_type: skillType,
+          skill_source: skillSource,
+          success: false,
         });
       } finally {
         setPendingAction(null);
@@ -82,9 +131,20 @@ function SkillCard({
       setPendingAction("uninstall");
       try {
         await uninstallMutation.mutateAsync(skill.slug);
+        track("workspace_skill_uninstall", {
+          skill_name: skill.name,
+          skill_source: skillSource,
+          success: true,
+        });
         track("workspace_skill_disable", {
           name: skill.name,
           skill_source: skillSource,
+        });
+      } catch {
+        track("workspace_skill_uninstall", {
+          skill_name: skill.name,
+          skill_source: skillSource,
+          success: false,
         });
       } finally {
         setPendingAction(null);
@@ -135,32 +195,36 @@ function SkillCard({
           }
         }}
       >
-        {isInstalled ? (
+        {isInstalled || isQueueActive ? (
           <>
             <Switch
               size="xs"
-              checked={isInstalled}
-              disabled={isBusy}
-              loading={isBusy}
+              checked={isInstalled || isQueueActive}
+              disabled={isMutating}
+              loading={isMutating || isQueueActive}
               onCheckedChange={handleToggle}
             />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleToggle(false);
-              }}
-              disabled={isBusy}
-              className="text-[12px] font-medium text-text-muted hover:text-[var(--color-danger)] transition-colors"
-            >
-              Uninstall
-            </button>
+            {isInstalled && !isQueueActive ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleToggle(false);
+                }}
+                disabled={isMutating}
+                className="text-[12px] font-medium text-text-muted hover:text-[var(--color-danger)] transition-colors"
+              >
+                Uninstall
+              </button>
+            ) : (
+              <span className="text-[11px] text-text-muted">Installing…</span>
+            )}
           </>
         ) : (
           <>
             <span />
-            {isBusy ? (
+            {isMutating || isQueueActive ? (
               <span className="inline-flex items-center gap-1.5 rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium border border-border text-text-muted cursor-default">
                 <Loader2 size={12} className="animate-spin" />
                 Installing…
@@ -201,7 +265,7 @@ export function SkillsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 150);
-  const [topTab, setTopTab] = useState<TopTab>("explore");
+  const [topTab, setTopTab] = useState<TopTab>("yours");
   const [yoursSubTab, setYoursSubTab] = useState<YoursSubTab>("all");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -235,6 +299,31 @@ export function SkillsPage() {
   const allSkills = data?.skills ?? [];
   const installedSlugs = new Set(data?.installedSlugs ?? []);
   const installedSkills: InstalledSkill[] = data?.installedSkills ?? [];
+  const queueBySlug = useMemo(() => {
+    const map = new Map<
+      string,
+      "queued" | "downloading" | "installing-deps" | "done" | "failed"
+    >();
+    for (const item of data?.queue ?? []) {
+      map.set(item.slug, item.status);
+    }
+    return map;
+  }, [data?.queue]);
+
+  // Show toast for "skill not found" errors
+  const shownErrorSlugs = useRef(new Set<string>());
+  useEffect(() => {
+    for (const item of data?.queue ?? []) {
+      if (
+        item.status === "failed" &&
+        item.errorCode === "skill_not_found" &&
+        !shownErrorSlugs.current.has(item.slug)
+      ) {
+        shownErrorSlugs.current.add(item.slug);
+        toast.error(t("skills.skillNotFound", { slug: item.slug }));
+      }
+    }
+  }, [data?.queue, t]);
 
   // Compute top tags
   const topTags = useMemo(() => {
@@ -462,19 +551,19 @@ export function SkillsPage() {
           </div>
         </div>
 
-        {/* Top-level tabs: Explore / Yours — segment control */}
+        {/* Top-level tabs: Yours / Explore — segment control */}
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-surface-2 mb-4">
           {(
             [
               {
-                id: "explore" as const,
-                label: t("skills.explore"),
-                icon: Compass,
-              },
-              {
                 id: "yours" as const,
                 label: t("skills.yours"),
                 icon: Settings2,
+              },
+              {
+                id: "explore" as const,
+                label: t("skills.explore"),
+                icon: Compass,
               },
             ] as const
           ).map((tab) => {
@@ -614,6 +703,20 @@ export function SkillsPage() {
           </div>
         )}
 
+        {/* ClawHub disclaimer */}
+        <p className="text-[12px] text-text-tertiary mb-4 font-medium">
+          {t("skills.clawhubDisclaimer")}{" "}
+          <a
+            href="https://github.com/nexu-io/nexu/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[var(--color-accent)] hover:underline"
+          >
+            GitHub Issues
+          </a>
+          {t("skills.clawhubDisclaimerAfterLink")}
+        </p>
+
         {/* Skill Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {visibleSkills.map((skill) => {
@@ -623,6 +726,7 @@ export function SkillsPage() {
                 key={skill.slug}
                 skill={skill}
                 isInstalled={installedSlugs.has(skill.slug)}
+                queueStatus={queueBySlug.get(skill.slug)}
                 skillSource={
                   topTab === "explore"
                     ? "explore"

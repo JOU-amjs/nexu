@@ -1,6 +1,8 @@
 import type { SkillhubCatalogData } from "@/types/desktop";
 import "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   getApiV1SkillhubCatalog,
   postApiV1SkillhubImport,
@@ -12,8 +14,20 @@ import {
 const CATALOG_QUERY_KEY = ["skillhub", "catalog"] as const;
 const DETAIL_QUERY_KEY = ["skillhub", "detail"] as const;
 
+/** Active queue statuses that warrant faster polling. */
+const ACTIVE_QUEUE_STATUSES = new Set([
+  "queued",
+  "downloading",
+  "installing-deps",
+]);
+
+function hasActiveQueueItems(data: SkillhubCatalogData | undefined): boolean {
+  if (!data?.queue?.length) return false;
+  return data.queue.some((item) => ACTIVE_QUEUE_STATUSES.has(item.status));
+}
+
 export function useCommunitySkills(opts?: { refetchInterval?: number }) {
-  return useQuery({
+  const query = useQuery({
     queryKey: CATALOG_QUERY_KEY,
     queryFn: async (): Promise<SkillhubCatalogData> => {
       const { data, error } = await getApiV1SkillhubCatalog();
@@ -21,12 +35,20 @@ export function useCommunitySkills(opts?: { refetchInterval?: number }) {
       return data as unknown as SkillhubCatalogData;
     },
     staleTime: 5 * 60 * 1000,
-    refetchInterval: opts?.refetchInterval,
+    refetchInterval:
+      opts?.refetchInterval ??
+      ((q) => {
+        const data = q.state.data as SkillhubCatalogData | undefined;
+        return hasActiveQueueItems(data) ? 3_000 : false;
+      }),
   });
+
+  return query;
 }
 
 export function useInstallSkill() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (slug: string) => {
@@ -34,7 +56,14 @@ export function useInstallSkill() {
         body: { slug },
       });
       if (error) throw new Error("Install request failed");
-      const result = data as { ok: boolean; error?: string };
+      const result = data as {
+        ok: boolean;
+        queued?: boolean;
+        slug?: string;
+        status?: string;
+        position?: number;
+        error?: string;
+      };
       if (!result.ok) {
         throw new Error(result.error ?? "Install failed");
       }
@@ -42,6 +71,9 @@ export function useInstallSkill() {
         queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: DETAIL_QUERY_KEY }),
       ]);
+      if (result.queued) {
+        toast.info(t("skills.installQueued"));
+      }
       return result;
     },
   });

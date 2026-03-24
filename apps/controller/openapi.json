@@ -6586,7 +6586,6 @@
                           "source": {
                             "type": "string",
                             "enum": [
-                              "curated",
                               "managed",
                               "custom"
                             ]
@@ -6630,13 +6629,74 @@
                         "updatedAt",
                         "skillCount"
                       ]
+                    },
+                    "queue": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "managed",
+                              "custom"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "downloading",
+                              "installing-deps",
+                              "done",
+                              "failed"
+                            ]
+                          },
+                          "position": {
+                            "type": "number"
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "errorCode": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                              "skill_not_found",
+                              "rate_limit",
+                              "unknown"
+                            ]
+                          },
+                          "retries": {
+                            "type": "number"
+                          },
+                          "enqueuedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "source",
+                          "status",
+                          "position",
+                          "error",
+                          "errorCode",
+                          "retries",
+                          "enqueuedAt"
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "skills",
                     "installedSlugs",
                     "installedSkills",
-                    "meta"
+                    "meta",
+                    "queue"
                   ]
                 }
               }
@@ -6678,6 +6738,25 @@
                   "properties": {
                     "ok": {
                       "type": "boolean"
+                    },
+                    "queued": {
+                      "type": "boolean"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "downloading",
+                        "installing-deps",
+                        "done",
+                        "failed"
+                      ]
+                    },
+                    "position": {
+                      "type": "number"
                     },
                     "error": {
                       "type": "string"

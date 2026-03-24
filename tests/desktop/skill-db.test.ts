@@ -64,9 +64,9 @@ describe("SkillDb", () => {
 
   it("recordInstall upserts — re-installing sets status back to installed", async () => {
     db = await SkillDb.create(dbPath);
-    db.recordInstall("github", "curated");
-    db.recordUninstall("github", "curated");
-    db.recordInstall("github", "curated");
+    db.recordInstall("github", "managed");
+    db.recordUninstall("github", "managed");
+    db.recordInstall("github", "managed");
     const all = db.getAllInstalled();
     expect(all).toHaveLength(1);
     expect(all[0].status).toBe("installed");
@@ -74,28 +74,14 @@ describe("SkillDb", () => {
 
   it("recordUninstall marks as uninstalled", async () => {
     db = await SkillDb.create(dbPath);
-    db.recordInstall("github", "curated");
-    db.recordUninstall("github", "curated");
+    db.recordInstall("github", "managed");
+    db.recordUninstall("github", "managed");
     expect(db.getAllInstalled()).toHaveLength(0);
-    expect(db.isRemovedByUser("github")).toBe(true);
-  });
-
-  it("isRemovedByUser returns false for unknown slugs", async () => {
-    db = await SkillDb.create(dbPath);
-    expect(db.isRemovedByUser("nonexistent")).toBe(false);
-  });
-
-  it("isRemovedByUser only checks curated source", async () => {
-    db = await SkillDb.create(dbPath);
-    db.recordInstall("weather", "managed");
-    db.recordUninstall("weather", "managed");
-    // managed uninstall does NOT count as "removed by user" for curated re-install prevention
-    expect(db.isRemovedByUser("weather")).toBe(false);
   });
 
   it("recordBulkInstall inserts multiple records", async () => {
     db = await SkillDb.create(dbPath);
-    db.recordBulkInstall(["github", "weather", "calendar"], "curated");
+    db.recordBulkInstall(["github", "weather", "calendar"], "managed");
     expect(db.getAllInstalled()).toHaveLength(3);
   });
 
@@ -103,14 +89,25 @@ describe("SkillDb", () => {
     db = await SkillDb.create(dbPath);
     db.recordInstall("weather", "managed");
     expect(db.isInstalled("weather", "managed")).toBe(true);
-    expect(db.isInstalled("weather", "curated")).toBe(false);
+    expect(db.isInstalled("weather", "custom")).toBe(false);
     expect(db.isInstalled("unknown", "managed")).toBe(false);
+  });
+
+  it("getAllKnownSlugs returns both installed and uninstalled slugs", async () => {
+    db = await SkillDb.create(dbPath);
+    db.recordInstall("weather", "managed");
+    db.recordInstall("github", "managed");
+    db.recordUninstall("github", "managed");
+    const known = db.getAllKnownSlugs();
+    expect(known.has("weather")).toBe(true);
+    expect(known.has("github")).toBe(true);
+    expect(known.has("unknown")).toBe(false);
   });
 
   it("markUninstalledBySlugs marks multiple installed records as uninstalled", async () => {
     db = await SkillDb.create(dbPath);
-    db.recordBulkInstall(["a", "b", "c"], "curated");
-    db.markUninstalledBySlugs(["a", "c"], "curated");
+    db.recordBulkInstall(["a", "b", "c"], "managed");
+    db.markUninstalledBySlugs(["a", "c"], "managed");
     const installed = db.getAllInstalled();
     expect(installed).toHaveLength(1);
     expect(installed[0].slug).toBe("b");
@@ -119,7 +116,7 @@ describe("SkillDb", () => {
   it("persists data across close and reopen", async () => {
     db = await SkillDb.create(dbPath);
     db.recordInstall("weather", "managed");
-    db.recordInstall("github", "curated");
+    db.recordInstall("github", "managed");
     db.close();
 
     db = await SkillDb.create(dbPath);
@@ -158,7 +155,7 @@ describe("SkillDb", () => {
         PRIMARY KEY (slug, source)
       );
       INSERT INTO skills VALUES ('weather', 'managed', 'installed', '1.2.3', '2026-03-20T10:00:00.000Z', NULL);
-      INSERT INTO skills VALUES ('github', 'curated', 'uninstalled', NULL, NULL, '2026-03-20T11:00:00.000Z');
+      INSERT INTO skills VALUES ('github', 'managed', 'uninstalled', NULL, NULL, '2026-03-20T11:00:00.000Z');
       `,
     ]);
 
@@ -175,6 +172,6 @@ describe("SkillDb", () => {
         uninstalledAt: null,
       },
     ]);
-    expect(db.isRemovedByUser("github")).toBe(true);
+    // isRemovedByUser is deprecated (always returns false)
   });
 });

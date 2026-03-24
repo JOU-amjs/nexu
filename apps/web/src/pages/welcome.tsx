@@ -609,7 +609,7 @@ export function WelcomePage() {
                       <button
                         type="button"
                         onClick={handleByokContinue}
-                        className="flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-[14px] font-semibold text-white transition-all hover:bg-emerald-700 active:scale-[0.98] cursor-pointer"
+                        className="flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-success)] text-[14px] font-semibold text-white transition-all hover:brightness-[0.92] active:scale-[0.98] cursor-pointer"
                       >
                         <Check size={16} />
                         {t("welcome.byok.success")}

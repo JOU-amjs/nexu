@@ -13,7 +13,12 @@ import type { SkillSource } from "./types.js";
 
 const skillRecordSchema = z.object({
   slug: z.string(),
-  source: z.enum(["curated", "managed", "custom"]),
+  // Accept "curated" from legacy ledgers, convert to "managed"
+  source: z
+    .enum(["curated", "managed", "custom"])
+    .transform(
+      (v) => (v === "curated" ? "managed" : v) as "managed" | "custom",
+    ),
   status: z.enum(["installed", "uninstalled"]),
   version: z.string().nullable().default(null),
   installedAt: z.string().nullable().default(null),
@@ -80,13 +85,19 @@ export class SkillDb {
   }
 
   /**
-   * Returns curated records marked as "uninstalled" — used by reconciliation
-   * to clean up stale entries that block re-installation after a reinstall.
+   * Returns all slugs that have any record in the ledger (installed or uninstalled).
+   * Used by getCuratedSlugsToEnqueue to skip slugs the user previously uninstalled.
+   */
+  getAllKnownSlugs(): ReadonlySet<string> {
+    return new Set(this.current().skills.map((skill) => skill.slug));
+  }
+
+  /**
+   * @deprecated No longer needed — curated source has been removed.
+   * Retained for backward compatibility; always returns an empty array.
    */
   getUninstalledCurated(): readonly SkillRecord[] {
-    return this.current().skills.filter(
-      (skill) => skill.source === "curated" && skill.status === "uninstalled",
-    );
+    return [];
   }
 
   recordInstall(slug: string, source: SkillSource, version?: string): void {
@@ -131,13 +142,12 @@ export class SkillDb {
     this.persist();
   }
 
-  isRemovedByUser(slug: string): boolean {
-    return this.current().skills.some(
-      (skill) =>
-        skill.slug === slug &&
-        skill.source === "curated" &&
-        skill.status === "uninstalled",
-    );
+  /**
+   * @deprecated No longer needed — curated source has been removed.
+   * Retained for backward compatibility; always returns false.
+   */
+  isRemovedByUser(_slug: string): boolean {
+    return false;
   }
 
   isInstalled(slug: string, source: SkillSource): boolean {
@@ -264,7 +274,7 @@ export class SkillDb {
       return {
         skills: removed.map((slug) => ({
           slug,
-          source: "curated" as const,
+          source: "managed" as const,
           status: "uninstalled" as const,
           version: null,
           installedAt: null,

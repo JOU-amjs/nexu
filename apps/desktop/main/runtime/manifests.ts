@@ -8,10 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import * as path from "node:path";
-import {
-  getOpenclawCuratedSkillsDir,
-  getOpenclawSkillsDir,
-} from "../../shared/desktop-paths";
+import { getOpenclawSkillsDir } from "../../shared/desktop-paths";
 import type { DesktopRuntimeConfig } from "../../shared/runtime-config";
 import { getWorkspaceRoot } from "../../shared/workspace-paths";
 import type { RuntimeUnitManifest } from "./types";
@@ -238,7 +235,6 @@ export function createRuntimeUnitManifests(
   );
   const openclawTempDir = ensureDir(path.resolve(openclawRuntimeRoot, "tmp"));
   ensureDir(getOpenclawSkillsDir(userDataPath));
-  ensureDir(getOpenclawCuratedSkillsDir(userDataPath));
   ensureDir(path.resolve(openclawStateDir, "plugin-docs"));
   ensureDir(path.resolve(openclawStateDir, "agents"));
   const openclawPackageRoot = path.resolve(
@@ -272,7 +268,7 @@ export function createRuntimeUnitManifests(
   return [
     {
       id: "web",
-      label: "Nexu Web Surface",
+      label: "nexu Web Surface",
       kind: "surface",
       launchStrategy: "managed",
       runner: "spawn",
@@ -301,7 +297,7 @@ export function createRuntimeUnitManifests(
     },
     {
       id: "controller",
-      label: "Nexu Controller",
+      label: "nexu Controller",
       kind: "service",
       launchStrategy: "managed",
       // Use spawn instead of utility-process due to Electron bugs:
@@ -327,7 +323,6 @@ export function createRuntimeUnitManifests(
         OPENCLAW_STATE_DIR: openclawStateDir,
         OPENCLAW_CONFIG_PATH: path.resolve(openclawConfigDir, "openclaw.json"),
         OPENCLAW_SKILLS_DIR: getOpenclawSkillsDir(userDataPath),
-        OPENCLAW_CURATED_SKILLS_DIR: getOpenclawCuratedSkillsDir(userDataPath),
         SKILLHUB_STATIC_SKILLS_DIR: isPackaged
           ? path.resolve(electronRoot, "static/bundled-skills")
           : path.resolve(repoRoot, "apps/desktop/static/bundled-skills"),

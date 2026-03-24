@@ -83,6 +83,11 @@ export default function ImportSkillModal({
     if (!selectedFile) return;
     try {
       const result = await importMutation.mutateAsync(selectedFile);
+      track("workspace_skill_install", {
+        skill_name: result.slug ?? "unknown_skill",
+        skill_source: "custom",
+        success: true,
+      });
       track("workspace_skill_enable", {
         name: result.slug ?? "unknown_skill",
         skill_source: "custom",
@@ -90,6 +95,11 @@ export default function ImportSkillModal({
       setDone(true);
       autoCloseControllerRef.current.schedule(handleClose, 1200);
     } catch {
+      track("workspace_skill_install", {
+        skill_name: "unknown_skill",
+        skill_source: "custom",
+        success: false,
+      });
       // Error state handled by mutation
     }
   };
@@ -116,24 +126,24 @@ export default function ImportSkillModal({
             setDone(false);
             importMutation.reset();
           }}
-          className="px-6"
+          className="px-6 pt-4"
         >
-          <TabsList className="w-full bg-transparent p-0 gap-0 border-b border-[var(--color-border)] rounded-none">
+          <TabsList className="inline-flex h-9 bg-surface-2 p-1 gap-1 rounded-full">
             <TabsTrigger
               value="zip"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-text-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              className="rounded-full px-4 py-1.5 text-[13px] font-medium text-text-secondary transition-all data-[state=active]:bg-white data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
             >
               {t("skills.uploadZip")}
             </TabsTrigger>
             <TabsTrigger
               value="github"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-text-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              className="rounded-full px-4 py-1.5 text-[13px] font-medium text-text-secondary transition-all data-[state=active]:bg-white data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
             >
               {t("skills.githubLink")}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="zip">
+          <TabsContent value="zip" className="mt-4">
             <DialogBody className="px-0">
               {done ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
@@ -161,7 +171,7 @@ export default function ImportSkillModal({
                         ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-subtle)]"
                         : selectedFile
                           ? "border-[var(--color-success)] bg-[var(--color-success)]/5"
-                          : "border-border-card hover:border-text-muted hover:bg-surface-1"
+                          : "border-border-strong hover:border-text-muted hover:bg-surface-1"
                     }`}
                   >
                     {selectedFile ? (
@@ -216,7 +226,7 @@ export default function ImportSkillModal({
             </DialogBody>
           </TabsContent>
 
-          <TabsContent value="github">
+          <TabsContent value="github" className="mt-4">
             <DialogBody className="px-0">
               <div>
                 <Label htmlFor="github-url" className="text-text-muted">
@@ -225,7 +235,6 @@ export default function ImportSkillModal({
                 <Input
                   id="github-url"
                   type="url"
-                  disabled
                   placeholder="https://github.com/user/repo"
                   className="mt-1.5"
                 />

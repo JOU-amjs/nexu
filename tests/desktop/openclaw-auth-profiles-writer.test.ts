@@ -32,7 +32,6 @@ function createEnv(homeDir: string): ControllerEnv {
       "/Users/elian/Documents/refly/nexu",
       "apps/controller/static/runtime-plugins",
     ),
-    openclawCuratedSkillsDir: resolve(openclawStateDir, "bundled-skills"),
     openclawRuntimeModelStatePath: resolve(
       openclawStateDir,
       "nexu-runtime-model.json",

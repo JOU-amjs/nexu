@@ -146,7 +146,10 @@ export function ChannelsPage() {
                 </div>
               </div>
               {connected ? (
-                <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                <CheckCircle2
+                  size={14}
+                  className="text-[var(--color-success)] shrink-0"
+                />
               ) : (
                 <Circle size={14} className="text-text-muted/30 shrink-0" />
               )}
@@ -311,9 +314,9 @@ function ConfiguredView({
     <>
       <div className="space-y-4 sm:space-y-5">
         {/* Status banner */}
-        <div className="flex flex-col items-start gap-3 p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/15 sm:flex-row sm:items-center">
-          <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-emerald-500/10 shrink-0">
-            <CheckCircle2 size={18} className="text-emerald-500" />
+        <div className="flex flex-col items-start gap-3 p-4 rounded-xl border bg-[var(--color-success-subtle)] border-[var(--color-success-border)] sm:flex-row sm:items-center">
+          <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-[var(--color-success-muted)] shrink-0">
+            <CheckCircle2 size={18} className="text-[var(--color-success)]" />
           </div>
           <div className="flex-1">
             <div className="text-[13px] font-semibold text-text-primary">
@@ -442,7 +445,7 @@ function ConfiguredView({
                 title="Copy"
               >
                 {copied ? (
-                  <Check size={13} className="text-emerald-500" />
+                  <Check size={13} className="text-[var(--color-success)]" />
                 ) : (
                   <Copy size={13} />
                 )}

@@ -2376,7 +2376,7 @@ export type GetApiV1SkillhubCatalogResponses = {
         installedSlugs: Array<string>;
         installedSkills: Array<{
             slug: string;
-            source: 'curated' | 'managed' | 'custom';
+            source: 'managed' | 'custom';
             name: string;
             description: string;
             installedAt: string;
@@ -2386,6 +2386,16 @@ export type GetApiV1SkillhubCatalogResponses = {
             updatedAt: string;
             skillCount: number;
         };
+        queue: Array<{
+            slug: string;
+            source: 'managed' | 'custom';
+            status: 'queued' | 'downloading' | 'installing-deps' | 'done' | 'failed';
+            position: number;
+            error: string;
+            errorCode: 'skill_not_found' | 'rate_limit' | 'unknown';
+            retries: number;
+            enqueuedAt: string;
+        }>;
     };
 };
 
@@ -2406,6 +2416,10 @@ export type PostApiV1SkillhubInstallResponses = {
      */
     200: {
         ok: boolean;
+        queued?: boolean;
+        slug?: string;
+        status?: 'queued' | 'downloading' | 'installing-deps' | 'done' | 'failed';
+        position?: number;
         error?: string;
     };
 };

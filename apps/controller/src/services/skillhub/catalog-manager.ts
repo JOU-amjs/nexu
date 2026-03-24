@@ -50,6 +50,12 @@ const SLUG_CORRECTIONS: Record<string, string> = {
   "find-skills": "find-skill",
 };
 
+/**
+ * Skills listed in the ClawHub catalog but no longer available for install.
+ * Filtered out from the catalog response to avoid confusing users.
+ */
+const CATALOG_BLOCKLIST = new Set(["self-improving-agent"]);
+
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,127}$/;
 
 function isValidSlug(slug: string): boolean {
@@ -101,7 +107,6 @@ export class CatalogManager {
     cacheDir: string,
     opts: {
       skillsDir?: string;
-      curatedSkillsDir?: string; // accepted for backward compat, unused
       staticSkillsDir?: string;
       skillDb: SkillDb;
       log?: SkillhubLogFn;
@@ -271,6 +276,53 @@ export class CatalogManager {
   }
 
   /**
+   * Execute a single clawhub install + npm deps. Does NOT record in DB.
+   * Used by InstallQueue as the executor function.
+   */
+  async executeInstall(rawSlug: string): Promise<void> {
+    const slug = SLUG_CORRECTIONS[rawSlug] ?? rawSlug;
+    if (!isValidSlug(slug)) {
+      throw new Error(`Invalid skill slug: ${slug}`);
+    }
+
+    this.log("info", `installing: ${slug} -> ${this.skillsDir}`);
+    const clawHubBin = resolveClawHubBin();
+    this.log("info", `install resolved clawhub=${clawHubBin}`);
+
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [
+        clawHubBin,
+        "--workdir",
+        this.skillsDir,
+        "--dir",
+        ".",
+        "install",
+        slug,
+        "--force",
+      ],
+      { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
+    );
+    if (stdout) this.log("info", `install stdout ${slug}: ${stdout.trim()}`);
+    if (stderr) this.log("warn", `install stderr ${slug}: ${stderr.trim()}`);
+
+    await this.installSkillDeps(resolve(this.skillsDir, slug), slug);
+  }
+
+  /**
+   * Returns curated slugs that have no record in the ledger.
+   * Used by SkillhubService to enqueue on startup.
+   */
+  canonicalizeSlug(rawSlug: string): string {
+    return SLUG_CORRECTIONS[rawSlug] ?? rawSlug;
+  }
+
+  getCuratedSlugsToEnqueue(): string[] {
+    const knownSlugs = this.db.getAllKnownSlugs();
+    return CURATED_SKILL_SLUGS.filter((slug) => !knownSlugs.has(slug));
+  }
+
+  /**
    * Uninstall a skill.
    * Step A: Look up source from DB record
    * Step B: Delete skill folder from skillsDir
@@ -308,6 +360,11 @@ export class CatalogManager {
     }
   }
 
+  /**
+   * @deprecated Replaced by the InstallQueue-based flow in SkillhubService.start().
+   * Curated slugs are now resolved via {@link getCuratedSlugsToEnqueue} (ledger-only)
+   * and enqueued into the InstallQueue. This method is retained for backward compatibility.
+   */
   async installCuratedSkills(): Promise<CuratedInstallResult> {
     // Step 1: Copy static skills (not on ClawHub) from app bundle into skillsDir
     if (this.staticSkillsDir) {
@@ -317,7 +374,7 @@ export class CatalogManager {
         skillDb: this.db,
       });
       if (copied.length > 0) {
-        this.db.recordBulkInstall(copied, "curated");
+        this.db.recordBulkInstall(copied, "managed");
         this.log("info", `curated static skills copied: ${copied.join(", ")}`);
       }
     }
@@ -332,7 +389,7 @@ export class CatalogManager {
           if (
             entry.isDirectory() &&
             existsSync(resolve(this.skillsDir, entry.name, "SKILL.md")) &&
-            !this.db.isInstalled(entry.name, "curated") &&
+            !this.db.isInstalled(entry.name, "managed") &&
             !this.db.isInstalled(entry.name, "managed") &&
             !this.db.isInstalled(entry.name, "custom")
           ) {
@@ -343,7 +400,7 @@ export class CatalogManager {
         // Directory not readable — skip
       }
       if (untracked.length > 0) {
-        this.db.recordBulkInstall(untracked, "curated");
+        this.db.recordBulkInstall(untracked, "managed");
         this.log(
           "info",
           `curated on-disk skills recorded: ${untracked.join(", ")}`,
@@ -426,7 +483,7 @@ export class CatalogManager {
     }
 
     if (installed.length > 0) {
-      this.db.recordBulkInstall(installed, "curated");
+      this.db.recordBulkInstall(installed, "managed");
     }
 
     return { installed, skipped: toSkip, failed };
@@ -472,57 +529,25 @@ export class CatalogManager {
     const dbRecords = this.db.getAllInstalled();
 
     // DB → disk: handle "installed" records whose SKILL.md is missing from disk
-    const curatedMissing: Array<{ slug: string; source: SkillSource }> = [];
-    const otherMissing: Array<{ slug: string; source: SkillSource }> = [];
+    const missingBySource = new Map<SkillSource, string[]>();
     for (const record of dbRecords) {
       const skillMd = resolve(this.skillsDir, record.slug, "SKILL.md");
       if (!existsSync(skillMd)) {
-        if (record.source === "curated") {
-          curatedMissing.push({ slug: record.slug, source: record.source });
-        } else {
-          otherMissing.push({ slug: record.slug, source: record.source });
-        }
+        const list = missingBySource.get(record.source) ?? [];
+        list.push(record.slug);
+        missingBySource.set(record.source, list);
       }
     }
 
-    // Clean up curated "installed" records missing from disk — remove the
-    // record so installCuratedSkills can re-install them on this startup.
-    if (curatedMissing.length > 0) {
-      this.db.removeRecords(curatedMissing);
+    let totalMissing = 0;
+    for (const [source, slugs] of missingBySource) {
+      this.db.markUninstalledBySlugs(slugs, source);
+      totalMissing += slugs.length;
+    }
+    if (totalMissing > 0) {
       this.log(
         "info",
-        `reconcile: ${curatedMissing.length} curated installed records removed (missing from disk, eligible for re-install)`,
-      );
-    }
-
-    // Clean up stale "uninstalled" curated records for slugs that have been
-    // retired from CURATED_SKILL_SLUGS. These records block re-installation
-    // via isRemovedByUser() and are no longer needed.
-    // NOTE: We intentionally keep uninstalled records for slugs still in the
-    // curated list — those represent the user's explicit choice to remove them.
-    const activeCuratedSlugs = new Set(CURATED_SKILL_SLUGS);
-    const retiredCurated: Array<{ slug: string; source: SkillSource }> = [];
-    for (const record of this.db.getUninstalledCurated()) {
-      if (!activeCuratedSlugs.has(record.slug)) {
-        retiredCurated.push({ slug: record.slug, source: record.source });
-      }
-    }
-    if (retiredCurated.length > 0) {
-      this.db.removeRecords(retiredCurated);
-      this.log(
-        "info",
-        `reconcile: ${retiredCurated.length} retired curated records purged`,
-      );
-    }
-
-    // Non-curated (managed/custom) skills: mark uninstalled as before
-    for (const { slug, source } of otherMissing) {
-      this.db.markUninstalledBySlugs([slug], source);
-    }
-    if (otherMissing.length > 0) {
-      this.log(
-        "info",
-        `reconcile: ${otherMissing.length} managed/custom records marked uninstalled (missing from disk)`,
+        `reconcile: ${totalMissing} installed records marked uninstalled (missing from disk)`,
       );
     }
 
@@ -553,12 +578,7 @@ export class CatalogManager {
       );
     }
 
-    if (
-      curatedMissing.length === 0 &&
-      retiredCurated.length === 0 &&
-      otherMissing.length === 0 &&
-      diskOnly.length === 0
-    ) {
+    if (totalMissing === 0 && diskOnly.length === 0) {
       this.log("info", "reconcile: DB and disk are in sync");
     }
   }
@@ -731,10 +751,12 @@ export class CatalogManager {
       const skills = JSON.parse(
         readFileSync(this.catalogPath, "utf8"),
       ) as MinimalSkill[];
-      return skills.map((s) => {
-        const corrected = SLUG_CORRECTIONS[s.slug];
-        return corrected ? { ...s, slug: corrected } : s;
-      });
+      return skills
+        .filter((s) => !CATALOG_BLOCKLIST.has(s.slug))
+        .map((s) => {
+          const corrected = SLUG_CORRECTIONS[s.slug];
+          return corrected ? { ...s, slug: corrected } : s;
+        });
     } catch {
       return [];
     }

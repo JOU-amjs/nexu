@@ -1,0 +1,26 @@
+name: Feishu Discussion Notification
+
+on:
+  discussion:
+    types: [created]
+
+jobs:
+  notify:
+    name: Notify Feishu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/notify
+      - name: Send Feishu notification
+        env:
+          WEBHOOK_URL: ${{ secrets.ISSUE_SYNC_FEISHU_BOT_WEBHOOK }}
+          EVENT_TYPE: discussion
+          TITLE: ${{ github.event.discussion.title }}
+          URL: ${{ github.event.discussion.html_url }}
+          NUMBER: ${{ github.event.discussion.number }}
+          AUTHOR: ${{ github.event.discussion.user.login }}
+          BODY: ${{ github.event.discussion.body }}
+          LABELS_OR_CATEGORY: ${{ github.event.discussion.category.name }}
+          REPO: ${{ github.repository }}
+        run: node scripts/notify/feishu-notify.mjs

@@ -20,7 +20,6 @@ function createEnv(overrides: Record<string, unknown> = {}): ControllerEnv {
     openclawStateDir: "/tmp/openclaw",
     openclawConfigPath: "/tmp/openclaw/openclaw.json",
     openclawSkillsDir: "/tmp/openclaw/skills",
-    openclawCuratedSkillsDir: "/tmp/openclaw/bundled-skills",
     skillhubCacheDir: "/tmp/nexu-test/skillhub-cache",
     skillDbPath: "/tmp/nexu-test/skill-ledger.db",
     staticSkillsDir: undefined,
@@ -58,7 +57,6 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
         openclawWorkspaceTemplatesDir: path.join(
           rootDir,
           "workspace-templates",
@@ -94,7 +92,6 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
         openclawWorkspaceTemplatesDir: path.join(
           rootDir,
           "workspace-templates",
@@ -309,7 +306,6 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
         openclawWorkspaceTemplatesDir: path.join(
           rootDir,
           "workspace-templates",
@@ -371,7 +367,6 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawCuratedSkillsDir: path.join(rootDir, "bundled-skills"),
         openclawWorkspaceTemplatesDir: path.join(
           rootDir,
           "workspace-templates",

@@ -71,11 +71,6 @@ export function copyStaticSkills(params: {
   }
 
   for (const slug of STATIC_SKILL_SLUGS) {
-    if (params.skillDb.isRemovedByUser(slug)) {
-      skipped.push(slug);
-      continue;
-    }
-
     const destDir = resolve(params.targetDir, slug);
     if (existsSync(resolve(destDir, "SKILL.md"))) {
       skipped.push(slug);
@@ -105,6 +100,10 @@ export type CuratedInstallResult = {
 /**
  * Returns the list of curated skill slugs that need to be installed.
  * Skips slugs the user explicitly removed and slugs already present on disk.
+ *
+ * @deprecated Use {@link CatalogManager.getCuratedSlugsToEnqueue} instead,
+ * which checks only the ledger (no disk I/O). This function is retained for
+ * backward compatibility with {@link CatalogManager.installCuratedSkills}.
  */
 export function resolveCuratedSkillsToInstall(params: {
   targetDir: string;
@@ -114,10 +113,6 @@ export function resolveCuratedSkillsToInstall(params: {
   const toSkip: string[] = [];
 
   for (const slug of CURATED_SKILL_SLUGS) {
-    if (params.skillDb.isRemovedByUser(slug)) {
-      toSkip.push(slug);
-      continue;
-    }
     const skillDir = resolve(params.targetDir, slug);
     if (existsSync(resolve(skillDir, "SKILL.md"))) {
       toSkip.push(slug);

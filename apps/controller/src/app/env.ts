@@ -46,7 +46,6 @@ const envSchema = z.object({
   OPENCLAW_STATE_DIR: z.string().optional(),
   OPENCLAW_CONFIG_PATH: z.string().optional(),
   OPENCLAW_SKILLS_DIR: z.string().optional(),
-  OPENCLAW_CURATED_SKILLS_DIR: z.string().optional(),
   SKILLHUB_STATIC_SKILLS_DIR: z.string().optional(),
   PLATFORM_TEMPLATES_DIR: z.string().optional(),
   OPENCLAW_GATEWAY_PORT: z.coerce.number().int().positive().default(18789),
@@ -101,10 +100,6 @@ export const env = {
         "runtime-plugins",
       )
     : path.resolve(process.cwd(), "static", "runtime-plugins"),
-  openclawCuratedSkillsDir: expandHomeDir(
-    parsed.OPENCLAW_CURATED_SKILLS_DIR ??
-      path.join(openclawStateDir, "bundled-skills"),
-  ),
   openclawRuntimeModelStatePath: path.join(
     openclawStateDir,
     "nexu-runtime-model.json",
@@ -114,7 +109,9 @@ export const env = {
   analyticsStatePath: path.join(nexuHomeDir, "analytics-state.json"),
   staticSkillsDir: parsed.SKILLHUB_STATIC_SKILLS_DIR
     ? expandHomeDir(parsed.SKILLHUB_STATIC_SKILLS_DIR)
-    : undefined,
+    : workspaceRoot
+      ? path.join(workspaceRoot, "apps", "desktop", "static", "bundled-skills")
+      : undefined,
   platformTemplatesDir: parsed.PLATFORM_TEMPLATES_DIR
     ? expandHomeDir(parsed.PLATFORM_TEMPLATES_DIR)
     : undefined,

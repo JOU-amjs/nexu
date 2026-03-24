@@ -15,7 +15,7 @@ export type CatalogMeta = {
   skillCount: number;
 };
 
-export type SkillSource = "curated" | "managed" | "custom";
+export type SkillSource = "managed" | "custom";
 
 export type InstalledSkill = {
   slug: string;
@@ -30,4 +30,24 @@ export type SkillhubCatalogData = {
   installedSlugs: string[];
   installedSkills: InstalledSkill[];
   meta: CatalogMeta | null;
+};
+
+export type QueueItemStatus =
+  | "queued"
+  | "downloading"
+  | "installing-deps"
+  | "done"
+  | "failed";
+
+export type QueueErrorCode = "skill_not_found" | "rate_limit" | "unknown";
+
+export type QueueItem = {
+  readonly slug: string;
+  readonly source: SkillSource;
+  readonly status: QueueItemStatus;
+  readonly position: number;
+  readonly error: string | null;
+  readonly errorCode: QueueErrorCode | null;
+  readonly retries: number;
+  readonly enqueuedAt: string;
 };
