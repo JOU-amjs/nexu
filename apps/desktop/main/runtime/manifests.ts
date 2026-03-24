@@ -192,7 +192,12 @@ export function ensurePackagedOpenclawSidecar(
     return extractedSidecarRoot;
   }
 
-  rmSync(extractedSidecarRoot, { recursive: true, force: true });
+  // rmSync can fail with ENOTEMPTY on macOS; use rm -rf as fallback
+  try {
+    rmSync(extractedSidecarRoot, { recursive: true, force: true });
+  } catch {
+    execFileSync("rm", ["-rf", extractedSidecarRoot]);
+  }
   mkdirSync(extractedSidecarRoot, { recursive: true });
   execFileSync("tar", ["-xzf", archivePath, "-C", extractedSidecarRoot]);
   writeFileSync(stampPath, archiveStamp);
