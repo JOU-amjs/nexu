@@ -185,7 +185,6 @@ async function main() {
   const env = {
     ...process.env,
     NEXU_WORKSPACE_ROOT: repoRoot,
-    NEXU_DESKTOP_COPY_RUNTIME_DEPS: process.env.NEXU_DESKTOP_COPY_RUNTIME_DEPS ?? "false",
   };
   const releaseRoot = process.env.NEXU_DESKTOP_RELEASE_DIR
     ? resolve(process.env.NEXU_DESKTOP_RELEASE_DIR)

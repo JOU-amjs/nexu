@@ -57,7 +57,7 @@ async function main() {
     await resetDir(releaseRuntimeRoot);
     env.NEXU_DESKTOP_SIDECAR_OUT_DIR = releaseRuntimeRoot;
     if (!env.NEXU_DESKTOP_COPY_RUNTIME_DEPS) {
-      env.NEXU_DESKTOP_COPY_RUNTIME_DEPS = process.platform === "darwin" ? "true" : "false";
+      env.NEXU_DESKTOP_COPY_RUNTIME_DEPS = "true";
     }
   }
 
