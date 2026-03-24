@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Animated Nexu logo loader — 4 quadrants light up sequentially in brand colors,
@@ -92,8 +92,12 @@ export function SurfaceFrame({
   version: number;
   preload?: string;
 }) {
+  const [webviewReady, setWebviewReady] = useState(false);
+  const webviewEl = useRef<HTMLElement | null>(null);
+
   const webviewRefCallback = useCallback(
     (el: HTMLElement | null) => {
+      webviewEl.current = el;
       if (!el || !src) return;
       if (preload) {
         el.setAttribute("preload", preload);
@@ -103,25 +107,51 @@ export function SurfaceFrame({
     [preload, src],
   );
 
+  // Listen for webview dom-ready to dismiss the loader overlay
+  useEffect(() => {
+    const el = webviewEl.current;
+    if (!el || !src) return;
+
+    const onReady = () => setWebviewReady(true);
+    el.addEventListener("dom-ready", onReady);
+    return () => el.removeEventListener("dom-ready", onReady);
+  }, [src]);
+
+  // Reset when src changes
+  useEffect(() => {
+    setWebviewReady(false);
+  }, [src]);
+
+  const showLoader = !src || !webviewReady;
+
   return (
-    <section className="surface-frame">
-      {src ? (
+    <section className="surface-frame" style={{ position: "relative" }}>
+      {/* Webview always rendered (hidden behind loader until ready) */}
+      {src && (
         <webview
           ref={webviewRefCallback as React.Ref<HTMLWebViewElement>}
           className="desktop-web-frame"
           key={`${src}:${version}`}
-          // @ts-expect-error Electron webview boolean attribute — must be empty string, not boolean
+          // @ts-expect-error Electron webview boolean attribute
           allowpopups=""
+          style={{ opacity: webviewReady ? 1 : 0 }}
         />
-      ) : (
+      )}
+
+      {/* Loader overlay — covers webview until content is ready */}
+      {showLoader && (
         <div
           style={{
+            position: "absolute",
+            inset: 0,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            height: "100%",
-            background: "#ffffff",
+            background:
+              "radial-gradient(ellipse at 50% 35%, #f8f6f3 0%, #eee9e2 55%, #e4ddd4 100%)",
+            zIndex: 10,
+            transition: "opacity 0.3s ease-out",
           }}
         >
           <NexuLoader size={96} />
