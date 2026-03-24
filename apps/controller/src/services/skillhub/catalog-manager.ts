@@ -314,8 +314,8 @@ export class CatalogManager {
    * Used by SkillhubService to enqueue on startup.
    */
   getCuratedSlugsToEnqueue(): string[] {
-    const allInstalled = new Set(this.db.getAllInstalled().map((r) => r.slug));
-    return CURATED_SKILL_SLUGS.filter((slug) => !allInstalled.has(slug));
+    const knownSlugs = this.db.getAllKnownSlugs();
+    return CURATED_SKILL_SLUGS.filter((slug) => !knownSlugs.has(slug));
   }
 
   /**

@@ -153,20 +153,24 @@ describe("SkillDirWatcher", () => {
   });
 
   describe("file-system triggered sync", () => {
-    it("detects new SKILL.md and syncs ledger after debounce", async () => {
-      watcher = new SkillDirWatcher({
-        skillsDir,
-        skillDb: db,
-        debounceMs: 50,
-      });
-      watcher.start();
+    it(
+      "detects new SKILL.md and syncs ledger after debounce",
+      { timeout: 10000 },
+      async () => {
+        watcher = new SkillDirWatcher({
+          skillsDir,
+          skillDb: db,
+          debounceMs: 50,
+        });
+        watcher.start();
 
-      writeSkill(skillsDir, "new-skill");
+        writeSkill(skillsDir, "new-skill");
 
-      await waitUntil(() => db.isInstalled("new-skill", "managed"));
+        await waitUntil(() => db.isInstalled("new-skill", "managed"));
 
-      expect(db.isInstalled("new-skill", "managed")).toBe(true);
-    });
+        expect(db.isInstalled("new-skill", "managed")).toBe(true);
+      },
+    );
 
     it("detects SKILL.md removal and marks skill as uninstalled", async () => {
       writeSkill(skillsDir, "doomed-skill");

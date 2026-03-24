@@ -93,6 +93,17 @@ describe("SkillDb", () => {
     expect(db.isInstalled("unknown", "managed")).toBe(false);
   });
 
+  it("getAllKnownSlugs returns both installed and uninstalled slugs", async () => {
+    db = await SkillDb.create(dbPath);
+    db.recordInstall("weather", "managed");
+    db.recordInstall("github", "managed");
+    db.recordUninstall("github", "managed");
+    const known = db.getAllKnownSlugs();
+    expect(known.has("weather")).toBe(true);
+    expect(known.has("github")).toBe(true);
+    expect(known.has("unknown")).toBe(false);
+  });
+
   it("markUninstalledBySlugs marks multiple installed records as uninstalled", async () => {
     db = await SkillDb.create(dbPath);
     db.recordBulkInstall(["a", "b", "c"], "managed");

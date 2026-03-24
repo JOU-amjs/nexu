@@ -71,11 +71,6 @@ export function copyStaticSkills(params: {
   }
 
   for (const slug of STATIC_SKILL_SLUGS) {
-    if (params.skillDb.isRemovedByUser(slug)) {
-      skipped.push(slug);
-      continue;
-    }
-
     const destDir = resolve(params.targetDir, slug);
     if (existsSync(resolve(destDir, "SKILL.md"))) {
       skipped.push(slug);
@@ -118,10 +113,6 @@ export function resolveCuratedSkillsToInstall(params: {
   const toSkip: string[] = [];
 
   for (const slug of CURATED_SKILL_SLUGS) {
-    if (params.skillDb.isRemovedByUser(slug)) {
-      toSkip.push(slug);
-      continue;
-    }
     const skillDir = resolve(params.targetDir, slug);
     if (existsSync(resolve(skillDir, "SKILL.md"))) {
       toSkip.push(slug);

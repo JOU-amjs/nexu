@@ -85,6 +85,14 @@ export class SkillDb {
   }
 
   /**
+   * Returns all slugs that have any record in the ledger (installed or uninstalled).
+   * Used by getCuratedSlugsToEnqueue to skip slugs the user previously uninstalled.
+   */
+  getAllKnownSlugs(): ReadonlySet<string> {
+    return new Set(this.current().skills.map((skill) => skill.slug));
+  }
+
+  /**
    * @deprecated No longer needed — curated source has been removed.
    * Retained for backward compatibility; always returns an empty array.
    */
