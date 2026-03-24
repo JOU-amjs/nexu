@@ -55,7 +55,10 @@ export class SkillhubService {
         skillDb.recordInstall(slug, source);
       },
       onCancelled: async (slug) => {
-        await catalogManager.uninstallSkill(slug);
+        const result = await catalogManager.uninstallSkill(slug);
+        if (!result.ok) {
+          throw new Error(result.error ?? `Cancel cleanup failed for ${slug}`);
+        }
       },
       log,
     });
@@ -130,6 +133,11 @@ export class SkillhubService {
   enqueueInstall(slug: string): QueueItem {
     const canonical = this.catalogManager.canonicalizeSlug(slug);
     return this.installQueue.enqueue(canonical, "managed");
+  }
+
+  cancelInstall(slug: string): boolean {
+    const canonical = this.catalogManager.canonicalizeSlug(slug);
+    return this.installQueue.cancel(canonical);
   }
 
   dispose(): void {

@@ -188,7 +188,7 @@ export function registerSkillhubRoutes(
     }),
     async (c) => {
       const { slug } = c.req.valid("json");
-      container.skillhubService.queue.cancel(slug);
+      container.skillhubService.cancelInstall(slug);
       const result =
         await container.skillhubService.catalog.uninstallSkill(slug);
       return c.json(result, 200);

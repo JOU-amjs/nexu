@@ -83,6 +83,7 @@ const mocks = vi.hoisted(() => {
 
   const installQueueInstances: Array<{
     enqueue: ReturnType<typeof vi.fn>;
+    cancel: ReturnType<typeof vi.fn>;
     getQueue: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
     opts: Record<string, unknown>;
@@ -98,6 +99,7 @@ const mocks = vi.hoisted(() => {
       retries: 0,
       enqueuedAt: new Date().toISOString(),
     }));
+    public readonly cancel = vi.fn(() => true);
     public readonly getQueue = vi.fn(() => []);
     public readonly dispose = vi.fn();
     public readonly opts: Record<string, unknown>;
@@ -268,6 +270,29 @@ describe("SkillhubService", () => {
 
     await onCancelled?.("beta", "managed");
     expect(catalog.uninstallSkill).toHaveBeenCalledWith("beta");
+  });
+
+  it("create() makes onCancelled throw when uninstall cleanup returns ok:false", async () => {
+    const env = createEnv(rootDir);
+    const db = createMockSkillDb();
+    mocks.mockSkillDbCreate.mockResolvedValueOnce(db);
+
+    await SkillhubService.create(env);
+
+    const queue = mocks.installQueueInstances[0];
+    const catalog = mocks.catalogManagerInstances[0];
+    const onCancelled = queue.opts.onCancelled as
+      | ((slug: string, source: string) => Promise<void>)
+      | undefined;
+
+    catalog.uninstallSkill.mockResolvedValueOnce({
+      ok: false,
+      error: "cleanup failed",
+    });
+
+    await expect(onCancelled?.("beta", "managed")).rejects.toThrow(
+      "cleanup failed",
+    );
   });
 
   it("start() calls catalogManager.start()", async () => {
@@ -446,6 +471,23 @@ describe("SkillhubService", () => {
     const queue = mocks.installQueueInstances[0];
     expect(queue.enqueue).toHaveBeenCalledWith("my-skill", "managed");
     expect(result.slug).toBe("my-skill");
+  });
+
+  it("cancelInstall() canonicalizes slug before cancelling queue item", async () => {
+    const env = createEnv(rootDir);
+    const db = createMockSkillDb();
+    mocks.mockSkillDbCreate.mockResolvedValueOnce(db);
+
+    const service = await SkillhubService.create(env);
+    const queue = mocks.installQueueInstances[0];
+    const catalog = mocks.catalogManagerInstances[0];
+    catalog.canonicalizeSlug.mockReturnValue("find-skill");
+
+    const result = service.cancelInstall("find-skills");
+
+    expect(catalog.canonicalizeSlug).toHaveBeenCalledWith("find-skills");
+    expect(queue.cancel).toHaveBeenCalledWith("find-skill");
+    expect(result).toBe(true);
   });
 
   it("dispose() stops watcher, disposes queue, disposes catalogManager in order", async () => {
