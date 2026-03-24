@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 /**
  * Animated Nexu logo loader — 4 quadrants light up sequentially in brand colors,
@@ -93,34 +93,29 @@ export function SurfaceFrame({
   preload?: string;
 }) {
   const [webviewReady, setWebviewReady] = useState(false);
-  const webviewEl = useRef<HTMLElement | null>(null);
+  const prevSrcRef = useRef<string | null>(null);
+
+  // Reset when src changes
+  if (src !== prevSrcRef.current) {
+    prevSrcRef.current = src;
+    if (webviewReady) setWebviewReady(false);
+  }
 
   const webviewRefCallback = useCallback(
     (el: HTMLElement | null) => {
-      webviewEl.current = el;
       if (!el || !src) return;
       if (preload) {
         el.setAttribute("preload", preload);
       }
+      // Listen for did-finish-load right on the element before setting src.
+      // This avoids the race where dom-ready fires before useEffect can bind.
+      el.addEventListener("did-finish-load", () => setWebviewReady(true), {
+        once: true,
+      });
       el.setAttribute("src", src);
     },
     [preload, src],
   );
-
-  // Listen for webview dom-ready to dismiss the loader overlay
-  useEffect(() => {
-    const el = webviewEl.current;
-    if (!el || !src) return;
-
-    const onReady = () => setWebviewReady(true);
-    el.addEventListener("dom-ready", onReady);
-    return () => el.removeEventListener("dom-ready", onReady);
-  }, [src]);
-
-  // Reset when src changes
-  useEffect(() => {
-    setWebviewReady(false);
-  }, [src]);
 
   const showLoader = !src || !webviewReady;
 

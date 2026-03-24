@@ -944,9 +944,7 @@ function DiagnosticsPage({
 
 function DesktopShell() {
   const isPackaged = window.nexuHost.bootstrap.isPackaged;
-  const [activeSurface, setActiveSurface] = useState<DesktopSurface>(
-    isPackaged ? "web" : "control",
-  );
+  const [activeSurface, setActiveSurface] = useState<DesktopSurface>("web");
   const [chromeMode, setChromeMode] = useState<DesktopChromeMode>(
     isPackaged ? "immersive" : "full",
   );
