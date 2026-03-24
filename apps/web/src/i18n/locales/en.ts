@@ -296,6 +296,7 @@ const en = {
   "models.managed.cloudModelsAvailable":
     "Cloud models are now available. View and manage below.",
   "models.managed.refresh": "Refresh",
+  "models.managed.refreshModelList": "Refresh model list",
   "models.managed.disconnect": "Disconnect",
   "models.managed.loginPrompt": "Sign in to use Nexu official models",
   "models.managed.loginDescription":
