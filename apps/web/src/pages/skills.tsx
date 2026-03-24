@@ -64,7 +64,7 @@ function SkillCard({
     queueStatus === "queued" ||
     queueStatus === "downloading" ||
     queueStatus === "installing-deps";
-  const isBusy = pendingAction !== null || isQueueActive;
+  const isMutating = pendingAction !== null;
 
   async function handleInstall() {
     setPendingAction("install");
@@ -153,8 +153,8 @@ function SkillCard({
             <Switch
               size="xs"
               checked={isInstalled || isQueueActive}
-              disabled={isBusy}
-              loading={isBusy}
+              disabled={isMutating}
+              loading={isMutating || isQueueActive}
               onCheckedChange={handleToggle}
             />
             {isInstalled && !isQueueActive ? (
@@ -165,7 +165,7 @@ function SkillCard({
                   e.stopPropagation();
                   handleToggle(false);
                 }}
-                disabled={isBusy}
+                disabled={isMutating}
                 className="text-[12px] font-medium text-text-muted hover:text-[var(--color-danger)] transition-colors"
               >
                 Uninstall
@@ -177,7 +177,7 @@ function SkillCard({
         ) : (
           <>
             <span />
-            {isBusy ? (
+            {isMutating || isQueueActive ? (
               <span className="inline-flex items-center gap-1.5 rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium border border-border text-text-muted cursor-default">
                 <Loader2 size={12} className="animate-spin" />
                 Installing…

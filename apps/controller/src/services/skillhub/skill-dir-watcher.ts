@@ -41,6 +41,10 @@ export class SkillDirWatcher {
     }
 
     const diskSlugs = this.scanDiskSlugs();
+    if (diskSlugs === null) {
+      this.log("warn", "sync: directory scan failed, skipping reconciliation");
+      return;
+    }
     const diskSet = new Set(diskSlugs);
 
     const installed = this.db.getAllInstalled();
@@ -134,14 +138,17 @@ export class SkillDirWatcher {
     }, this.debounceMs);
   }
 
-  private scanDiskSlugs(): string[] {
-    const entries = readdirSync(this.skillsDir, { withFileTypes: true });
-    return entries
-      .filter(
-        (entry) =>
-          entry.isDirectory() &&
-          existsSync(resolve(this.skillsDir, entry.name, "SKILL.md")),
-      )
-      .map((entry) => entry.name);
+  private scanDiskSlugs(): string[] | null {
+    try {
+      return readdirSync(this.skillsDir, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isDirectory() &&
+            existsSync(resolve(this.skillsDir, entry.name, "SKILL.md")),
+        )
+        .map((entry) => entry.name);
+    } catch {
+      return null;
+    }
   }
 }

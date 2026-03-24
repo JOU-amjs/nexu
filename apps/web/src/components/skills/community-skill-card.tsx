@@ -36,7 +36,7 @@ export function CommunitySkillCard({
     queueStatus === "queued" ||
     queueStatus === "downloading" ||
     queueStatus === "installing-deps";
-  const isBusy = pendingAction !== null || isQueueActive;
+  const isMutating = pendingAction !== null;
 
   async function handleToggle(checked: boolean) {
     if (checked) {
@@ -87,8 +87,8 @@ export function CommunitySkillCard({
           <Switch
             size="xs"
             checked={isInstalled || isQueueActive}
-            disabled={isBusy}
-            loading={isBusy}
+            disabled={isMutating}
+            loading={isMutating || isQueueActive}
             onCheckedChange={handleToggle}
           />
         </div>
