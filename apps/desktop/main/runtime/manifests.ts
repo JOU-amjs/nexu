@@ -4,7 +4,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -192,15 +191,24 @@ export function ensurePackagedOpenclawSidecar(
     return extractedSidecarRoot;
   }
 
-  // rmSync can fail with ENOTEMPTY on macOS; use rm -rf as fallback
-  try {
-    rmSync(extractedSidecarRoot, { recursive: true, force: true });
-  } catch {
-    execFileSync("rm", ["-rf", extractedSidecarRoot]);
+  // Clean + extract with retries. Node's rmSync can silently fail on macOS
+  // (ENOTEMPTY race), so use rm -rf and verify deletion before proceeding.
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      if (existsSync(extractedSidecarRoot)) {
+        execFileSync("rm", ["-rf", extractedSidecarRoot]);
+      }
+      mkdirSync(extractedSidecarRoot, { recursive: true });
+      execFileSync("tar", ["-xzf", archivePath, "-C", extractedSidecarRoot]);
+      writeFileSync(stampPath, archiveStamp);
+      break;
+    } catch (err) {
+      if (attempt === MAX_RETRIES - 1) throw err;
+      // Brief pause before retry to let filesystem settle
+      execFileSync("sleep", ["1"]);
+    }
   }
-  mkdirSync(extractedSidecarRoot, { recursive: true });
-  execFileSync("tar", ["-xzf", archivePath, "-C", extractedSidecarRoot]);
-  writeFileSync(stampPath, archiveStamp);
 
   return extractedSidecarRoot;
 }
