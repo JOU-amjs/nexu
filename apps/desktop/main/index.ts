@@ -506,7 +506,7 @@ async function runLaunchdColdStart(): Promise<void> {
   // In packaged mode, serve from resources/web
   const webRoot = isDev
     ? resolve(getWorkspaceRoot(), "apps", "web", "dist")
-    : resolve(electronRoot, "web");
+    : resolve(electronRoot, "runtime", "web", "dist");
 
   launchdResult = await bootstrapWithLaunchd({
     isDev,
