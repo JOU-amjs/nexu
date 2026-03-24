@@ -287,7 +287,7 @@ const en = {
   "models.provider.custom.name": "Custom Provider",
   "models.provider.custom.description":
     "Any endpoint compatible with OpenAI API",
-  "models.managed.connected": "Connected",
+  "models.managed.connected": "Log out",
   "models.managed.notConnected": "Not connected",
   "models.managed.cloudConnectAria": "Connect to nexu cloud",
   "models.managed.cloudDisconnectAria": "Disconnect from nexu cloud",

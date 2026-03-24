@@ -276,7 +276,7 @@ const zhCN = {
     "兼容 OpenAI 协议的模型服务商",
   "models.provider.custom.name": "自定义服务商",
   "models.provider.custom.description": "任何兼容 OpenAI 的 API 端点",
-  "models.managed.connected": "已连接",
+  "models.managed.connected": "退出登录",
   "models.managed.notConnected": "未连接",
   "models.managed.cloudConnectAria": "连接 nexu 云端",
   "models.managed.cloudDisconnectAria": "断开 nexu 云端",
