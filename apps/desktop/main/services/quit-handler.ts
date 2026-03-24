@@ -124,21 +124,17 @@ export function installLaunchdQuitHandler(opts: QuitHandlerOptions): void {
     }
 
     if (decision === "quit-completely") {
-      // Stop all launchd services
+      // Bootout launchd services (stops + unregisters atomically).
+      // Must bootout instead of SIGTERM because KeepAlive would restart them.
       console.log("Stopping launchd services...");
 
-      try {
-        await opts.launchd.stopServiceGracefully(opts.labels.openclaw);
-        console.log(`Stopped ${opts.labels.openclaw}`);
-      } catch (err) {
-        console.error(`Error stopping ${opts.labels.openclaw}:`, err);
-      }
-
-      try {
-        await opts.launchd.stopServiceGracefully(opts.labels.controller);
-        console.log(`Stopped ${opts.labels.controller}`);
-      } catch (err) {
-        console.error(`Error stopping ${opts.labels.controller}:`, err);
+      for (const label of [opts.labels.openclaw, opts.labels.controller]) {
+        try {
+          await opts.launchd.bootoutService(label);
+          console.log(`Booted out ${label}`);
+        } catch (err) {
+          console.error(`Error booting out ${label}:`, err);
+        }
       }
     } else {
       // "Run in background" — hide all windows but keep the process alive

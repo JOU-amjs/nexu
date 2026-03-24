@@ -64,6 +64,13 @@ export class LaunchdManager {
   }
 
   /**
+   * Bootout a launchd service (stop + unregister, but keep plist on disk).
+   */
+  async bootoutService(label: string): Promise<void> {
+    await execFileAsync("launchctl", ["bootout", `${this.domain}/${label}`]);
+  }
+
+  /**
    * Uninstall a launchd service (bootout + remove plist).
    */
   async uninstallService(label: string): Promise<void> {
