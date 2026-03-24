@@ -1,6 +1,6 @@
 # Desktop 启动流程
 
-本文档描述 Nexu Desktop 从 `pnpm start` 到界面可交互的完整启动流程。
+本文档描述 Nexu Desktop 的完整启动流程。适用于本地开发（`pnpm start`）和打包版（Nexu.app），两者共用同一套 launchd bootstrap 代码，区别仅在于路径解析和构建阶段。
 
 ## 架构概览
 
