@@ -132,11 +132,9 @@ start_services() {
   echo "Log directory: $LOG_DIR"
   echo ""
 
-  # Build controller + web (always, to pick up code changes)
-  echo "Building controller..."
-  pnpm --filter @nexu/controller build
-  echo "Building web..."
-  pnpm --filter @nexu/web build
+  # Build all dependencies (shared must build before controller/web)
+  echo "Building..."
+  pnpm build
 
   # Ensure desktop shell dist exists (Electron loadFile needs it on disk)
   if [ ! -f "$REPO_ROOT/apps/desktop/dist/index.html" ]; then
