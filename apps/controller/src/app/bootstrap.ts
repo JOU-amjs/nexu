@@ -3,12 +3,15 @@ import type { ControllerContainer } from "./container.js";
 export async function bootstrapController(
   container: ControllerContainer,
 ): Promise<() => void> {
-  await container.openclawProcess.prepare();
-  await container.openclawSyncService.ensureRuntimeModelPlugin();
-
-  // Prepare cached cloud model inventory up front so startup config does not
-  // change later as a side effect of read-only model APIs.
-  await container.configStore.prepareDesktopCloudModelsForBootstrap();
+  // Run independent prep tasks in parallel to shave off startup time.
+  // All three are independent: process cleanup, plugin files, cloud model fetch.
+  await Promise.all([
+    container.openclawProcess.prepare(),
+    container.openclawSyncService.ensureRuntimeModelPlugin(),
+    container.configStore
+      .prepareDesktopCloudModelsForBootstrap()
+      .catch(() => {}),
+  ]);
 
   // Validate default model against available models before first sync
   await container.modelProviderService.ensureValidDefaultModel();
@@ -16,13 +19,9 @@ export async function bootstrapController(
   // Write config files BEFORE starting OpenClaw so it boots with the
   // correct configuration, avoiding a SIGUSR1 restart cycle on first connect.
   // Use syncAllImmediate() to bypass debounce — must complete before start().
+  // This also seeds the push hash via noteConfigWritten(), so the onConnected
+  // syncAll() sees no change and skips the redundant config.apply RPC.
   await container.openclawSyncService.syncAllImmediate();
-
-  // Pre-seed the push hash so the onConnected syncAll() sees no change
-  // and skips the redundant config.apply RPC.
-  container.gatewayService.preSeedConfigHash(
-    await container.openclawSyncService.compileCurrentConfig(),
-  );
 
   // Enter settling mode: all syncAll() calls during the next 3s are
   // deferred and flushed once at the end, preventing multiple config.apply

@@ -187,7 +187,7 @@ export class OpenClawWsClient {
   private pending = new Map<string, Pending>();
   private _connected = false;
   private closed = false;
-  private backoffMs = 1000;
+  private backoffMs = 500;
   private lastTick: number | null = null;
   private tickIntervalMs = 30_000;
   private tickTimer: NodeJS.Timeout | null = null;
@@ -465,7 +465,7 @@ export class OpenClawWsClient {
     this.pending.set(id, {
       resolve: (helloOk) => {
         this._connected = true;
-        this.backoffMs = 1000;
+        this.backoffMs = 500;
 
         const policy = (helloOk as Record<string, unknown>)?.policy as
           | { tickIntervalMs?: number }
@@ -545,7 +545,7 @@ export class OpenClawWsClient {
       clearTimeout(this.connectTimer);
       this.connectTimer = null;
     }
-    this.backoffMs = 1000;
+    this.backoffMs = 500;
     logger.info({}, "openclaw_ws_retry_now");
     this.connect();
   }
