@@ -88,16 +88,21 @@ interface RuntimePortsMetadata {
 
 /**
  * Get unified log directory path.
+ * In dev mode, logs go under the NEXU_HOME directory.
+ * In production, defaults to ~/.nexu/logs.
  */
-export function getLogDir(): string {
+export function getLogDir(nexuHome?: string): string {
+  if (nexuHome) {
+    return path.join(nexuHome, "logs");
+  }
   return path.join(os.homedir(), ".nexu", "logs");
 }
 
 /**
  * Ensure log directory exists.
  */
-async function ensureLogDir(): Promise<string> {
-  const logDir = getLogDir();
+async function ensureLogDir(nexuHome?: string): Promise<string> {
+  const logDir = getLogDir(nexuHome);
   await fs.mkdir(logDir, { recursive: true });
   return logDir;
 }
@@ -337,7 +342,7 @@ async function detectPortOccupier(
 export async function bootstrapWithLaunchd(
   env: LaunchdBootstrapEnv,
 ): Promise<LaunchdBootstrapResult> {
-  const logDir = await ensureLogDir();
+  const logDir = await ensureLogDir(env.nexuHome);
   const plistDir = env.plistDir ?? getDefaultPlistDir(env.isDev);
 
   // Create launchd manager

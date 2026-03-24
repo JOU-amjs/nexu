@@ -13,7 +13,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEV_NEXU_HOME="$REPO_ROOT/.tmp/desktop/nexu-home"
-LOG_DIR="$REPO_ROOT/.tmp/desktop/logs"
+LOG_DIR="$DEV_NEXU_HOME/logs"
 PLIST_DIR="$REPO_ROOT/.tmp/launchd"
 UID_VAL=$(id -u)
 DOMAIN="gui/$UID_VAL"
