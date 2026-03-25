@@ -5089,6 +5089,178 @@
         }
       }
     },
+    "/api/v1/providers/{providerId}/oauth/start": {
+      "post": {
+        "tags": [
+          "Provider OAuth"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "providerId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth flow started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "browserUrl": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/{providerId}/oauth/status": {
+      "get": {
+        "tags": [
+          "Provider OAuth"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "providerId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current OAuth flow status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "idle",
+                        "pending",
+                        "completed",
+                        "failed"
+                      ]
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/{providerId}/oauth/provider-status": {
+      "get": {
+        "tags": [
+          "Provider OAuth"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "providerId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth provider connection status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "number"
+                    },
+                    "remainingMs": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "connected"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/{providerId}/oauth/disconnect": {
+      "post": {
+        "tags": [
+          "Provider OAuth"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "providerId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth provider disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations": {
       "get": {
         "tags": [
@@ -6718,7 +6890,7 @@
                 "properties": {
                   "slug": {
                     "type": "string",
-                    "minLength": 1
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"
                   }
                 },
                 "required": [
@@ -6785,7 +6957,7 @@
                 "properties": {
                   "slug": {
                     "type": "string",
-                    "minLength": 1
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"
                   }
                 },
                 "required": [
@@ -6863,7 +7035,7 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"
             },
             "required": true,
             "name": "slug",

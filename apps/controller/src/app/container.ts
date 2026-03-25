@@ -24,6 +24,7 @@ import { DesktopLocalService } from "../services/desktop-local-service.js";
 import { IntegrationService } from "../services/integration-service.js";
 import { LocalUserService } from "../services/local-user-service.js";
 import { ModelProviderService } from "../services/model-provider-service.js";
+import { OpenClawAuthService } from "../services/openclaw-auth-service.js";
 import { OpenClawGatewayService } from "../services/openclaw-gateway-service.js";
 import { OpenClawSyncService } from "../services/openclaw-sync-service.js";
 import { RuntimeConfigService } from "../services/runtime-config-service.js";
@@ -57,6 +58,7 @@ export interface ControllerContainer {
   templateService: TemplateService;
   skillhubService: SkillhubService;
   openclawSyncService: OpenClawSyncService;
+  openclawAuthService: OpenClawAuthService;
   wsClient: OpenClawWsClient;
   gatewayService: OpenClawGatewayService;
   runtimeState: ControllerRuntimeState;
@@ -106,6 +108,7 @@ export async function createContainer(): Promise<ControllerContainer> {
     watchTrigger,
     gatewayService,
   );
+  const openclawAuthService = new OpenClawAuthService(env);
   const skillhubService = await SkillhubService.create(env);
   const analyticsService = new AnalyticsService(
     env,
@@ -156,6 +159,7 @@ export async function createContainer(): Promise<ControllerContainer> {
     templateService: new TemplateService(configStore, openclawSyncService),
     skillhubService,
     openclawSyncService,
+    openclawAuthService,
     wsClient,
     gatewayService,
     configStore,
@@ -178,6 +182,7 @@ export async function createContainer(): Promise<ControllerContainer> {
         stopHealthLoop();
         stopAnalyticsLoop();
         skillhubService.dispose();
+        openclawAuthService.dispose();
         channelFallbackService.stop();
         wsClient.stop();
       };

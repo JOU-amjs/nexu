@@ -42,6 +42,26 @@ export const verifyProviderResponseSchema = z.object({
   error: z.string().optional(),
 });
 
+// ── Provider OAuth ──────────────────────────────────────────────
+
+export const oauthStartResponseSchema = z.object({
+  browserUrl: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const oauthStatusResponseSchema = z.object({
+  status: z.enum(["idle", "pending", "completed", "failed"]),
+  error: z.string().optional(),
+  models: z.array(z.string()).optional(),
+});
+
+export const oauthProviderStatusResponseSchema = z.object({
+  connected: z.boolean(),
+  provider: z.string().optional(),
+  expiresAt: z.number().optional(),
+  remainingMs: z.number().optional(),
+});
+
 // ── Desktop Cloud ────────────────────────────────────────────────
 
 export const cloudModelSchema = z.object({

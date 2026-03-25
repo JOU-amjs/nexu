@@ -329,6 +329,18 @@ const en = {
     "Are you sure you want to remove this provider configuration?",
   "models.byok.saveSuccess": "Saved successfully",
   "models.byok.saveFailed": "Save failed, please retry",
+  "models.byok.oauthLoginChatGPT": "Login with ChatGPT",
+  "models.byok.oauthConnected": "Connected via ChatGPT",
+  "models.byok.oauthDisconnect": "Disconnect",
+  "models.byok.oauthPending": "Waiting for ChatGPT login...",
+  "models.byok.oauthSuccess": "ChatGPT connected successfully",
+  "models.byok.oauthFailed": "ChatGPT login failed",
+  "models.byok.oauthOrApiKey": "Or enter an API key manually",
+  "models.byok.oauthDescription": "Use your ChatGPT Plus/Pro subscription",
+  "models.byok.zaiCodingPlan": "Z.AI Coding Plan",
+  "models.byok.zaiCodingPlanDesc":
+    "Free models with your Z.AI Coding Plan subscription",
+  "models.byok.zaiOrGeneralApi": "Or use General API key",
 
   // ── Channels Page ──
   "channels.pageTitle": "Channels",

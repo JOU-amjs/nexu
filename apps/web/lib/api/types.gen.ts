@@ -1888,6 +1888,92 @@ export type PostApiV1ProvidersByProviderIdVerifyResponses = {
 
 export type PostApiV1ProvidersByProviderIdVerifyResponse = PostApiV1ProvidersByProviderIdVerifyResponses[keyof PostApiV1ProvidersByProviderIdVerifyResponses];
 
+export type PostApiV1ProvidersByProviderIdOauthStartData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/providers/{providerId}/oauth/start';
+};
+
+export type PostApiV1ProvidersByProviderIdOauthStartResponses = {
+    /**
+     * OAuth flow started
+     */
+    200: {
+        browserUrl?: string;
+        error?: string;
+    };
+};
+
+export type PostApiV1ProvidersByProviderIdOauthStartResponse = PostApiV1ProvidersByProviderIdOauthStartResponses[keyof PostApiV1ProvidersByProviderIdOauthStartResponses];
+
+export type GetApiV1ProvidersByProviderIdOauthStatusData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/providers/{providerId}/oauth/status';
+};
+
+export type GetApiV1ProvidersByProviderIdOauthStatusResponses = {
+    /**
+     * Current OAuth flow status
+     */
+    200: {
+        status: 'idle' | 'pending' | 'completed' | 'failed';
+        error?: string;
+        models?: Array<string>;
+    };
+};
+
+export type GetApiV1ProvidersByProviderIdOauthStatusResponse = GetApiV1ProvidersByProviderIdOauthStatusResponses[keyof GetApiV1ProvidersByProviderIdOauthStatusResponses];
+
+export type GetApiV1ProvidersByProviderIdOauthProviderStatusData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/providers/{providerId}/oauth/provider-status';
+};
+
+export type GetApiV1ProvidersByProviderIdOauthProviderStatusResponses = {
+    /**
+     * OAuth provider connection status
+     */
+    200: {
+        connected: boolean;
+        provider?: string;
+        expiresAt?: number;
+        remainingMs?: number;
+    };
+};
+
+export type GetApiV1ProvidersByProviderIdOauthProviderStatusResponse = GetApiV1ProvidersByProviderIdOauthProviderStatusResponses[keyof GetApiV1ProvidersByProviderIdOauthProviderStatusResponses];
+
+export type PostApiV1ProvidersByProviderIdOauthDisconnectData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/providers/{providerId}/oauth/disconnect';
+};
+
+export type PostApiV1ProvidersByProviderIdOauthDisconnectResponses = {
+    /**
+     * OAuth provider disconnected
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type PostApiV1ProvidersByProviderIdOauthDisconnectResponse = PostApiV1ProvidersByProviderIdOauthDisconnectResponses[keyof PostApiV1ProvidersByProviderIdOauthDisconnectResponses];
+
 export type GetApiV1IntegrationsData = {
     body?: never;
     path?: never;

@@ -260,6 +260,21 @@ export function resolveModelId(
     const byokKey = byokPrefixToKey.get(prefix);
     const openclawProviderId = byokPrefixToProvider.get(prefix);
     if (byokKey && openclawProviderId) {
+      // OAuth provider: enabled but no apiKey means OAuth-connected.
+      // Map to the OpenClaw OAuth provider ID (e.g., openai → openai-codex).
+      const OAUTH_PROVIDER_MAP: Record<string, string> = {
+        openai: "openai-codex",
+      };
+      const oauthTarget = OAUTH_PROVIDER_MAP[prefix];
+      if (oauthTarget) {
+        const provider = config.providers.find(
+          (item) => item.providerId === prefix,
+        );
+        if (provider?.enabled && provider.apiKey === null) {
+          return `${oauthTarget}/${modelSuffix}`;
+        }
+      }
+
       // Custom provider: model entry ID is bare modelSuffix (no provider prefix)
       if (byokKey.startsWith("custom_")) {
         return `${byokKey}/${modelSuffix}`;

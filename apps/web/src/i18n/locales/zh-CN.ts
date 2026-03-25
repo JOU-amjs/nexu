@@ -316,6 +316,17 @@ const zhCN = {
   "models.byok.confirmRemove": "确定要移除此服务商配置吗？",
   "models.byok.saveSuccess": "保存成功",
   "models.byok.saveFailed": "保存失败，请重试",
+  "models.byok.oauthLoginChatGPT": "使用 ChatGPT 登录",
+  "models.byok.oauthConnected": "已通过 ChatGPT 连接",
+  "models.byok.oauthDisconnect": "断开连接",
+  "models.byok.oauthPending": "等待 ChatGPT 登录...",
+  "models.byok.oauthSuccess": "ChatGPT 连接成功",
+  "models.byok.oauthFailed": "ChatGPT 登录失败",
+  "models.byok.oauthOrApiKey": "或手动输入 API Key",
+  "models.byok.oauthDescription": "使用你的 ChatGPT Plus/Pro 订阅",
+  "models.byok.zaiCodingPlan": "智谱 Coding Plan",
+  "models.byok.zaiCodingPlanDesc": "使用你的智谱 Coding Plan 订阅（免费模型）",
+  "models.byok.zaiOrGeneralApi": "或使用通用 API Key",
 
   // ── Channels Page ──
   "channels.pageTitle": "渠道",
