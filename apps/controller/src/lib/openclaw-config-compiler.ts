@@ -366,7 +366,7 @@ export function compileOpenClawConfig(
 
   const openClawConfig: OpenClawConfig = {
     gateway: {
-      port: config.runtime.gateway.port,
+      port: env.openclawGatewayPort,
       mode: "local",
       bind: config.runtime.gateway.bind,
       auth: {

@@ -1247,7 +1247,7 @@ body,
      --color-text-primary:    #1c1f23
      --color-text-muted:      #787c80
      --color-accent:          #1c1f23
-     --color-success:         #346e58
+     --color-success:         #00a365
      --color-brand-primary:   #3db9ce
      --color-error:           #f8672f
      --font-sans:             Inter, SF Pro Display, -apple-system, …
@@ -1336,7 +1336,7 @@ body,
   width: 100%;
   height: 100%;
   border-radius: 9999px;
-  background: #346e58;
+  background: var(--color-success);
   opacity: 0.75;
   animation: update-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -1348,7 +1348,7 @@ body,
   width: 8px;
   height: 8px;
   border-radius: 9999px;
-  background: #346e58;
+  background: var(--color-success);
 }
 
 .update-dot--error .update-dot-ping {

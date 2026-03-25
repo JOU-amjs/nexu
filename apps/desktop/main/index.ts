@@ -51,7 +51,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Set display name early (matches productName in package.json).
-app.setName("Nexu");
+app.setName("nexu");
 nativeTheme.themeSource = "light";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -208,7 +208,7 @@ if (sentryDsn) {
   Sentry.setContext("build", sentryBuildMetadata.buildContext);
 } else {
   crashReporter.start({
-    companyName: "Nexu",
+    companyName: "nexu",
     productName: app.getName(),
     submitURL: "https://127.0.0.1/desktop-crash-reporter-disabled",
     uploadToServer: false,
@@ -486,7 +486,8 @@ async function runLaunchdColdStart(): Promise<void> {
     openclawPort: Number(
       new URL(runtimeConfig.urls.openclawBase).port || 18789,
     ),
-    gatewayToken: runtimeConfig.tokens.gateway,
+    nexuHome: isDev ? nexuHome : undefined,
+    gatewayToken: isDev ? undefined : runtimeConfig.tokens.gateway,
     webPort: runtimeConfig.ports.web,
     webRoot,
     plistDir: getDefaultPlistDir(isDev),
@@ -495,11 +496,27 @@ async function runLaunchdColdStart(): Promise<void> {
     openclawStateDir,
   });
 
-  logColdStart("launchd services started, waiting for controller readiness");
-  diagnosticsReporter?.markColdStartRunning("waiting for controller readiness");
-  await launchdResult.controllerReady;
+  if (launchdResult.attachedPorts) {
+    // Attached to existing services — override runtimeConfig with actual ports
+    const { controllerPort, openclawPort, webPort } =
+      launchdResult.attachedPorts;
+    runtimeConfig.ports.controller = controllerPort;
+    runtimeConfig.ports.web = webPort;
+    runtimeConfig.urls.controllerBase = `http://127.0.0.1:${controllerPort}`;
+    runtimeConfig.urls.web = `http://127.0.0.1:${webPort}`;
+    runtimeConfig.urls.openclawBase = `http://127.0.0.1:${openclawPort}`;
+    logColdStart(
+      `attached to running services (controller=${controllerPort} openclaw=${openclawPort} web=${webPort})`,
+    );
+  } else {
+    logColdStart("launchd services started, waiting for controller readiness");
+    diagnosticsReporter?.markColdStartRunning(
+      "waiting for controller readiness",
+    );
+    await launchdResult.controllerReady;
+    logColdStart("controller ready");
+  }
 
-  logColdStart("controller ready");
   const sessionId = rotateDesktopLogSession();
   logColdStart(`launchd cold start complete sessionId=${sessionId}`);
   diagnosticsReporter?.markColdStartSucceeded();
@@ -533,7 +550,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 1120,
     minHeight: 760,
     backgroundColor: isMacOS ? "#00000000" : "#0B1020",
-    title: "Nexu",
+    title: "nexu",
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 18, y: 18 },
     ...(isMacOS
@@ -813,6 +830,7 @@ app.whenReady().then(async () => {
         launchd: launchdResult.launchd,
         labels: launchdResult.labels,
         webServer: launchdResult.webServer,
+        plistDir: getDefaultPlistDir(!app.isPackaged),
         onBeforeQuit: async () => {
           sleepGuard?.dispose("launchd-quit");
           await diagnosticsReporter?.flushNow().catch(() => undefined);

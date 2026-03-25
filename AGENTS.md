@@ -63,11 +63,11 @@ This repo is desktop-first. Prefer the controller-first path and remove or ignor
 - The desktop dev launcher is `apps/desktop/dev.sh`; it is the source of truth for tmux orchestration, sidecar builds, runtime cleanup, and stable repo-local path setup during local development.
 - Treat `pnpm start` as the canonical cold-start entrypoint for the full local desktop runtime.
 - The active desktop runtime path is controller-first: desktop launches `controller + web + openclaw` and no longer starts local `api`, `gateway`, or `pglite` sidecars.
-- Desktop local runtime should not depend on PostgreSQL; controller-owned local state lives under `~/.nexu/`, while desktop dev runtime state remains repo-scoped under `.tmp/desktop/`.
-- `tmux` is required for the desktop local-dev workflow.
+- Desktop local runtime should not depend on PostgreSQL. In dev mode, all state (config, OpenClaw state, logs) lives under `.tmp/desktop/nexu-home/`, fully isolated from the packaged app's `~/.nexu/`. Launchd plists go to `.tmp/launchd/`, runtime-ports.json also lives there.
+- In packaged mode, state lives under `~/.nexu/`, plists under `~/Library/LaunchAgents/`, logs under `~/.nexu/logs/`.
 - Local desktop runtime state is repo-scoped under `.tmp/desktop/` in development.
-- For startup troubleshooting, use `pnpm logs` and `./apps/desktop/dev.sh devlog`.
-- `pnpm reset-state` is a dev-only cleanup shortcut for `./apps/desktop/dev.sh reset-state`; it stops the stack and removes repo-local desktop runtime state under `.tmp/desktop/`, but it does not delete controller-owned state in `~/.nexu/`.
+- For startup troubleshooting, use `pnpm logs` to tail dev logs.
+- `pnpm reset-state` is a dev-only cleanup shortcut; it stops the stack and removes repo-local desktop runtime state under `.tmp/desktop/`, but it does not delete packaged app state in `~/.nexu/`.
 - To fully reset local desktop + controller state, stop the stack, remove `.tmp/desktop/`, then remove `~/.nexu/`.
 - If `pnpm start` exits immediately because `electron/cli.js` cannot be resolved from `apps/desktop`, validate `pnpm -C apps/desktop exec electron --version` and consult `specs/guides/desktop-runtime-guide.md` before changing the launcher flow.
 - Desktop already exposes an agent-friendly runtime observability surface; prefer subscribing/querying before adding temporary UI or ad hoc debug logging.

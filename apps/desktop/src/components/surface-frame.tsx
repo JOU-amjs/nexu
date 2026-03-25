@@ -145,8 +145,7 @@ export function SurfaceFrame({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            background:
-              "radial-gradient(ellipse at 50% 35%, #f8f6f3 0%, #eee9e2 55%, #e4ddd4 100%)",
+            background: "#ffffff",
             zIndex: 10,
             transition: "opacity 0.3s ease-out",
           }}

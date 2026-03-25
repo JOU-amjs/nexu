@@ -43,7 +43,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3010),
   HOST: z.string().default("127.0.0.1"),
   NEXU_HOME: z.string().default("~/.nexu"),
-  OPENCLAW_STATE_DIR: z.string().default("~/.nexu/runtime/openclaw/state"),
+  OPENCLAW_STATE_DIR: z.string().optional(),
   OPENCLAW_CONFIG_PATH: z.string().optional(),
   OPENCLAW_SKILLS_DIR: z.string().optional(),
   SKILLHUB_STATIC_SKILLS_DIR: z.string().optional(),
@@ -66,7 +66,10 @@ const envSchema = z.object({
 const parsed = envSchema.parse(process.env);
 
 const nexuHomeDir = expandHomeDir(parsed.NEXU_HOME);
-const openclawStateDir = expandHomeDir(parsed.OPENCLAW_STATE_DIR);
+const openclawStateDir = expandHomeDir(
+  parsed.OPENCLAW_STATE_DIR ??
+    path.join(nexuHomeDir, "runtime", "openclaw", "state"),
+);
 
 export const env = {
   nodeEnv: parsed.NODE_ENV,
