@@ -1,6 +1,7 @@
 import { GatewayClient } from "../runtime/gateway-client.js";
 import { startHealthLoop } from "../runtime/loops.js";
 import { startAnalyticsLoop } from "../runtime/loops.js";
+import { OpenClawAuthProfilesStore } from "../runtime/openclaw-auth-profiles-store.js";
 import { OpenClawAuthProfilesWriter } from "../runtime/openclaw-auth-profiles-writer.js";
 import { OpenClawConfigWriter } from "../runtime/openclaw-config-writer.js";
 import { OpenClawProcessManager } from "../runtime/openclaw-process.js";
@@ -24,6 +25,7 @@ import { DesktopLocalService } from "../services/desktop-local-service.js";
 import { IntegrationService } from "../services/integration-service.js";
 import { LocalUserService } from "../services/local-user-service.js";
 import { ModelProviderService } from "../services/model-provider-service.js";
+import { OpenClawAuthService } from "../services/openclaw-auth-service.js";
 import { OpenClawGatewayService } from "../services/openclaw-gateway-service.js";
 import { OpenClawSyncService } from "../services/openclaw-sync-service.js";
 import { RuntimeConfigService } from "../services/runtime-config-service.js";
@@ -57,6 +59,7 @@ export interface ControllerContainer {
   templateService: TemplateService;
   skillhubService: SkillhubService;
   openclawSyncService: OpenClawSyncService;
+  openclawAuthService: OpenClawAuthService;
   wsClient: OpenClawWsClient;
   gatewayService: OpenClawGatewayService;
   runtimeState: ControllerRuntimeState;
@@ -75,7 +78,8 @@ export async function createContainer(): Promise<ControllerContainer> {
   const artifactsStore = new ArtifactsStore(env);
   const compiledStore = new CompiledOpenClawStore(env);
   const configWriter = new OpenClawConfigWriter(env);
-  const authProfilesWriter = new OpenClawAuthProfilesWriter();
+  const authProfilesStore = new OpenClawAuthProfilesStore(env);
+  const authProfilesWriter = new OpenClawAuthProfilesWriter(authProfilesStore);
   const runtimePluginWriter = new OpenClawRuntimePluginWriter(env);
   const runtimeModelWriter = new OpenClawRuntimeModelWriter(env);
   const templateWriter = new WorkspaceTemplateWriter(env);
@@ -100,12 +104,14 @@ export async function createContainer(): Promise<ControllerContainer> {
     compiledStore,
     configWriter,
     authProfilesWriter,
+    authProfilesStore,
     runtimePluginWriter,
     runtimeModelWriter,
     templateWriter,
     watchTrigger,
     gatewayService,
   );
+  const openclawAuthService = new OpenClawAuthService(env, authProfilesStore);
   const skillhubService = await SkillhubService.create(env);
   const analyticsService = new AnalyticsService(
     env,
@@ -156,6 +162,7 @@ export async function createContainer(): Promise<ControllerContainer> {
     templateService: new TemplateService(configStore, openclawSyncService),
     skillhubService,
     openclawSyncService,
+    openclawAuthService,
     wsClient,
     gatewayService,
     configStore,
@@ -178,6 +185,7 @@ export async function createContainer(): Promise<ControllerContainer> {
         stopHealthLoop();
         stopAnalyticsLoop();
         skillhubService.dispose();
+        openclawAuthService.dispose();
         channelFallbackService.stop();
         wsClient.stop();
       };

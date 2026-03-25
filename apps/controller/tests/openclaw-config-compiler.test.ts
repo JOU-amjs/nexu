@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ControllerEnv } from "../src/app/env.js";
-import { compileOpenClawConfig } from "../src/lib/openclaw-config-compiler.js";
+import {
+  type OAuthConnectionState,
+  compileOpenClawConfig,
+} from "../src/lib/openclaw-config-compiler.js";
 import type { NexuConfig } from "../src/store/schemas.js";
 
 function createEnv(overrides: Record<string, unknown> = {}): ControllerEnv {
@@ -214,6 +217,84 @@ describe("compileOpenClawConfig", () => {
     });
     expect(result.agents.list[0]?.model).toEqual({
       primary: "litellm/anthropic/claude-sonnet-4",
+    });
+  });
+
+  it("does not remap openai models to OAuth providers without persisted OAuth state", () => {
+    const result = compileOpenClawConfig(
+      createConfig({
+        bots: [
+          {
+            ...createConfig().bots[0],
+            modelId: "openai/gpt-5.4",
+          },
+        ],
+        runtime: {
+          gateway: {
+            port: 18789,
+            bind: "loopback",
+            authMode: "token",
+          },
+          defaultModelId: "openai/gpt-5.4",
+        },
+        providers: [
+          {
+            ...createConfig().providers[0],
+            apiKey: null,
+            models: ["gpt-5.4"],
+          },
+        ],
+        desktop: {},
+      }),
+      createEnv(),
+    );
+
+    expect(result.agents.defaults?.model).toEqual({
+      primary: "openai/gpt-5.4",
+    });
+    expect(result.agents.list[0]?.model).toEqual({
+      primary: "openai/gpt-5.4",
+    });
+  });
+
+  it("remaps openai models to OAuth provider ids when persisted OAuth state is connected", () => {
+    const oauthState: OAuthConnectionState = {
+      connectedProviderIds: ["openai"],
+    };
+    const result = compileOpenClawConfig(
+      createConfig({
+        bots: [
+          {
+            ...createConfig().bots[0],
+            modelId: "openai/gpt-5.4",
+          },
+        ],
+        runtime: {
+          gateway: {
+            port: 18789,
+            bind: "loopback",
+            authMode: "token",
+          },
+          defaultModelId: "openai/gpt-5.4",
+        },
+        providers: [
+          {
+            ...createConfig().providers[0],
+            apiKey: null,
+            models: ["gpt-5.4"],
+          },
+        ],
+        desktop: {},
+      }),
+      createEnv(),
+      oauthState,
+    );
+
+    expect(result.agents.defaults?.model).toEqual({
+      primary: "openai-codex/gpt-5.4",
+    });
+    expect(result.agents.list[0]?.model).toEqual({
+      primary: "openai-codex/gpt-5.4",
     });
   });
 });

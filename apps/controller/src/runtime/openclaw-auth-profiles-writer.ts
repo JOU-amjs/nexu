@@ -1,23 +1,31 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import type { OpenClawConfig } from "@nexu/shared";
+import { logger } from "../lib/logger.js";
+import type {
+  AuthProfilesData,
+  OpenClawAuthProfilesStore,
+} from "./openclaw-auth-profiles-store.js";
 
-type AuthProfileStore = {
-  version: number;
-  profiles: Record<
-    string,
-    {
-      type: "api_key";
-      provider: string;
-      key: string;
-    }
-  >;
+type ApiKeyProfile = {
+  type: "api_key";
+  provider: string;
+  key: string;
 };
 
+function isApiKeyProfile(profile: unknown): profile is { type: "api_key" } {
+  return (
+    typeof profile === "object" &&
+    profile !== null &&
+    "type" in profile &&
+    (profile as Record<string, unknown>).type === "api_key"
+  );
+}
+
 export class OpenClawAuthProfilesWriter {
+  constructor(private readonly authProfilesStore: OpenClawAuthProfilesStore) {}
+
   async writeForAgents(config: OpenClawConfig): Promise<void> {
     const providers = config.models?.providers ?? {};
-    const profiles = Object.fromEntries(
+    const newApiKeyProfiles: Record<string, ApiKeyProfile> = Object.fromEntries(
       Object.entries(providers)
         .filter(
           ([, provider]) =>
@@ -33,11 +41,6 @@ export class OpenClawAuthProfilesWriter {
         ]),
     );
 
-    const payload: AuthProfileStore = {
-      version: 1,
-      profiles,
-    };
-
     await Promise.all(
       (config.agents?.list ?? []).map(async (agent) => {
         if (
@@ -46,17 +49,40 @@ export class OpenClawAuthProfilesWriter {
         ) {
           return;
         }
-        const authProfilesPath = path.join(
-          agent.workspace,
-          "agent",
-          "auth-profiles.json",
-        );
-        await mkdir(path.dirname(authProfilesPath), { recursive: true });
-        await writeFile(
+        const authProfilesPath =
+          this.authProfilesStore.authProfilesPathForWorkspace(agent.workspace);
+        const preservedKeys: string[] = [];
+
+        await this.authProfilesStore.updateAuthProfiles(
           authProfilesPath,
-          `${JSON.stringify(payload, null, 2)}\n`,
-          "utf8",
+          async (existing) => {
+            const preservedProfiles: Record<string, unknown> = {};
+            for (const [key, profile] of Object.entries(existing.profiles)) {
+              if (!isApiKeyProfile(profile)) {
+                preservedProfiles[key] = profile;
+                preservedKeys.push(key);
+              }
+            }
+
+            return {
+              ...existing,
+              profiles: {
+                ...preservedProfiles,
+                ...newApiKeyProfiles,
+              },
+            } satisfies AuthProfilesData;
+          },
         );
+
+        if (preservedKeys.length > 0) {
+          logger.debug(
+            {
+              agent: agent.workspace,
+              preservedKeys,
+            },
+            "Preserved non-api_key auth profiles during config sync",
+          );
+        }
       }),
     );
   }

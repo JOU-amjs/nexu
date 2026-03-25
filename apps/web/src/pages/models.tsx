@@ -14,6 +14,7 @@ import {
   ExternalLink,
   FolderOpen,
   Loader2,
+  LogIn,
   Pencil,
   RefreshCw,
   Trash2,
@@ -30,10 +31,14 @@ import {
   getApiV1Me,
   getApiV1Models,
   getApiV1Providers,
+  getApiV1ProvidersByProviderIdOauthProviderStatus,
+  getApiV1ProvidersByProviderIdOauthStatus,
   patchApiV1Me,
   postApiInternalDesktopCloudConnect,
   postApiInternalDesktopCloudDisconnect,
   postApiInternalDesktopCloudRefresh,
+  postApiV1ProvidersByProviderIdOauthDisconnect,
+  postApiV1ProvidersByProviderIdOauthStart,
   postApiV1ProvidersByProviderIdVerify,
   putApiInternalDesktopDefaultModel,
   putApiV1ProvidersByProviderId,
@@ -210,7 +215,7 @@ const DEFAULT_MODELS: Record<string, string[]> = {
     "claude-sonnet-4-20250514",
     "claude-3-5-haiku-20241022",
   ],
-  openai: ["gpt-5.1", "gpt-5-mini", "gpt-5-nano", "o4-mini"],
+  openai: ["gpt-5.4", "gpt-5.1", "gpt-5-mini", "o4-mini"],
   google: [
     "gemini-3-pro",
     "gemini-2.5-pro",
@@ -239,8 +244,19 @@ const DEFAULT_MODELS: Record<string, string[]> = {
   kimi: ["kimi-k2.5"],
   glm: ["glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-flash"],
   moonshot: ["kimi-k2.5"],
-  zai: ["glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-flashx"],
+  zai: ["glm-5", "glm-4.7", "glm-4.7-flash", "glm-4.7-flashx"],
 };
+
+const ZAI_CODING_PLAN_URLS: Record<string, string> = {
+  global: "https://api.z.ai/api/coding/paas/v4",
+  cn: "https://open.bigmodel.cn/api/coding/paas/v4",
+};
+const ZAI_CODING_PLAN_MODELS = [
+  "glm-5",
+  "glm-4.7",
+  "glm-4.7-flash",
+  "glm-4.7-flashx",
+];
 
 function buildProviders(
   apiModels: Array<{
@@ -1201,12 +1217,123 @@ function ByokProviderDetail({
   // Available models from verification
   const [verifiedModels, setVerifiedModels] = useState<string[] | null>(null);
 
+  // ── OAuth state (OpenAI only) ──────────────────────────
+  const isOAuthProvider = providerId === "openai";
+  const [oauthPending, setOauthPending] = useState(false);
+
+  const oauthProviderStatus = useQuery({
+    queryKey: ["oauth-provider-status", providerId],
+    queryFn: async () => {
+      const res = await getApiV1ProvidersByProviderIdOauthProviderStatus({
+        path: { providerId },
+      });
+      return res.data ?? { connected: false };
+    },
+    enabled: isOAuthProvider,
+    refetchInterval: false,
+  });
+
+  const oauthFlowStatus = useQuery({
+    queryKey: ["oauth-flow-status", providerId],
+    queryFn: async () => {
+      const res = await getApiV1ProvidersByProviderIdOauthStatus({
+        path: { providerId },
+      });
+      return res.data ?? { status: "idle" as const };
+    },
+    enabled: isOAuthProvider && oauthPending,
+    refetchInterval: oauthPending ? 2000 : false,
+  });
+
+  // React to flow status changes
+  const flowDataStatus = oauthFlowStatus.data?.status;
+  const flowDataError = oauthFlowStatus.data?.error;
+  useEffect(() => {
+    if (!oauthPending) return;
+    if (flowDataStatus === "completed") {
+      setOauthPending(false);
+      queryClient.invalidateQueries({ queryKey: ["oauth-provider-status"] });
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+      toast.success(t("models.byok.oauthSuccess"));
+      markSetupComplete();
+    } else if (flowDataStatus === "failed") {
+      setOauthPending(false);
+      toast.error(flowDataError ?? t("models.byok.oauthFailed"));
+    }
+  }, [flowDataStatus, flowDataError, oauthPending, queryClient, t]);
+
+  const startOAuthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await postApiV1ProvidersByProviderIdOauthStart({
+        path: { providerId },
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data?.browserUrl) {
+        window.open(data.browserUrl, "_blank");
+        setOauthPending(true);
+      } else if (data?.error) {
+        toast.error(data.error);
+      }
+    },
+  });
+
+  const disconnectOAuthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await postApiV1ProvidersByProviderIdOauthDisconnect({
+        path: { providerId },
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["oauth-provider-status"] });
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+    },
+  });
+
+  const isOAuthConnected =
+    isOAuthProvider && oauthProviderStatus.data?.connected === true;
+
+  // ── Z.AI Coding Plan state ───────────────────────────
+  const isZaiProvider = providerId === "glm";
+  const [codingPlanKey, setCodingPlanKey] = useState("");
+  const [codingPlanRegion, setCodingPlanRegion] = useState<"global" | "cn">(
+    "global",
+  );
+
+  const saveCodingPlanMutation = useMutation({
+    mutationFn: () =>
+      saveProvider(providerId, {
+        apiKey: codingPlanKey,
+        baseUrl: ZAI_CODING_PLAN_URLS[codingPlanRegion],
+        displayName: "GLM",
+        enabled: true,
+        modelsJson: JSON.stringify(ZAI_CODING_PLAN_MODELS),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+      setCodingPlanKey("");
+      markSetupComplete();
+      const preferred = selectPreferredModel(ZAI_CODING_PLAN_MODELS);
+      if (preferred) {
+        onAutoSelectModel(preferred);
+      }
+    },
+  });
+
   // Reset form when provider changes
   useEffect(() => {
     setApiKey("");
     setBaseUrl(dbProvider?.baseUrl ?? meta.defaultProxyUrl ?? "");
     setIsEditingApiKey(!dbProvider?.hasApiKey);
     setVerifiedModels(null);
+    setOauthPending(false);
+    setCodingPlanKey("");
+    setCodingPlanRegion("global");
   }, [dbProvider, meta.defaultProxyUrl]);
 
   // ── Verify mutation ──────────────────────────────────
@@ -1323,153 +1450,298 @@ function ByokProviderDetail({
         </div>
       </div>
 
-      {/* API Key + API Proxy URL */}
-      <div className="space-y-4 mb-6">
-        <div>
-          <label
-            htmlFor={`apikey-${providerId}`}
-            className="block text-[12px] font-medium text-text-secondary mb-1.5"
-          >
-            {t("models.byok.apiKey")}
-          </label>
-          {dbProvider?.hasApiKey && !isEditingApiKey ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] px-3 py-2.5">
+      {/* OAuth section (OpenAI only) */}
+      {isOAuthProvider && (
+        <div className="mb-6">
+          {isOAuthConnected ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2.5">
               <div className="min-w-0">
-                <div className="text-[12px] font-medium text-text-primary">
-                  {t("models.byok.apiKeySaved")}
+                <div className="text-[12px] font-medium text-emerald-700 dark:text-emerald-400">
+                  {t("models.byok.oauthConnected")}
                 </div>
-                <div className="text-[10px] text-text-muted">
-                  {t("models.byok.apiKeySavedHint")}
+                <div className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70">
+                  {t("models.byok.oauthDescription")}
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsEditingApiKey(true)}
+                disabled={disconnectOAuthMutation.isPending}
+                onClick={() => {
+                  if (confirm(t("models.byok.confirmRemove"))) {
+                    disconnectOAuthMutation.mutate();
+                  }
+                }}
                 className="shrink-0 rounded-lg border border-border px-3 py-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
               >
-                {t("models.byok.changeApiKey")}
+                {disconnectOAuthMutation.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  t("models.byok.oauthDisconnect")
+                )}
               </button>
             </div>
+          ) : oauthPending ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-1 px-3 py-3">
+              <Loader2 size={14} className="animate-spin text-text-muted" />
+              <span className="text-[12px] text-text-secondary">
+                {t("models.byok.oauthPending")}
+              </span>
+            </div>
           ) : (
+            <button
+              type="button"
+              disabled={startOAuthMutation.isPending}
+              onClick={() => startOAuthMutation.mutate()}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-0 px-4 py-2.5 text-[12px] font-medium text-text-primary transition-colors hover:bg-surface-2"
+            >
+              {startOAuthMutation.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <LogIn size={14} />
+              )}
+              {t("models.byok.oauthLoginChatGPT")}
+            </button>
+          )}
+
+          {/* Divider between OAuth and API key */}
+          {!isOAuthConnected && (
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-[10px] text-text-muted">
+                {t("models.byok.oauthOrApiKey")}
+              </span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Z.AI Coding Plan section (GLM only) */}
+      {isZaiProvider && (
+        <div className="mb-6">
+          <div className="rounded-lg border border-border bg-surface-0 p-4">
+            <div className="text-[12px] font-medium text-text-primary mb-1">
+              {t("models.byok.zaiCodingPlan")}
+            </div>
+            <div className="text-[10px] text-text-muted mb-3">
+              {t("models.byok.zaiCodingPlanDesc")}
+            </div>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setCodingPlanRegion("global")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors",
+                  codingPlanRegion === "global"
+                    ? "bg-accent text-accent-fg"
+                    : "bg-surface-2 text-text-secondary hover:bg-surface-3",
+                )}
+              >
+                Global
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodingPlanRegion("cn")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors",
+                  codingPlanRegion === "cn"
+                    ? "bg-accent text-accent-fg"
+                    : "bg-surface-2 text-text-secondary hover:bg-surface-3",
+                )}
+              >
+                CN
+              </button>
+            </div>
             <div className="flex gap-2">
               <input
-                id={`apikey-${providerId}`}
                 type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={meta.apiKeyPlaceholder}
+                value={codingPlanKey}
+                onChange={(e) => setCodingPlanKey(e.target.value)}
+                placeholder="sk-..."
                 className="flex-1 rounded-lg border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 focus:border-[var(--color-brand-primary)]/30"
               />
               <button
                 type="button"
-                disabled={!apiKey || verifyMutation.isPending}
-                onClick={() => verifyMutation.mutate()}
+                disabled={!codingPlanKey || saveCodingPlanMutation.isPending}
+                onClick={() => saveCodingPlanMutation.mutate()}
                 className={cn(
-                  "px-3 py-2 rounded-lg border border-border text-[11px] font-medium transition-colors",
-                  apiKey
-                    ? "text-text-secondary hover:bg-surface-2"
-                    : "text-text-muted cursor-not-allowed",
+                  "px-4 py-2 rounded-lg text-[12px] font-medium transition-colors",
+                  codingPlanKey
+                    ? "bg-accent text-accent-fg hover:bg-accent/90"
+                    : "bg-surface-2 text-text-muted cursor-not-allowed",
                 )}
               >
-                {verifyMutation.isPending ? (
+                {saveCodingPlanMutation.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
-                ) : verifyMutation.isSuccess && verifyMutation.data?.valid ? (
-                  <Check size={12} className="text-[var(--color-success)]" />
                 ) : (
-                  t("models.byok.verify")
+                  t("models.byok.saveAndEnable")
                 )}
               </button>
             </div>
-          )}
-          {verifyMutation.isSuccess && (
-            <div
-              className={cn(
-                "mt-1.5 text-[10px]",
-                verifyMutation.data?.valid
-                  ? "text-[var(--color-success)]"
-                  : "text-red-500",
-              )}
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 border-t border-border" />
+            <span className="text-[10px] text-text-muted">
+              {t("models.byok.zaiOrGeneralApi")}
+            </span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+        </div>
+      )}
+
+      {/* API Key + API Proxy URL (hidden when OAuth is connected) */}
+      {!isOAuthConnected && (
+        <div className="space-y-4 mb-6">
+          <div>
+            <label
+              htmlFor={`apikey-${providerId}`}
+              className="block text-[12px] font-medium text-text-secondary mb-1.5"
             >
-              {verifyMutation.data?.valid
-                ? t("models.byok.keyValid", {
-                    count: verifyMutation.data.models?.length ?? 0,
-                  })
-                : t("models.byok.keyInvalid", {
-                    error:
-                      verifyMutation.data?.error ??
-                      t("models.byok.keyInvalidUnknown"),
-                  })}
-            </div>
-          )}
+              {t("models.byok.apiKey")}
+            </label>
+            {dbProvider?.hasApiKey && !isEditingApiKey ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="text-[12px] font-medium text-text-primary">
+                    {t("models.byok.apiKeySaved")}
+                  </div>
+                  <div className="text-[10px] text-text-muted">
+                    {t("models.byok.apiKeySavedHint")}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingApiKey(true)}
+                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+                >
+                  {t("models.byok.changeApiKey")}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  id={`apikey-${providerId}`}
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={meta.apiKeyPlaceholder}
+                  className="flex-1 rounded-lg border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 focus:border-[var(--color-brand-primary)]/30"
+                />
+                <button
+                  type="button"
+                  disabled={!apiKey || verifyMutation.isPending}
+                  onClick={() => verifyMutation.mutate()}
+                  className={cn(
+                    "px-3 py-2 rounded-lg border border-border text-[11px] font-medium transition-colors",
+                    apiKey
+                      ? "text-text-secondary hover:bg-surface-2"
+                      : "text-text-muted cursor-not-allowed",
+                  )}
+                >
+                  {verifyMutation.isPending ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : verifyMutation.isSuccess && verifyMutation.data?.valid ? (
+                    <Check size={12} className="text-emerald-600" />
+                  ) : (
+                    t("models.byok.verify")
+                  )}
+                </button>
+              </div>
+            )}
+            {verifyMutation.isSuccess && (
+              <div
+                className={cn(
+                  "mt-1.5 text-[10px]",
+                  verifyMutation.data?.valid
+                    ? "text-emerald-600"
+                    : "text-red-500",
+                )}
+              >
+                {verifyMutation.data?.valid
+                  ? t("models.byok.keyValid", {
+                      count: verifyMutation.data.models?.length ?? 0,
+                    })
+                  : t("models.byok.keyInvalid", {
+                      error:
+                        verifyMutation.data?.error ??
+                        t("models.byok.keyInvalidUnknown"),
+                    })}
+              </div>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor={`baseurl-${providerId}`}
+              className="block text-[12px] font-medium text-text-secondary mb-1.5"
+            >
+              {t("models.byok.proxyUrl")}
+            </label>
+            <input
+              id={`baseurl-${providerId}`}
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder={meta.defaultProxyUrl || "https://api.example.com/v1"}
+              className="w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 focus:border-[var(--color-brand-primary)]/30"
+            />
+          </div>
         </div>
-        <div>
-          <label
-            htmlFor={`baseurl-${providerId}`}
-            className="block text-[12px] font-medium text-text-secondary mb-1.5"
-          >
-            {t("models.byok.proxyUrl")}
-          </label>
-          <input
-            id={`baseurl-${providerId}`}
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={meta.defaultProxyUrl || "https://api.example.com/v1"}
-            className="w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 focus:border-[var(--color-brand-primary)]/30"
-          />
-        </div>
-      </div>
+      )}
 
-      {/* Action buttons — above model list */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          type="button"
-          disabled={
-            saveMutation.isPending || (!apiKey && !dbProvider?.hasApiKey)
-          }
-          onClick={() => saveMutation.mutate()}
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium transition-colors",
-            !saveMutation.isPending && (apiKey || dbProvider?.hasApiKey)
-              ? "bg-accent text-accent-fg hover:bg-accent/90"
-              : "bg-surface-2 text-text-muted cursor-not-allowed",
-          )}
-        >
-          {saveMutation.isPending && (
-            <Loader2 size={13} className="animate-spin" />
-          )}
-          {dbProvider?.hasApiKey
-            ? t("models.byok.updateConfig")
-            : t("models.byok.saveAndEnable")}
-        </button>
-
-        {dbProvider?.hasApiKey && (
+      {/* Action buttons — above model list (hidden when OAuth connected) */}
+      {!isOAuthConnected && (
+        <div className="flex items-center gap-3 mb-6">
           <button
             type="button"
-            disabled={deleteMutation.isPending}
-            onClick={() => {
-              if (confirm(t("models.byok.confirmRemove"))) {
-                deleteMutation.mutate();
-              }
-            }}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium text-red-500 hover:bg-red-500/5 transition-colors"
-          >
-            {deleteMutation.isPending ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Trash2 size={13} />
+            disabled={
+              saveMutation.isPending || (!apiKey && !dbProvider?.hasApiKey)
+            }
+            onClick={() => saveMutation.mutate()}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium transition-colors",
+              !saveMutation.isPending && (apiKey || dbProvider?.hasApiKey)
+                ? "bg-accent text-accent-fg hover:bg-accent/90"
+                : "bg-surface-2 text-text-muted cursor-not-allowed",
             )}
-            {t("models.byok.remove")}
+          >
+            {saveMutation.isPending && (
+              <Loader2 size={13} className="animate-spin" />
+            )}
+            {dbProvider?.hasApiKey
+              ? t("models.byok.updateConfig")
+              : t("models.byok.saveAndEnable")}
           </button>
-        )}
-      </div>
 
-      {saveMutation.isSuccess && (
+          {dbProvider?.hasApiKey && (
+            <button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (confirm(t("models.byok.confirmRemove"))) {
+                  deleteMutation.mutate();
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium text-red-500 hover:bg-red-500/5 transition-colors"
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Trash2 size={13} />
+              )}
+              {t("models.byok.remove")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {!isOAuthConnected && saveMutation.isSuccess && (
         <div className="mb-4 text-[11px] text-[var(--color-success)]">
           {t("models.byok.saveSuccess")}
         </div>
       )}
-      {saveMutation.isError && (
+      {!isOAuthConnected && saveMutation.isError && (
         <div className="mb-4 text-[11px] text-red-500">
           {t("models.byok.saveFailed")}
         </div>

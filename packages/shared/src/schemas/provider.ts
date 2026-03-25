@@ -19,7 +19,7 @@ export const providerListResponseSchema = z.object({
 });
 
 export const upsertProviderBodySchema = z.object({
-  apiKey: z.string().optional(),
+  apiKey: z.string().nullable().optional(),
   baseUrl: z.string().nullable().optional(),
   enabled: z.boolean().optional(),
   displayName: z.string().optional(),
@@ -40,6 +40,26 @@ export const verifyProviderResponseSchema = z.object({
   valid: z.boolean(),
   models: z.array(z.string()).optional(),
   error: z.string().optional(),
+});
+
+// ── Provider OAuth ──────────────────────────────────────────────
+
+export const oauthStartResponseSchema = z.object({
+  browserUrl: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const oauthStatusResponseSchema = z.object({
+  status: z.enum(["idle", "pending", "completed", "failed"]),
+  error: z.string().optional(),
+  models: z.array(z.string()).optional(),
+});
+
+export const oauthProviderStatusResponseSchema = z.object({
+  connected: z.boolean(),
+  provider: z.string().optional(),
+  expiresAt: z.number().optional(),
+  remainingMs: z.number().optional(),
 });
 
 // ── Desktop Cloud ────────────────────────────────────────────────
