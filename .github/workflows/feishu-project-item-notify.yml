@@ -1,0 +1,34 @@
+name: Feishu Project Item Notification
+
+on:
+  projects_v2_item:
+    types: [created, edited, archived, deleted, restored]
+
+jobs:
+  notify:
+    name: Notify Feishu on Project Item Change
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/notify
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEXU_PAL_APP_ID }}
+          private-key: ${{ secrets.NEXU_PAL_PRIVATE_KEY_PEM }}
+
+      - name: Send Feishu notification
+        env:
+          WEBHOOK_URL: ${{ secrets.ISSUE_SYNC_FEISHU_BOT_WEBHOOK }}
+          ACTION: ${{ github.event.action }}
+          CHANGES_JSON: ${{ toJson(github.event.changes) }}
+          ITEM_NODE_ID: ${{ github.event.projects_v2_item.node_id }}
+          PROJECT_NUMBER: ${{ github.event.projects_v2_item.project_number }}
+          SENDER: ${{ github.event.sender.login }}
+          ORG_OR_USER: ${{ github.event.organization.login || github.event.sender.login }}
+          REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: node scripts/notify/feishu-project-notify.mjs
