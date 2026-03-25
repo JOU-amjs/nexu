@@ -7,6 +7,21 @@ const repoRoot = process.cwd();
 const maxHealthAttempts = 60;
 const probeTimeoutMs = 5_000;
 const requiredDiagnosticsUnitIds = ["controller", "openclaw"];
+const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+function createCommandSpec(command, args) {
+  if (
+    process.platform === "win32" &&
+    (command === "pnpm" || command === "pnpm.cmd")
+  ) {
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", ["pnpm", ...args].join(" ")],
+    };
+  }
+
+  return { command, args };
+}
 
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
@@ -50,7 +65,7 @@ function createCheckContext(mode) {
 
     return {
       mode,
-      statusCommand: ["pnpm", ["status"]],
+      statusCommand: [pnpmCommand, ["status"]],
       ports: [
         { unit: "controller", port: 50800 },
         { unit: "web", port: 50810 },
@@ -62,7 +77,7 @@ function createCheckContext(mode) {
         openclawHealth: "http://127.0.0.1:18789/health",
       },
       processChecks: {
-        tmuxSessionName: "nexu-desktop",
+        stateFile: resolve(repoRoot, ".tmp/desktop/manager/state.json"),
       },
       diagnosticsFiles: [resolve(desktopLogsDir, "desktop-diagnostics.json")],
       logs: {
@@ -181,7 +196,8 @@ function createCheckContext(mode) {
 
 async function runCommand(command, args) {
   await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, args, {
+    const commandSpec = createCommandSpec(command, args);
+    const child = spawn(commandSpec.command, commandSpec.args, {
       cwd: repoRoot,
       env: process.env,
       stdio: "inherit",
@@ -268,6 +284,37 @@ async function readFirstExistingJson(paths) {
 }
 
 async function isPortListening(port) {
+  if (process.platform === "win32") {
+    return new Promise((resolvePromise, rejectPromise) => {
+      const child = spawn("netstat", ["-ano", "-p", "tcp"], {
+        cwd: repoRoot,
+        env: process.env,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+
+      const chunks = [];
+      child.stdout.on("data", (chunk) => chunks.push(chunk));
+      child.on("error", rejectPromise);
+      child.on("exit", (code) => {
+        if (code !== 0) {
+          resolvePromise(false);
+          return;
+        }
+
+        const output = Buffer.concat(chunks).toString("utf8");
+        const lines = output.split(/\r?\n/u);
+        const listening = lines.some((line) => {
+          const normalized = line.trim().replace(/\s+/gu, " ");
+          return (
+            normalized.includes(`:${String(port)} `) &&
+            normalized.includes(" LISTENING ")
+          );
+        });
+        resolvePromise(listening);
+      });
+    });
+  }
+
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn("lsof", [`-iTCP:${String(port)}`, "-sTCP:LISTEN"], {
       cwd: repoRoot,
@@ -276,19 +323,6 @@ async function isPortListening(port) {
     });
 
     child.on("error", rejectPromise);
-    child.on("exit", (code) => resolvePromise(code === 0));
-  });
-}
-
-async function isTmuxSessionRunning(sessionName) {
-  return new Promise((resolvePromise) => {
-    const child = spawn("tmux", ["has-session", "-t", sessionName], {
-      cwd: repoRoot,
-      env: process.env,
-      stdio: "ignore",
-    });
-
-    child.on("error", () => resolvePromise(false));
     child.on("exit", (code) => resolvePromise(code === 0));
   });
 }
@@ -323,6 +357,32 @@ async function readPidIfAlive(pidFile) {
     : { alive: false, pid, detail: `pid ${pid} is not running` };
 }
 
+async function readStatePidIfAlive(stateFile) {
+  if (!stateFile || !(await fileExists(stateFile))) {
+    return { alive: false, pid: null, detail: "state file is missing" };
+  }
+
+  let parsedState;
+  try {
+    parsedState = JSON.parse(await readFile(stateFile, "utf8"));
+  } catch {
+    return { alive: false, pid: null, detail: "state file is invalid JSON" };
+  }
+
+  const pid = parsedState?.electronPid;
+  if (!Number.isInteger(pid)) {
+    return {
+      alive: false,
+      pid: null,
+      detail: "state file does not contain a valid electronPid",
+    };
+  }
+
+  return isPidAlive(pid)
+    ? { alive: true, pid, detail: `pid ${pid} is running` }
+    : { alive: false, pid, detail: `pid ${pid} is not running` };
+}
+
 async function fetchText(url) {
   try {
     const response = await fetch(url, {
@@ -343,20 +403,24 @@ async function collectAppProcessResults(context) {
   if (context.processChecks.pidFile) {
     return {
       mainProcess: await readPidIfAlive(context.processChecks.pidFile),
-      tmuxSession: null,
+      auxiliaryProcess: null,
+    };
+  }
+
+  if (context.processChecks.stateFile) {
+    return {
+      mainProcess: await readStatePidIfAlive(context.processChecks.stateFile),
+      auxiliaryProcess: null,
     };
   }
 
   return {
     mainProcess: {
-      alive: true,
+      alive: false,
       pid: null,
-      detail: "dev app liveness is tracked via tmux session",
+      detail: "no desktop process check configured",
     },
-    tmuxSession: {
-      alive: await isTmuxSessionRunning(context.processChecks.tmuxSessionName),
-      detail: `tmux session ${context.processChecks.tmuxSessionName}`,
-    },
+    auxiliaryProcess: null,
   };
 }
 
@@ -947,10 +1011,6 @@ async function verifyRuntime(context) {
       context.mode === "dev" ? "desktop-shell" : "packaged-app",
       probeResults.appProcessResults.mainProcess.detail,
     );
-  }
-
-  if (probeResults.appProcessResults.tmuxSession?.alive === false) {
-    addMissing("desktop-shell", "tmux session nexu-desktop is not running");
   }
 
   if (!probeResults.openclawHealth.ok) {
