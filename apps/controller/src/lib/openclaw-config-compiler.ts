@@ -447,6 +447,13 @@ export function compileOpenClawConfig(
     },
     session: {
       dmScope: "per-peer",
+      // Disable automatic session reset. OpenClaw defaults to daily reset at
+      // 4 AM which silently drops conversation history — unexpected for a
+      // desktop chat app where users expect persistent sessions.
+      reset: {
+        mode: "idle",
+        idleMinutes: 525_600, // 1 year
+      },
     },
     cron: {
       enabled: true,
