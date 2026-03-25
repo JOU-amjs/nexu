@@ -583,21 +583,21 @@ function WorkspaceLayoutInner() {
       )}
 
       {isWindowsDesktopClient && (
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          className="fixed top-[16px] left-[2px] h-8 w-8 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-black/5 transition-colors hidden md:flex items-center justify-center z-50"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-          title={
-            collapsed ? t("layout.expandSidebar") : t("layout.collapseSidebar")
-          }
-        >
-          {collapsed ? (
-            <PanelLeftOpen size={16} />
-          ) : (
-            <PanelLeftClose size={16} />
-          )}
-        </button>
+        <div className="fixed px-2 z-50">
+          <div className="px-2.5 h-8 flex items-center">
+            {collapsed ? (
+              <PanelLeftOpen
+                onClick={() => setCollapsed(!collapsed)}
+                size={16}
+              />
+            ) : (
+              <PanelLeftClose
+                onClick={() => setCollapsed(!collapsed)}
+                size={16}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {/* Desktop sidebar — transparent bg, no border (matches design-system) */}
@@ -613,7 +613,7 @@ function WorkspaceLayoutInner() {
         }
       >
         {/* Traffic light clearance (desktop client) */}
-        {isDesktopClient && <div className="h-14 shrink-0" />}
+        {!isWindowsDesktopClient && <div className="h-14 shrink-0" />}
 
         {/* Header / Brand */}
         {!isWindowsDesktopClient && (
@@ -674,6 +674,8 @@ function WorkspaceLayoutInner() {
             )}
           </div>
         )}
+
+        {isWindowsDesktopClient && <div className="h-8 shrink-0" />}
 
         {/* Main nav + conversations */}
         <div
