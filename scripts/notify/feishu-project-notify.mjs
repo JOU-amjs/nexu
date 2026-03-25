@@ -18,7 +18,6 @@
  *   PROJECT_NUMBER — Project number
  *   SENDER         — Actor login who triggered the event
  *   ORG_OR_USER    — Organization or user login that owns the project
- *   REPO           — owner/repo (for display)
  *   GITHUB_TOKEN   — Token with project read scope (GraphQL)
  */
 
@@ -29,7 +28,6 @@ const itemNodeId = process.env.ITEM_NODE_ID ?? "";
 const projectNumber = process.env.PROJECT_NUMBER ?? "";
 const sender = process.env.SENDER ?? "";
 const orgOrUser = process.env.ORG_OR_USER ?? "";
-const repo = process.env.REPO ?? "";
 const ghToken = process.env.GITHUB_TOKEN ?? "";
 
 if (!webhookUrl) {
@@ -212,16 +210,14 @@ async function main() {
     bodyRaw.length > 300 ? `${bodyRaw.slice(0, 300)}…` : bodyRaw;
 
   // Assignees: prefer content-level (DraftIssue.assignees), fallback to field-level
-  const contentAssignees =
-    content.assignees?.nodes?.map((a) => a.login) ?? [];
+  const contentAssignees = content.assignees?.nodes?.map((a) => a.login) ?? [];
   const fieldAssignees = getFieldAssignees(fieldNodes);
   const assignees = contentAssignees.length ? contentAssignees : fieldAssignees;
   const assigneesText = assignees.length ? assignees.join(", ") : "未分配";
 
   const status = getFieldValue(fieldNodes, "Status") ?? "—";
   const priority = getFieldValue(fieldNodes, "Priority");
-  const labels =
-    content.labels?.nodes?.map((l) => l.name).join(", ") || null;
+  const labels = content.labels?.nodes?.map((l) => l.name).join(", ") || null;
 
   // Determine the URL: Issue/PR have their own url; Draft links to the project board
   const itemUrl = content.url || buildProjectUrl();
@@ -229,8 +225,8 @@ async function main() {
   const changeInfo = buildStatusChangeText(changes);
 
   // Refine action text for edited events
-  let { text: actionText, color: headerColor } = ACTION_CONFIG[action] ??
-    ACTION_CONFIG.edited;
+  let { text: actionText, color: headerColor } =
+    ACTION_CONFIG[action] ?? ACTION_CONFIG.edited;
 
   if (action === "edited" && changeInfo) {
     if (changeInfo.field === "Status") {

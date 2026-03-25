@@ -209,7 +209,7 @@ async function probePort(port: number): Promise<boolean> {
   });
 }
 
-async function tryAttachToRunningServices(opts: {
+async function _tryAttachToRunningServices(opts: {
   launchd: LaunchdManager;
   labels: { controller: string; openclaw: string };
   plistDir: string;
