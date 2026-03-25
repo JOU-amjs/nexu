@@ -135,7 +135,15 @@ export function installLaunchdQuitHandler(opts: QuitHandlerOptions): void {
           console.error("Error closing web server:", err);
         }
 
+        // Stop services gracefully (wait for process exit) before bootout.
+        // Plain bootout sends an unregister request but doesn't wait for the
+        // process to die, so relaunching immediately can hit port conflicts.
         for (const label of [opts.labels.openclaw, opts.labels.controller]) {
+          try {
+            await opts.launchd.stopServiceGracefully(label, 5000);
+          } catch {
+            // May already be stopped
+          }
           try {
             await opts.launchd.bootoutService(label);
           } catch (err) {
@@ -198,11 +206,17 @@ export async function quitWithDecision(
   }
 
   if (decision === "quit-completely") {
-    try {
-      await opts.launchd.bootoutService(opts.labels.openclaw);
-      await opts.launchd.bootoutService(opts.labels.controller);
-    } catch (err) {
-      console.error("Error stopping services:", err);
+    for (const label of [opts.labels.openclaw, opts.labels.controller]) {
+      try {
+        await opts.launchd.stopServiceGracefully(label, 5000);
+      } catch {
+        // May already be stopped
+      }
+      try {
+        await opts.launchd.bootoutService(label);
+      } catch (err) {
+        console.error(`Error booting out ${label}:`, err);
+      }
     }
   }
 

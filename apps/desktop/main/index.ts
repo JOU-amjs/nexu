@@ -42,6 +42,10 @@ import {
   isLaunchdBootstrapEnabled,
   resolveLaunchdPaths,
 } from "./services";
+import {
+  getLegacyNexuHomeStateDir,
+  migrateOpenclawState,
+} from "./services/state-migration";
 import { SleepGuard, type SleepGuardLogEntry } from "./sleep-guard";
 import { ComponentUpdater } from "./updater/component-updater";
 import { StartupHealthCheck } from "./updater/rollback";
@@ -466,13 +470,32 @@ async function runLaunchdColdStart(): Promise<void> {
   const isDev = !app.isPackaged;
   const paths = resolveLaunchdPaths(app.isPackaged, electronRoot);
 
-  // Derive openclaw paths from nexuHome (must match controller defaults in env.ts)
   const nexuHome = runtimeConfig.paths.nexuHome.replace(
     /^~/,
     process.env.HOME ?? "",
   );
-  const openclawStateDir = resolve(nexuHome, "runtime", "openclaw", "state");
+
+  // In packaged mode, keep openclaw state under Electron userData (matches v0.1.5).
+  // In dev mode, derive from nexuHome for repo-local isolation.
+  const openclawRuntimeRoot = isDev
+    ? resolve(nexuHome, "runtime", "openclaw")
+    : resolve(app.getPath("userData"), "runtime", "openclaw");
+  const openclawStateDir = resolve(openclawRuntimeRoot, "state");
   const openclawConfigPath = resolve(openclawStateDir, "openclaw.json");
+
+  // Migrate any state created under ~/.nexu during v0.1.6 back to userData path
+  if (!isDev) {
+    const legacyStateDir = getLegacyNexuHomeStateDir(
+      runtimeConfig.paths.nexuHome,
+    );
+    if (legacyStateDir !== openclawStateDir) {
+      migrateOpenclawState({
+        targetStateDir: openclawStateDir,
+        sourceStateDir: legacyStateDir,
+        log: (msg) => logColdStart(`state-migration: ${msg}`),
+      });
+    }
+  }
 
   // In dev mode, serve web app from apps/web/dist
   // In packaged mode, serve from resources/web

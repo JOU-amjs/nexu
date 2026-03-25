@@ -81,7 +81,9 @@ function generateControllerPlist(label: string, env: PlistEnv): string {
         <key>OPENCLAW_GATEWAY_PORT</key>
         <string>${env.openclawPort}</string>
         <key>RUNTIME_MANAGE_OPENCLAW_PROCESS</key>
-        <string>false</string>${
+        <string>false</string>
+        <key>OPENCLAW_STATE_DIR</key>
+        <string>${escapeXml(env.openclawStateDir)}</string>${
           env.nexuHome
             ? `
         <key>NEXU_HOME</key>
