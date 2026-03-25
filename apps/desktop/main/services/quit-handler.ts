@@ -155,19 +155,12 @@ export function installLaunchdQuitHandler(opts: QuitHandlerOptions): void {
           await deleteRuntimePorts(opts.plistDir).catch(() => {});
         }
 
-        // Mark force-quit and actually exit
+        // All services stopped. Force exit immediately — app.quit() alone
+        // can hang if dangling handles keep the event loop alive, and a
+        // delayed exit leaves stale SingletonLock files that block relaunch.
         (app as unknown as Record<string, unknown>).__nexuForceQuit = true;
         opts.onForceQuit?.();
-        app.quit();
-
-        // Safety net: if Electron doesn't exit within 3s (e.g. due to
-        // dangling handles keeping the event loop alive), force exit.
-        setTimeout(() => {
-          console.warn(
-            "Electron did not exit within 3s after app.quit(), forcing process.exit()",
-          );
-          process.exit(0);
-        }, 3000).unref();
+        app.exit(0);
       })();
     });
   };
@@ -229,12 +222,5 @@ export async function quitWithDecision(
   }
 
   (app as unknown as Record<string, unknown>).__nexuForceQuit = true;
-  app.quit();
-
-  setTimeout(() => {
-    console.warn(
-      "Electron did not exit within 3s after app.quit(), forcing process.exit()",
-    );
-    process.exit(0);
-  }, 3000).unref();
+  app.exit(0);
 }
