@@ -465,7 +465,7 @@ export function registerChannelRoutes(
     }),
     async (c) => {
       try {
-        const result = await container.gatewayService.wechatQrStart();
+        const result = await container.channelService.wechatQrStart();
         return c.json(result, 200);
       } catch (error) {
         return c.json(
@@ -511,7 +511,7 @@ export function registerChannelRoutes(
     async (c) => {
       try {
         const { sessionKey } = c.req.valid("json");
-        const result = await container.gatewayService.wechatQrWait(sessionKey);
+        const result = await container.channelService.wechatQrWait(sessionKey);
         return c.json(result, 200);
       } catch (error) {
         return c.json(

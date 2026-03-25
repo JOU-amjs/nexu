@@ -27,6 +27,10 @@ export interface PlistEnv {
   controllerCwd: string;
   /** Working directory for openclaw */
   openclawCwd: string;
+  /** Path to OpenClaw bin wrapper/script */
+  openclawBinPath?: string;
+  /** Path to bundled OpenClaw extensions directory */
+  openclawExtensionsDir?: string;
   /** NEXU_HOME override (dev: repo-local, prod: default ~/.nexu) */
   nexuHome?: string;
   /** Gateway auth token (shared between controller and openclaw) */
@@ -82,6 +86,18 @@ function generateControllerPlist(label: string, env: PlistEnv): string {
         <string>${env.openclawPort}</string>
         <key>RUNTIME_MANAGE_OPENCLAW_PROCESS</key>
         <string>false</string>${
+          env.openclawBinPath
+            ? `
+        <key>OPENCLAW_BIN</key>
+        <string>${escapeXml(env.openclawBinPath)}</string>`
+            : ""
+        }${
+          env.openclawExtensionsDir
+            ? `
+        <key>OPENCLAW_EXTENSIONS_DIR</key>
+        <string>${escapeXml(env.openclawExtensionsDir)}</string>`
+            : ""
+        }${
           env.nexuHome
             ? `
         <key>NEXU_HOME</key>

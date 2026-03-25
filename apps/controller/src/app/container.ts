@@ -135,7 +135,12 @@ export async function createContainer(): Promise<ControllerContainer> {
     runtimeHealth,
     openclawProcess,
     agentService: new AgentService(configStore, openclawSyncService),
-    channelService: new ChannelService(env, configStore, openclawSyncService),
+    channelService: new ChannelService(
+      env,
+      configStore,
+      openclawSyncService,
+      gatewayService,
+    ),
     channelFallbackService,
     sessionService: new SessionService(sessionsRuntime),
     runtimeConfigService: new RuntimeConfigService(

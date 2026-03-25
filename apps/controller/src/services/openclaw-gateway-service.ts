@@ -84,6 +84,11 @@ export interface SendChannelMessageResult {
   conversationId?: string;
 }
 
+export interface LogoutChannelAccountResult {
+  cleared?: boolean;
+  loggedOut?: boolean;
+}
+
 interface LiveStatusChannelInput {
   id: string;
   channelType: string;
@@ -168,6 +173,22 @@ export class OpenClawGatewayService {
           )
           .digest("hex"),
     });
+  }
+
+  async logoutChannelAccount(
+    channelType: string,
+    accountId?: string,
+  ): Promise<LogoutChannelAccountResult> {
+    const channel =
+      channelType === "wechat" ? "openclaw-weixin" : channelType.trim();
+    return this.wsClient.request<LogoutChannelAccountResult>(
+      "channels.logout",
+      {
+        channel,
+        ...(accountId ? { accountId } : {}),
+      },
+      { timeoutMs: 5000 },
+    );
   }
 
   async getChannelsStatusSnapshot(opts?: {

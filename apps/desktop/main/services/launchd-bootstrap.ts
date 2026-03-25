@@ -50,6 +50,10 @@ export interface LaunchdBootstrapEnv {
   controllerCwd: string;
   /** OpenClaw working directory */
   openclawCwd: string;
+  /** Path to OpenClaw bin wrapper/script */
+  openclawBinPath: string;
+  /** Path to bundled OpenClaw extensions directory */
+  openclawExtensionsDir: string;
   /** NEXU_HOME override for controller (dev: repo-local path) */
   nexuHome?: string;
   /** Gateway auth token */
@@ -427,6 +431,8 @@ export async function bootstrapWithLaunchd(
     openclawStateDir: env.openclawStateDir,
     controllerCwd: env.controllerCwd,
     openclawCwd: env.openclawCwd,
+    openclawBinPath: env.openclawBinPath,
+    openclawExtensionsDir: env.openclawExtensionsDir,
     nexuHome: env.nexuHome,
     gatewayToken: env.gatewayToken,
     systemPath,
@@ -619,6 +625,8 @@ export function resolveLaunchdPaths(
   openclawPath: string;
   controllerCwd: string;
   openclawCwd: string;
+  openclawBinPath: string;
+  openclawExtensionsDir: string;
 } {
   if (isPackaged) {
     // Packaged app: extract openclaw sidecar from tar archive if needed,
@@ -645,6 +653,13 @@ export function resolveLaunchdPaths(
       ),
       controllerCwd: path.join(runtimeDir, "controller"),
       openclawCwd: openclawSidecarRoot,
+      openclawBinPath: path.join(openclawSidecarRoot, "bin", "openclaw"),
+      openclawExtensionsDir: path.join(
+        openclawSidecarRoot,
+        "node_modules",
+        "openclaw",
+        "extensions",
+      ),
     };
   }
 
@@ -668,5 +683,22 @@ export function resolveLaunchdPaths(
     ),
     controllerCwd: path.join(repoRoot, "apps", "controller"),
     openclawCwd: repoRoot,
+    openclawBinPath: path.join(
+      repoRoot,
+      ".tmp",
+      "sidecars",
+      "openclaw",
+      "bin",
+      "openclaw",
+    ),
+    openclawExtensionsDir: path.join(
+      repoRoot,
+      ".tmp",
+      "sidecars",
+      "openclaw",
+      "node_modules",
+      "openclaw",
+      "extensions",
+    ),
   };
 }

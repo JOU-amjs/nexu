@@ -11,6 +11,15 @@ import {
 
 type Phase = "idle" | "loading-qr" | "scanning" | "connecting" | "error";
 
+function isQrImageSource(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    trimmed.startsWith("data:image/") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  );
+}
+
 export interface WhatsappSetupViewProps {
   onConnected: () => void;
   disabled?: boolean;
@@ -144,7 +153,15 @@ export function WhatsappSetupView({
         {qrUrl && phase === "scanning" ? (
           <div className="flex flex-col items-center gap-3">
             <div className="p-3 bg-white rounded-xl shadow-sm border border-border">
-              <QRCodeSVG value={qrUrl} size={208} />
+              {isQrImageSource(qrUrl) ? (
+                <img
+                  src={qrUrl}
+                  alt="WhatsApp QR code"
+                  className="block w-[208px] h-[208px] object-contain"
+                />
+              ) : (
+                <QRCodeSVG value={qrUrl} size={208} />
+              )}
             </div>
             <div className="flex items-center gap-2 text-[12px] text-text-muted">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" />
