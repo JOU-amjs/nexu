@@ -1,12 +1,15 @@
 import type { OpenClawConfig } from "@nexu/shared";
 import { openclawConfigSchema } from "@nexu/shared";
 import type { ControllerEnv } from "../app/env.js";
+import type { OAuthConnectionState } from "../runtime/openclaw-auth-profiles-store.js";
 import type { NexuConfig } from "../store/schemas.js";
 import {
   compileChannelBindings,
   compileChannelsConfig,
 } from "./channel-binding-compiler.js";
 import { normalizeProviderBaseUrl } from "./provider-base-url.js";
+
+export type { OAuthConnectionState };
 
 const BYOK_DEFAULT_BASE_URLS: Record<string, string> = {
   anthropic: "https://api.anthropic.com/v1",
@@ -24,6 +27,14 @@ const BYOK_DEFAULT_BASE_URLS: Record<string, string> = {
 
 const LINK_PROVIDER_HEADERS = {
   "User-Agent": "Mozilla/5.0",
+};
+
+const EMPTY_OAUTH_CONNECTION_STATE: OAuthConnectionState = {
+  connectedProviderIds: [],
+};
+
+const OAUTH_PROVIDER_MAP: Record<string, string> = {
+  openai: "openai-codex",
 };
 
 function resolveOpenClawProviderId(providerId: string): string {
@@ -233,6 +244,7 @@ export function resolveModelId(
   config: NexuConfig,
   env: ControllerEnv,
   rawModelId: string,
+  oauthState: OAuthConnectionState = EMPTY_OAUTH_CONNECTION_STATE,
 ): string {
   if (rawModelId.startsWith("litellm/") || rawModelId.startsWith("link/")) {
     return rawModelId;
@@ -260,17 +272,15 @@ export function resolveModelId(
     const byokKey = byokPrefixToKey.get(prefix);
     const openclawProviderId = byokPrefixToProvider.get(prefix);
     if (byokKey && openclawProviderId) {
-      // OAuth provider: enabled but no apiKey means OAuth-connected.
-      // Map to the OpenClaw OAuth provider ID (e.g., openai → openai-codex).
-      const OAUTH_PROVIDER_MAP: Record<string, string> = {
-        openai: "openai-codex",
-      };
       const oauthTarget = OAUTH_PROVIDER_MAP[prefix];
       if (oauthTarget) {
         const provider = config.providers.find(
           (item) => item.providerId === prefix,
         );
-        if (provider?.enabled && provider.apiKey === null) {
+        if (
+          provider?.enabled &&
+          oauthState.connectedProviderIds.includes(prefix)
+        ) {
           return `${oauthTarget}/${modelSuffix}`;
         }
       }
@@ -313,6 +323,7 @@ export function resolveModelId(
 function compileAgentList(
   config: NexuConfig,
   env: ControllerEnv,
+  oauthState: OAuthConnectionState,
 ): OpenClawConfig["agents"]["list"] {
   return config.bots
     .filter((bot) => bot.status === "active")
@@ -323,7 +334,7 @@ function compileAgentList(
       workspace: `${env.openclawStateDir}/agents/${bot.id}`,
       default: index === 0,
       model: bot.modelId
-        ? { primary: resolveModelId(config, env, bot.modelId) }
+        ? { primary: resolveModelId(config, env, bot.modelId, oauthState) }
         : undefined,
     }));
 }
@@ -353,6 +364,7 @@ function compilePlugins(
 export function compileOpenClawConfig(
   config: NexuConfig,
   env: ControllerEnv,
+  oauthState: OAuthConnectionState = EMPTY_OAUTH_CONNECTION_STATE,
 ): OpenClawConfig {
   const activeBots = config.bots.filter((bot) => bot.status === "active");
   const firstBotModel = activeBots[0]?.modelId ?? null;
@@ -362,6 +374,7 @@ export function compileOpenClawConfig(
     firstBotModel ??
       getDesktopSelectedModel(config) ??
       config.runtime.defaultModelId,
+    oauthState,
   );
 
   const openClawConfig: OpenClawConfig = {
@@ -402,7 +415,7 @@ export function compileOpenClawConfig(
         },
         verboseDefault: "on",
       },
-      list: compileAgentList(config, env),
+      list: compileAgentList(config, env, oauthState),
     },
     tools: {
       exec: {

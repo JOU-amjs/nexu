@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
-import { readdir } from "node:fs/promises";
 import http from "node:http";
-import path from "node:path";
 import type { ControllerEnv } from "../app/env.js";
 import { logger } from "../lib/logger.js";
+import { OpenClawAuthProfilesStore } from "../runtime/openclaw-auth-profiles-store.js";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -17,13 +15,6 @@ export interface OAuthProfile {
   refresh: string;
   expires: number;
   accountId: string;
-}
-
-interface AuthProfilesData {
-  version: number;
-  profiles: Record<string, unknown>;
-  lastGood?: Record<string, unknown>;
-  usageStats?: Record<string, unknown>;
 }
 
 interface FlowState {
@@ -104,13 +95,16 @@ h1{color:#dc2626;margin-bottom:0.5rem}p{color:#6b7280}</style></head>
 // ── Service ─────────────────────────────────────────────────────
 
 export class OpenClawAuthService {
-  private readonly env: ControllerEnv;
+  private readonly authProfilesStore: OpenClawAuthProfilesStore;
   private flowState: FlowState = { status: "idle" };
   private callbackServer: http.Server | null = null;
   private timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(env: ControllerEnv) {
-    this.env = env;
+  constructor(
+    env: ControllerEnv,
+    authProfilesStore = new OpenClawAuthProfilesStore(env),
+  ) {
+    this.authProfilesStore = authProfilesStore;
   }
 
   // ── Public API ──────────────────────────────────────────────
@@ -191,9 +185,15 @@ export class OpenClawAuthService {
 
     try {
       const profileKey = "openai-codex:default";
-      const filePaths = await this.listAgentAuthProfilesPaths();
+      const filePaths =
+        await this.authProfilesStore.listAgentAuthProfilesPaths();
       for (const filePath of filePaths) {
-        const profiles = await this.readAuthProfilesFile(filePath);
+        const profiles = await this.authProfilesStore.readAuthProfiles(
+          filePath,
+          {
+            missingOk: true,
+          },
+        );
         if (!profiles) {
           continue;
         }
@@ -247,25 +247,23 @@ export class OpenClawAuthService {
     if (providerId !== "openai") return false;
 
     try {
-      const filePaths = await this.listAgentAuthProfilesPaths();
+      const filePaths =
+        await this.authProfilesStore.listAgentAuthProfilesPaths();
       if (filePaths.length === 0) return false;
       const profileKey = "openai-codex:default";
       await Promise.all(
         filePaths.map(async (filePath) => {
-          const existing = await this.readAuthProfilesFile(filePath);
-          if (!existing || !(profileKey in existing.profiles)) {
-            return;
-          }
-
-          const { [profileKey]: _removed, ...remainingProfiles } =
-            existing.profiles;
-
-          const updated: AuthProfilesData = {
-            ...existing,
-            profiles: remainingProfiles,
-          };
-
-          await this.writeAuthProfilesFile(filePath, updated);
+          await this.authProfilesStore.updateAuthProfiles(
+            filePath,
+            async (current) => {
+              const { [profileKey]: _removed, ...remainingProfiles } =
+                current.profiles;
+              return {
+                ...current,
+                profiles: remainingProfiles,
+              };
+            },
+          );
         }),
       );
       logger.info({ providerId }, "OAuth profile disconnected");
@@ -485,82 +483,27 @@ export class OpenClawAuthService {
     }
   }
 
-  // ── Auth Profiles I/O ───────────────────────────────────────
-
-  private async listAgentAuthProfilesPaths(): Promise<string[]> {
-    const agentsDir = path.join(this.env.openclawStateDir, "agents");
-    try {
-      const entries = await readdir(agentsDir, { withFileTypes: true });
-      return entries
-        .filter((entry) => entry.isDirectory())
-        .sort((left, right) => left.name.localeCompare(right.name))
-        .map((entry) =>
-          path.join(agentsDir, entry.name, "agent", "auth-profiles.json"),
-        );
-    } catch {
-      return [];
-    }
-  }
-
-  private async readAuthProfilesFile(
-    filePath: string,
-  ): Promise<AuthProfilesData | null> {
-    try {
-      const content = await readFile(filePath, "utf8");
-      const parsed: unknown = JSON.parse(content);
-      if (typeof parsed !== "object" || parsed === null) return null;
-
-      const record = parsed as Record<string, unknown>;
-      return {
-        version: typeof record.version === "number" ? record.version : 1,
-        profiles:
-          typeof record.profiles === "object" &&
-          record.profiles !== null &&
-          !Array.isArray(record.profiles)
-            ? (record.profiles as Record<string, unknown>)
-            : {},
-        ...(typeof record.lastGood === "object" && record.lastGood !== null
-          ? { lastGood: record.lastGood as Record<string, unknown> }
-          : {}),
-        ...(typeof record.usageStats === "object" && record.usageStats !== null
-          ? { usageStats: record.usageStats as Record<string, unknown> }
-          : {}),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private async writeAuthProfilesFile(
-    filePath: string,
-    data: AuthProfilesData,
-  ): Promise<void> {
-    await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  }
-
   private async mergeOAuthProfile(
     key: string,
     profile: OAuthProfile,
   ): Promise<void> {
-    const filePaths = await this.listAgentAuthProfilesPaths();
+    const filePaths = await this.authProfilesStore.listAgentAuthProfilesPaths();
     if (filePaths.length === 0) {
       throw new Error("No agent directory found for auth profiles");
     }
 
     await Promise.all(
       filePaths.map(async (filePath) => {
-        const existing = await this.readAuthProfilesFile(filePath);
-        const base: AuthProfilesData = existing ?? { version: 1, profiles: {} };
-
-        const updated: AuthProfilesData = {
-          ...base,
-          profiles: {
-            ...base.profiles,
-            [key]: profile,
-          },
-        };
-
-        await this.writeAuthProfilesFile(filePath, updated);
+        await this.authProfilesStore.updateAuthProfiles(
+          filePath,
+          async (current) => ({
+            ...current,
+            profiles: {
+              ...current.profiles,
+              [key]: profile,
+            },
+          }),
+        );
       }),
     );
   }
