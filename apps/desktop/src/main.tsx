@@ -22,7 +22,11 @@ import type {
 import { NEXU_GITHUB_RELEASES_URL } from "../shared/product-urls";
 import { getDesktopSentryBuildMetadata } from "../shared/sentry-build-metadata";
 import { SurfaceFrame } from "./components/surface-frame";
-import { UpdateBanner, UpdateCheckDialog } from "./components/update-banner";
+import {
+  UpdateBadge,
+  UpdateBanner,
+  UpdateCheckDialog,
+} from "./components/update-banner";
 import { useAutoUpdate } from "./hooks/use-auto-update";
 import {
   checkComponentUpdates,
@@ -1130,6 +1134,11 @@ function DesktopShell() {
           percent={update.percent}
           phase={update.phase}
           version={update.version}
+        />
+        <UpdateBadge
+          dismissed={update.dismissed}
+          onUndismiss={update.undismiss}
+          phase={update.phase}
         />
       </aside>
 

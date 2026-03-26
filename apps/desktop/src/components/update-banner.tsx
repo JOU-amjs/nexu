@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NEXU_GITHUB_RELEASES_URL } from "../../shared/product-urls";
 import type { UpdatePhase } from "../hooks/use-auto-update";
 import { openExternal } from "../lib/host-api";
@@ -11,7 +12,7 @@ interface UpdateBannerProps {
   onDownload: () => void;
   onInstall: () => void;
   onDismiss: () => void;
-  onRetry: () => void;
+  onRetry: () => void | Promise<void>;
 }
 
 function NexuLogo() {
@@ -137,7 +138,10 @@ export function UpdateBadge({
   onUndismiss: () => void;
 }) {
   const hasUpdate =
-    phase === "available" || phase === "downloading" || phase === "ready";
+    phase === "available" ||
+    phase === "downloading" ||
+    phase === "ready" ||
+    phase === "error";
   if (!hasUpdate || !dismissed) return null;
 
   return (
@@ -162,6 +166,7 @@ export function UpdateBanner({
   onDismiss,
   onRetry,
 }: UpdateBannerProps) {
+  const [retrying, setRetrying] = useState(false);
   const showCard =
     phase === "available" ||
     phase === "downloading" ||
@@ -176,6 +181,15 @@ export function UpdateBanner({
   const isReady = phase === "ready";
   const isError = phase === "error";
   const isAvailable = phase === "available";
+
+  const handleRetry = () => {
+    if (retrying) return;
+
+    setRetrying(true);
+    void Promise.resolve(onRetry()).finally(() => {
+      setRetrying(false);
+    });
+  };
 
   return (
     <div className={`update-card${isError ? " update-card--error" : ""}`}>
@@ -283,10 +297,11 @@ export function UpdateBanner({
           <div className="update-card-actions">
             <button
               className="update-card-btn update-card-btn--primary"
-              onClick={onRetry}
+              disabled={retrying}
+              onClick={handleRetry}
               type="button"
             >
-              Retry
+              {retrying ? "Checking…" : "Retry"}
             </button>
             <button
               type="button"

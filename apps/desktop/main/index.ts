@@ -603,7 +603,7 @@ async function runLaunchdColdStart(): Promise<void> {
     openclawPort: Number(
       new URL(runtimeConfig.urls.openclawBase).port || 18789,
     ),
-    nexuHome: isDev ? nexuHome : undefined,
+    nexuHome,
     gatewayToken: isDev ? undefined : runtimeConfig.tokens.gateway,
     webPort: runtimeConfig.ports.web,
     webRoot,

@@ -765,9 +765,7 @@ export function ModelsPage() {
       const providerName =
         PROVIDER_META[matched?.provider ?? ""]?.name ?? matched?.provider;
       const rawName = matched?.name ?? newId;
-      const shortName = rawName.includes("/")
-        ? (rawName.split("/").pop() ?? rawName)
-        : rawName;
+      const shortName = getModelDisplayLabel(rawName);
       const label = providerName ? `${shortName} (${providerName})` : shortName;
       toast.info(t("models.autoSwitched", { model: label }));
     }

@@ -1496,6 +1496,11 @@ body,
   opacity: 0.85;
 }
 
+.update-card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Ghost — rounded-[6px] px-2.5 py-1 text-text-muted hover:text-text-primary */
 .update-card-btn--ghost {
   padding: 5px 10px;
@@ -1640,7 +1645,7 @@ body,
   align-items: center;
   justify-content: center;
   background: transparent;
-  pointer-events: none;
+  pointer-events: auto;
   animation: dialog-fade-in 150ms ease-out;
 }
 

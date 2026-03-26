@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { checkForUpdate, downloadUpdate, installUpdate } from "../lib/host-api";
 
 export type UpdatePhase =
@@ -21,6 +21,7 @@ export type UpdateState = {
 };
 
 export function useAutoUpdate() {
+  const checkInFlightRef = useRef<Promise<void> | null>(null);
   const [state, setState] = useState<UpdateState>({
     phase: "idle",
     version: null,
@@ -125,6 +126,10 @@ export function useAutoUpdate() {
   }, []);
 
   const check = useCallback(async () => {
+    if (checkInFlightRef.current) {
+      return checkInFlightRef.current;
+    }
+
     setState((prev) => ({
       ...prev,
       phase: "checking",
@@ -132,11 +137,18 @@ export function useAutoUpdate() {
       dismissed: false,
       userInitiated: true,
     }));
-    try {
-      await checkForUpdate();
-    } catch {
-      // Errors are delivered via the update:error event
-    }
+    const checkPromise = (async () => {
+      try {
+        await checkForUpdate();
+      } catch {
+        // Errors are delivered via the update:error event
+      } finally {
+        checkInFlightRef.current = null;
+      }
+    })();
+
+    checkInFlightRef.current = checkPromise;
+    return checkPromise;
   }, []);
 
   const download = useCallback(async () => {
