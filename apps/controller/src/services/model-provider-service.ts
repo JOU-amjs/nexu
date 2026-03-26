@@ -86,6 +86,8 @@ const MINI_MAX_MAX_POLL_INTERVAL_MS = 10000;
 const MINI_MAX_OAUTH_REQUEST_TIMEOUT_MS = 15000;
 const MINI_MAX_OAUTH_TOKEN_REQUEST_TIMEOUT_MS = 15000;
 const OPENCLAW_COMMAND_TIMEOUT_MS = 30000;
+const OLLAMA_DEFAULT_BASE_URL = "http://127.0.0.1:11434";
+const OLLAMA_DUMMY_API_KEY = "ollama-local";
 
 function durationSecondsToMs(valueInSeconds: number): number {
   return valueInSeconds * 1000;
@@ -114,6 +116,7 @@ const PROVIDER_BASE_URLS: Record<string, string> = {
   anthropic: "https://api.anthropic.com/v1",
   openai: "https://api.openai.com/v1",
   google: "https://generativelanguage.googleapis.com/v1beta/openai",
+  ollama: OLLAMA_DEFAULT_BASE_URL,
   siliconflow: "https://api.siliconflow.com/v1",
   ppio: "https://api.ppinfra.com/v3/openai",
   openrouter: "https://openrouter.ai/api/v1",
@@ -391,6 +394,18 @@ export class ModelProviderService {
     providerId: string,
     input: Parameters<NexuConfigStore["upsertProvider"]>[1],
   ) {
+    if (providerId === "ollama") {
+      const normalizedApiKey = input.apiKey?.trim();
+      return this.configStore.upsertProvider(providerId, {
+        ...input,
+        authMode: "apiKey",
+        apiKey:
+          normalizedApiKey && normalizedApiKey.length > 0
+            ? normalizedApiKey
+            : OLLAMA_DUMMY_API_KEY,
+      });
+    }
+
     return this.configStore.upsertProvider(providerId, input);
   }
 
@@ -480,6 +495,33 @@ export class ModelProviderService {
     }
 
     try {
+      if (providerId === "ollama") {
+        const response = await fetch(
+          buildProviderUrl(
+            input.baseUrl ?? PROVIDER_BASE_URLS[providerId] ?? null,
+            "/api/tags",
+          ) ?? verifyUrl,
+          {
+            signal: AbortSignal.timeout(10000),
+          },
+        );
+        if (!response.ok) {
+          return { valid: false, error: `HTTP ${response.status}` };
+        }
+
+        const payload = (await response.json()) as {
+          models?: Array<{ name?: string }>;
+        };
+        return {
+          valid: true,
+          models: Array.isArray(payload.models)
+            ? payload.models
+                .map((item) => item.name?.trim() ?? "")
+                .filter((item) => item.length > 0)
+            : [],
+        };
+      }
+
       const headers: Record<string, string> =
         providerId === "anthropic"
           ? {
