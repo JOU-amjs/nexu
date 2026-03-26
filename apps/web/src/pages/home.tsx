@@ -440,23 +440,6 @@ export function HomePage() {
     return new Map(entries.map((entry) => [entry.channelId, entry]));
   }, [liveStatus]);
 
-  const agentIndicator = useMemo(() => {
-    if (!hasChannel || !liveStatus?.agent) {
-      return null;
-    }
-    return liveStatus.agent.alive
-      ? {
-          colorClass: "bg-[var(--color-success)]",
-          pulse: false,
-          label: t("home.agent.alive"),
-        }
-      : {
-          colorClass: "bg-[var(--color-warning)]",
-          pulse: true,
-          label: t("home.agent.starting"),
-        };
-  }, [hasChannel, liveStatus, t]);
-
   const handleChannelCreated = useCallback(
     (channelId: string) => {
       setPendingChannelId(channelId);
