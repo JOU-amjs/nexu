@@ -1,3 +1,5 @@
+import type { MinimalSkill } from "@/types/desktop";
+
 export type TopTab = "explore" | "yours";
 export type YoursSubTab = "all" | "recommended" | "installed";
 
@@ -122,6 +124,18 @@ export function createSkillDetailPath(slug: string, search: string): string {
 
 export function createSkillDetailState(): { fromSkillsList: true } {
   return { fromSkillsList: true };
+}
+
+export function getUnavailableSkillDetailSlugs(
+  allSkills: Pick<MinimalSkill, "slug">[],
+  activeQueueItems: { slug: string }[],
+): Set<string> {
+  const catalogSlugs = new Set(allSkills.map((skill) => skill.slug));
+  return new Set(
+    activeQueueItems
+      .filter((queueItem) => !catalogSlugs.has(queueItem.slug))
+      .map((queueItem) => queueItem.slug),
+  );
 }
 
 export function getSkillsBackNavigation(

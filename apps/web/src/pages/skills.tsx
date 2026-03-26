@@ -15,6 +15,7 @@ import {
   applySkillsViewStatePatch,
   createSkillDetailPath,
   createSkillDetailState,
+  getUnavailableSkillDetailSlugs,
   parseSkillsViewState,
 } from "@/lib/skills-view-state";
 import { mapInstalledSkillSource, track } from "@/lib/tracking";
@@ -54,6 +55,7 @@ function SkillCard({
   categoryLabel,
   skillSource,
   detailTo,
+  isDetailAvailable,
 }: {
   skill: MinimalSkill;
   isInstalled: boolean;
@@ -67,6 +69,7 @@ function SkillCard({
   categoryLabel?: string;
   skillSource: "builtin" | "explore" | "custom";
   detailTo: string;
+  isDetailAvailable: boolean;
 }) {
   const installMutation = useInstallSkill();
   const uninstallMutation = useUninstallSkill();
@@ -131,16 +134,8 @@ function SkillCard({
     }
   }
 
-  return (
-    <Link
-      to={detailTo}
-      state={createSkillDetailState()}
-      draggable={false}
-      className={cn(
-        "card flex flex-col p-4",
-        isInstalled && !pendingAction ? "" : "",
-      )}
-    >
+  const cardContent = (
+    <>
       {/* Header: Icon + Name + Category */}
       <div className="flex items-center gap-3 mb-2">
         <div className="w-9 h-9 rounded-[10px] bg-white border border-border flex items-center justify-center shrink-0">
@@ -209,6 +204,33 @@ function SkillCard({
           </button>
         )}
       </div>
+    </>
+  );
+
+  if (!isDetailAvailable) {
+    return (
+      <div
+        className={cn(
+          "card flex flex-col p-4 cursor-default",
+          isInstalled && !pendingAction ? "" : "",
+        )}
+      >
+        {cardContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to={detailTo}
+      state={createSkillDetailState()}
+      draggable={false}
+      className={cn(
+        "card flex flex-col p-4",
+        isInstalled && !pendingAction ? "" : "",
+      )}
+    >
+      {cardContent}
     </Link>
   );
 }
@@ -313,6 +335,10 @@ export function SkillsPage() {
     }
     return map;
   }, [data?.queue]);
+  const unavailableDetailSlugs = useMemo(
+    () => getUnavailableSkillDetailSlugs(allSkills, activeQueueItems),
+    [allSkills, activeQueueItems],
+  );
 
   // Show toast for "skill not found" errors
   const shownErrorSlugs = useRef(new Set<string>());
@@ -775,6 +801,7 @@ export function SkillsPage() {
                 isInstalled={installedSlugs.has(skill.slug)}
                 queueStatus={queueBySlug.get(skill.slug)}
                 detailTo={createSkillDetailPath(skill.slug, location.search)}
+                isDetailAvailable={!unavailableDetailSlugs.has(skill.slug)}
                 skillSource={
                   topTab === "explore"
                     ? "explore"

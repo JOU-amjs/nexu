@@ -4,6 +4,7 @@ import {
   createSkillDetailPath,
   createSkillDetailState,
   getSkillsBackNavigation,
+  getUnavailableSkillDetailSlugs,
   parseSkillsViewState,
 } from "../src/lib/skills-view-state";
 
@@ -52,6 +53,15 @@ describe("skills-view-state", () => {
 
   it("marks detail links as originating from the skills list", () => {
     expect(createSkillDetailState()).toEqual({ fromSkillsList: true });
+  });
+
+  it("marks queued placeholder skills as lacking detail pages", () => {
+    const unavailableSlugs = getUnavailableSkillDetailSlugs(
+      [{ slug: "clawhub" }, { slug: "tavily-search" }],
+      [{ slug: "queued-custom" }, { slug: "tavily-search" }],
+    );
+
+    expect(Array.from(unavailableSlugs)).toEqual(["queued-custom"]);
   });
 
   it("uses history back only when the detail page was opened from the skills list", () => {
