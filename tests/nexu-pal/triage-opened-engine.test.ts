@@ -73,6 +73,80 @@ describe("buildOpenedIssueTriagePlan", () => {
     );
   });
 
+  it("falls back to non-English when detected language is blank", async () => {
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          is_non_english: true,
+          detected_language: "   ",
+          translated_title: "Translated title",
+          translated_body: "Translated body",
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          is_bug: false,
+          reason: "not a bug",
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          needs_information: false,
+          reason: "enough detail for triage",
+          missing_items: [],
+        }),
+      );
+
+    const plan = await buildOpenedIssueTriagePlan({
+      issueTitle: "原始标题",
+      issueBody: "原始内容",
+      chat,
+    });
+
+    expect(plan.diagnostics).toEqual(
+      expect.arrayContaining([
+        "translation comment prepared for non-English issue",
+      ]),
+    );
+  });
+
+  it("truncates oversized translation comments to stay under GitHub limits", async () => {
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          is_non_english: true,
+          detected_language: "Chinese",
+          translated_title: "Translated title",
+          translated_body: "A".repeat(70000),
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          is_bug: false,
+          reason: "not a bug",
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          needs_information: false,
+          reason: "enough detail for triage",
+          missing_items: [],
+        }),
+      );
+
+    const plan = await buildOpenedIssueTriagePlan({
+      issueTitle: "原始标题",
+      issueBody: "原始内容",
+      chat,
+    });
+
+    expect(plan.commentsToAdd).toHaveLength(1);
+    expect(plan.commentsToAdd[0]).toContain("… [truncated]");
+    expect(plan.commentsToAdd[0].length).toBeLessThanOrEqual(65500);
+  });
+
   it("returns a full plan with stub diagnostics and bug-only labeling", async () => {
     const chat = vi
       .fn()
