@@ -1246,8 +1246,10 @@ function ManagedProviderDetail({
                     if (!isSelected) onSelectModel(model.id);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors",
-                    isSelected ? "bg-surface-2" : "hover:bg-surface-2",
+                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-3.5 text-left transition-colors border",
+                    isSelected
+                      ? "bg-brand-primary/5 border-brand-primary/30"
+                      : "border-transparent hover:bg-surface-2",
                   )}
                 >
                   <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-white border border-border-subtle">
@@ -2201,8 +2203,10 @@ function ByokProviderDetail({
                   if (!isSelected) onSelectModel(modelId);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors",
-                  isSelected ? "bg-surface-2" : "hover:bg-surface-2",
+                  "w-full flex items-center gap-2.5 rounded-lg px-3 py-3.5 text-left transition-colors border",
+                  isSelected
+                    ? "bg-brand-primary/5 border-brand-primary/30"
+                    : "border-transparent hover:bg-surface-2",
                 )}
               >
                 <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-white border border-border-subtle">
