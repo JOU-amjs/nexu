@@ -16,7 +16,7 @@ import type { InstalledSkill, MinimalSkill } from "@/types/desktop";
 import { Compass, Loader2, Plus, Search, Settings2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 type TopTab = "explore" | "yours";
@@ -265,7 +265,12 @@ export function SkillsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 150);
-  const [topTab, setTopTab] = useState<TopTab>("yours");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const topTab: TopTab =
+    searchParams.get("tab") === "explore" ? "explore" : "yours";
+  const setTopTab = (tab: TopTab) => {
+    setSearchParams(tab === "yours" ? {} : { tab }, { replace: true });
+  };
   const [yoursSubTab, setYoursSubTab] = useState<YoursSubTab>("all");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -713,7 +718,7 @@ export function SkillsPage() {
             className="text-[var(--color-accent)] hover:underline"
           >
             GitHub Issues
-          </a>
+          </a>{" "}
           {t("skills.clawhubDisclaimerAfterLink")}
         </p>
 

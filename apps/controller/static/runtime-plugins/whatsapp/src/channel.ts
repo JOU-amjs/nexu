@@ -437,8 +437,15 @@ export const whatsappPlugin: ChannelPlugin<ResolvedWhatsAppAccount> = {
     startAccount: async (ctx) => {
       const account = ctx.account;
       const { e164, jid } = getWhatsAppRuntime().channel.whatsapp.readWebSelfId(account.authDir);
-      const identity = e164 ? e164 : jid ? `jid ${jid}` : "unknown";
-      ctx.log?.info(`[${account.accountId}] starting provider (${identity})`);
+      ctx.log?.info(
+        {
+          channel: "whatsapp",
+          accountId: account.accountId,
+          e164: e164 ?? null,
+          jid: jid ?? null,
+        },
+        "starting provider",
+      );
       return getWhatsAppRuntime().channel.whatsapp.monitorWebChannel(
         getWhatsAppRuntime().logging.shouldLogVerbose(),
         undefined,

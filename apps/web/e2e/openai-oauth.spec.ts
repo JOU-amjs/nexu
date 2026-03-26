@@ -20,7 +20,7 @@ import { type Page, expect, test } from "@playwright/test";
 // ---------------------------------------------------------------------------
 
 const BASE_URL = "http://localhost:5173";
-const API_URL = "http://localhost:3010";
+const _API_URL = "http://localhost:3010";
 
 // ---------------------------------------------------------------------------
 // Mock Data
