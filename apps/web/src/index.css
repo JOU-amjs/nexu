@@ -170,6 +170,14 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   Interactive typography floor
+   Any clickable surface (button, a, [role="button"], elements inside
+   a click target) must use font-size >= 12px.
+   Rationale: sub-12px text on tap/click targets hurts readability
+   and fails touch-target accessibility heuristics.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
    Global input focus — suppress Chromium / Electron system outline
    ═══════════════════════════════════════════════════════════════════ */
 

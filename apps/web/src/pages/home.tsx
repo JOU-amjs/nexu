@@ -636,7 +636,7 @@ export function HomePage() {
                         <div className="text-[13px] font-medium text-text-primary">
                           {ch.name}
                         </div>
-                        <div className="mt-0.5 text-[11px] text-text-muted">
+                        <div className="mt-0.5 text-[12px] text-text-muted">
                           Add nexu Bot
                         </div>
                       </div>

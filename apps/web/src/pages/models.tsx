@@ -1155,7 +1155,7 @@ function ManagedProviderDetail({
                 }
               }
             }}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium shrink-0 rounded-lg border border-border px-2.5 py-1 transition-colors cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium shrink-0 rounded-lg border border-border px-2.5 py-1 transition-colors cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {(cloudDisconnecting || loginBusy) && (
               <Loader2 size={12} className="animate-spin shrink-0" />
@@ -1225,7 +1225,7 @@ function ManagedProviderDetail({
                   refreshCloudModels.mutate();
                 }}
                 disabled={refreshCloudModels.isPending}
-                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
               >
                 <RefreshCw
                   size={10}
@@ -1270,7 +1270,7 @@ function ManagedProviderDetail({
                     {model.name}
                   </span>
                   {isSelected && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-text-secondary shrink-0">
+                    <span className="inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary shrink-0">
                       <Check size={12} />
                       Active
                     </span>
@@ -1689,7 +1689,7 @@ function ByokProviderDetail({
                   href={meta.apiDocsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-link text-[11px]"
+                  className="text-link text-[12px]"
                 >
                   {t("models.byok.getApiKey")}
                   <ArrowUpRight size={12} />
@@ -1724,7 +1724,7 @@ function ByokProviderDetail({
                     disconnectOAuthMutation.mutate();
                   }
                 }}
-                className="shrink-0 rounded-lg border border-border px-3 py-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+                className="shrink-0 rounded-lg border border-border px-3 py-2 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
               >
                 {disconnectOAuthMutation.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -1811,7 +1811,7 @@ function ByokProviderDetail({
                 type="button"
                 onClick={() => setOauthRegion("global")}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                  "rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors",
                   oauthRegion === "global"
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border text-text-secondary hover:bg-surface-2",
@@ -1823,7 +1823,7 @@ function ByokProviderDetail({
                 type="button"
                 onClick={() => setOauthRegion("cn")}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                  "rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors",
                   oauthRegion === "cn"
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border text-text-secondary hover:bg-surface-2",
@@ -1940,7 +1940,7 @@ function ByokProviderDetail({
                 type="button"
                 onClick={() => setCodingPlanRegion("global")}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                   codingPlanRegion === "global"
                     ? "bg-accent text-accent-fg"
                     : "bg-surface-2 text-text-secondary hover:bg-surface-3",
@@ -1952,7 +1952,7 @@ function ByokProviderDetail({
                 type="button"
                 onClick={() => setCodingPlanRegion("cn")}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                   codingPlanRegion === "cn"
                     ? "bg-accent text-accent-fg"
                     : "bg-surface-2 text-text-secondary hover:bg-surface-3",
@@ -2021,7 +2021,7 @@ function ByokProviderDetail({
                 <button
                   type="button"
                   onClick={() => setIsEditingApiKey(true)}
-                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
                 >
                   {t("models.byok.changeApiKey")}
                 </button>
@@ -2041,7 +2041,7 @@ function ByokProviderDetail({
                   disabled={!apiKey || verifyMutation.isPending}
                   onClick={() => verifyMutation.mutate()}
                   className={cn(
-                    "px-3 py-2 rounded-lg border border-border text-[11px] font-medium transition-colors",
+                    "px-3 py-2 rounded-lg border border-border text-[12px] font-medium transition-colors",
                     apiKey
                       ? "text-text-secondary hover:bg-surface-2"
                       : "text-text-muted cursor-not-allowed",
@@ -2090,7 +2090,7 @@ function ByokProviderDetail({
                 <button
                   type="button"
                   onClick={() => setBaseUrl("https://api.minimax.io/anthropic")}
-                  className="rounded-md border border-border px-2.5 py-1 text-[10px] text-text-secondary transition-colors hover:bg-surface-2"
+                  className="rounded-md border border-border px-2.5 py-1 text-[12px] text-text-secondary transition-colors hover:bg-surface-2"
                 >
                   {t("models.byok.minimax.regionGlobal")}
                 </button>
@@ -2099,7 +2099,7 @@ function ByokProviderDetail({
                   onClick={() =>
                     setBaseUrl("https://api.minimaxi.com/anthropic")
                   }
-                  className="rounded-md border border-border px-2.5 py-1 text-[10px] text-text-secondary transition-colors hover:bg-surface-2"
+                  className="rounded-md border border-border px-2.5 py-1 text-[12px] text-text-secondary transition-colors hover:bg-surface-2"
                 >
                   {t("models.byok.minimax.regionCn")}
                 </button>
@@ -2223,7 +2223,7 @@ function ByokProviderDetail({
                   {modelId}
                 </span>
                 {isSelected && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-text-secondary shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary shrink-0">
                     <Check size={12} />
                     Active
                   </span>

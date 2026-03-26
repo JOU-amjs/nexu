@@ -279,7 +279,7 @@ function UpdateFloatCard({
           <button
             type="button"
             onClick={onInstall}
-            className="rounded-[6px] px-2.5 py-1 text-[11px] font-medium bg-[var(--color-accent)] text-white hover:opacity-85 transition-opacity"
+            className="rounded-[6px] px-2.5 py-1 text-[12px] font-medium bg-[var(--color-accent)] text-white hover:opacity-85 transition-opacity"
           >
             {t("layout.update.install")}
           </button>
@@ -289,14 +289,14 @@ function UpdateFloatCard({
           <button
             type="button"
             onClick={onDownload}
-            className="rounded-[6px] px-2.5 py-1 text-[11px] font-medium bg-[var(--color-accent)] text-white hover:opacity-85 transition-opacity"
+            className="rounded-[6px] px-2.5 py-1 text-[12px] font-medium bg-[var(--color-accent)] text-white hover:opacity-85 transition-opacity"
           >
             {t("layout.update.download")}
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded-[6px] px-2 py-1 text-[11px] font-medium text-text-muted hover:text-text-primary transition-colors"
+            className="rounded-[6px] px-2 py-1 text-[12px] font-medium text-text-muted hover:text-text-primary transition-colors"
           >
             {t("layout.update.later")}
           </button>
@@ -602,7 +602,7 @@ function WorkspaceLayoutInner() {
                 <button
                   type="button"
                   onClick={() => setUpdateDismissed(false)}
-                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[var(--color-brand-primary)] text-white hover:opacity-85 transition-opacity"
+                  className="rounded-full px-2 py-0.5 text-[12px] font-semibold bg-[var(--color-brand-primary)] text-white hover:opacity-85 transition-opacity"
                 >
                   {t("layout.update.badge")}
                 </button>
@@ -666,7 +666,7 @@ function WorkspaceLayoutInner() {
               <Sparkles size={16} className="shrink-0" />
               {t("layout.nav.skills")}
               {installedSkillsCount > 0 && (
-                <span className="ml-auto text-[10px] text-text-tertiary font-normal">
+                <span className="ml-auto text-[12px] text-text-tertiary font-normal">
                   {installedSkillsCount}
                 </span>
               )}
@@ -730,7 +730,7 @@ function WorkspaceLayoutInner() {
                           {s.title}
                         </div>
                       </div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-text-muted truncate whitespace-nowrap">
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-text-muted truncate whitespace-nowrap">
                         <span>{getPlatformLabel(s.channelType ?? "web")}</span>
                         <span className="text-border">·</span>
                         <span>{formatTime(s.lastTime)}</span>
@@ -864,7 +864,7 @@ function WorkspaceLayoutInner() {
                     >
                       <span>{option.label}</span>
                       {locale === option.value && (
-                        <span className="text-[10px] text-text-muted">✓</span>
+                        <span className="text-[12px] text-text-muted">✓</span>
                       )}
                     </button>
                   ))}
@@ -878,7 +878,7 @@ function WorkspaceLayoutInner() {
                 setShowHelpMenu(false);
               }}
               className={cn(
-                "h-7 inline-flex items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors cursor-pointer",
+                "h-7 inline-flex items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors cursor-pointer",
                 showLangMenu
                   ? "text-text-primary bg-black/5"
                   : "text-text-secondary hover:text-text-primary hover:bg-black/5",
@@ -929,7 +929,7 @@ function WorkspaceLayoutInner() {
                     className="w-7 h-7 rounded-md object-cover ring-1 ring-accent/10 shrink-0"
                   />
                 ) : (
-                  <div className="flex justify-center items-center w-7 h-7 rounded-md bg-gradient-to-br from-accent/20 to-accent/5 text-[10px] font-bold text-accent ring-1 ring-accent/10 shrink-0">
+                  <div className="flex justify-center items-center w-7 h-7 rounded-md bg-gradient-to-br from-accent/20 to-accent/5 text-[12px] font-bold text-accent ring-1 ring-accent/10 shrink-0">
                     {userInitial}
                   </div>
                 )}
@@ -937,7 +937,7 @@ function WorkspaceLayoutInner() {
                   <div className="text-[12px] text-text-primary truncate font-medium whitespace-nowrap">
                     {userName}
                   </div>
-                  <div className="text-[10px] text-text-muted truncate whitespace-nowrap">
+                  <div className="text-[12px] text-text-muted truncate whitespace-nowrap">
                     {userEmail}
                   </div>
                 </div>
@@ -1089,7 +1089,7 @@ function WorkspaceLayoutInner() {
                                 {s.title}
                               </div>
                             </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-text-muted truncate">
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-text-muted truncate">
                               <span>
                                 {getPlatformLabel(s.channelType ?? "web")}
                               </span>
@@ -1148,7 +1148,7 @@ function WorkspaceLayoutInner() {
                   onClick={() => setShowLogoutConfirm(!showLogoutConfirm)}
                   className="flex gap-2.5 items-center w-full px-2 py-2 rounded-lg transition-all hover:bg-surface-3 cursor-pointer"
                 >
-                  <div className="flex justify-center items-center w-7 h-7 rounded-md bg-gradient-to-br from-accent/20 to-accent/5 text-[10px] font-bold text-accent ring-1 ring-accent/10 shrink-0">
+                  <div className="flex justify-center items-center w-7 h-7 rounded-md bg-gradient-to-br from-accent/20 to-accent/5 text-[12px] font-bold text-accent ring-1 ring-accent/10 shrink-0">
                     {userInitial}
                   </div>
                   <div className="flex-1 min-w-0 text-left">

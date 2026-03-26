@@ -328,7 +328,7 @@ function IntegrationCard({
             <button
               type="button"
               onClick={onDisconnect}
-              className="text-[11px] text-text-muted hover:text-red-500 transition-colors"
+              className="text-[12px] text-text-muted hover:text-red-500 transition-colors"
             >
               {t("integrations.disconnect")}
             </button>
@@ -690,7 +690,7 @@ export function IntegrationsPage() {
               {tab.label}
               <span
                 className={cn(
-                  "ml-1 text-[10px] tabular-nums",
+                  "ml-1 text-[12px] tabular-nums",
                   statusFilter === tab.id
                     ? "text-text-secondary"
                     : "text-text-muted/40",

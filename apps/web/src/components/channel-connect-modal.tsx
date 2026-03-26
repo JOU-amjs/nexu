@@ -331,7 +331,7 @@ export function ChannelConnectModal({
             href={config.docUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-link text-[11px] mt-1"
+            className="text-link text-[12px] mt-1"
           >
             {t("modal.viewDocs", { name: config.name })}
             <ArrowUpRight size={12} />

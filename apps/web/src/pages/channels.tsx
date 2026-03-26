@@ -137,7 +137,7 @@ export function ChannelsPage() {
                 >
                   {PLATFORM_LABELS[p.id]}
                 </div>
-                <div className="text-[10px] text-text-muted mt-0.5">
+                <div className="text-[12px] text-text-muted mt-0.5">
                   {p.desc}
                 </div>
               </div>
@@ -334,7 +334,7 @@ function ConfiguredView({
               track("workspace_change_config_click");
               onShowGuide();
             }}
-            className="flex gap-1.5 items-center px-3 py-1.5 text-[11px] text-text-muted rounded-lg border border-border hover:border-border-hover hover:text-text-secondary transition-all shrink-0"
+            className="flex gap-1.5 items-center px-3 py-1.5 text-[12px] text-text-muted rounded-lg border border-border hover:border-border-hover hover:text-text-secondary transition-all shrink-0"
           >
             <BookOpen size={11} /> {t("channels.setupGuide")}
           </button>

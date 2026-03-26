@@ -211,7 +211,7 @@ function SkillCard({
             {skill.name}
           </div>
           {categoryLabel && (
-            <span className="text-[11px] text-text-muted">{categoryLabel}</span>
+            <span className="text-[12px] text-text-muted">{categoryLabel}</span>
           )}
         </div>
       </div>
@@ -258,7 +258,7 @@ function SkillCard({
                 Uninstall
               </button>
             ) : (
-              <span className="text-[11px] text-text-muted">Installing…</span>
+              <span className="text-[12px] text-text-muted">Installing…</span>
             )}
           </>
         ) : (
@@ -680,7 +680,7 @@ export function SkillsPage() {
                     setActiveTag(null);
                   }}
                   className={cn(
-                    "shrink-0 inline-flex items-center justify-center rounded-full h-7 px-3 text-[11px] leading-none font-medium transition-all",
+                    "shrink-0 inline-flex items-center justify-center rounded-full h-7 px-3 text-[12px] leading-none font-medium transition-all",
                     active
                       ? "bg-[var(--color-accent)] text-white"
                       : "border border-border bg-surface-1 text-text-secondary hover:text-text-primary hover:border-border-hover",
@@ -721,7 +721,7 @@ export function SkillsPage() {
                       setActiveTag(tab.id === "all" ? null : tab.id)
                     }
                     className={cn(
-                      "shrink-0 inline-flex items-center justify-center rounded-full h-7 px-3 text-[11px] leading-none font-medium transition-all",
+                      "shrink-0 inline-flex items-center justify-center rounded-full h-7 px-3 text-[12px] leading-none font-medium transition-all",
                       active
                         ? "bg-[var(--color-accent)] text-white"
                         : "border border-border bg-surface-1 text-text-secondary hover:text-text-primary hover:border-border-hover",

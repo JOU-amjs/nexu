@@ -411,7 +411,7 @@ export function WelcomePage() {
                                 </div>
                               </div>
                               <span
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] shrink-0 ${
+                                className={`rounded-full px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.14em] shrink-0 ${
                                   option.tone === "primary"
                                     ? "bg-white/[0.08] text-white/75"
                                     : "border border-black/10 bg-white/70 text-text-secondary"
@@ -443,7 +443,7 @@ export function WelcomePage() {
                               {option.highlights.map((tag) => (
                                 <span
                                   key={tag}
-                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] ${
+                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] ${
                                     option.tone === "primary"
                                       ? "border border-white/10 bg-white/[0.06] text-white/78"
                                       : "border border-black/8 bg-white/70 text-text-secondary"
@@ -459,7 +459,7 @@ export function WelcomePage() {
                             </div>
 
                             <div
-                              className={`mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] ${
+                              className={`mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] ${
                                 option.tone === "primary"
                                   ? "text-white/44"
                                   : "text-text-muted"

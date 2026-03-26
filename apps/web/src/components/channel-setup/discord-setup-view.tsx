@@ -115,7 +115,7 @@ export function DiscordSetupView({
               }`}
             />
             <div
-              className={`text-[11px] font-semibold mt-2 transition-all ${
+              className={`text-[12px] font-semibold mt-2 transition-all ${
                 i === activeStep
                   ? "text-[#5865F2]"
                   : i < activeStep
@@ -126,7 +126,7 @@ export function DiscordSetupView({
               {t("discordSetup.step", { number: i + 1 })}
             </div>
             <div
-              className={`text-[10px] mt-0.5 leading-tight transition-all ${
+              className={`text-[12px] mt-0.5 leading-tight transition-all ${
                 i === activeStep ? "text-text-secondary" : "text-text-muted/40"
               }`}
             >
@@ -428,7 +428,7 @@ export function DiscordSetupView({
           href="https://discord.com/developers/docs/getting-started"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-link text-[11px]"
+          className="text-link text-[12px]"
         >
           {t("discordSetup.helpText")} {t("discordSetup.helpLinkText")}{" "}
           {t("discordSetup.helpSuffix")}

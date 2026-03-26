@@ -371,7 +371,7 @@ export function SlackOAuthView({
               }`}
             />
             <div
-              className={`text-[11px] font-semibold mt-2 transition-all ${
+              className={`text-[12px] font-semibold mt-2 transition-all ${
                 i === activeStep
                   ? "text-[#4A154B]"
                   : i < activeStep
@@ -382,7 +382,7 @@ export function SlackOAuthView({
               {t("slackSetup.step", { number: i + 1 })}
             </div>
             <div
-              className={`text-[10px] mt-0.5 leading-tight transition-all ${
+              className={`text-[12px] mt-0.5 leading-tight transition-all ${
                 i === activeStep ? "text-text-secondary" : "text-text-muted/40"
               }`}
             >
@@ -681,7 +681,7 @@ export function SlackOAuthView({
           href="https://api.slack.com/authentication/basics"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-link text-[11px]"
+          className="text-link text-[12px]"
         >
           {t("slackSetup.helpText")} {t("slackSetup.helpLinkText")}{" "}
           {t("slackSetup.helpSuffix")}

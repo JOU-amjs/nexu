@@ -164,7 +164,7 @@ export function ModelPickerDropdown({
         type="button"
         onClick={onOpenSettings}
         className={cn(
-          "flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary transition-colors",
+          "flex items-center gap-1 text-[12px] text-text-muted hover:text-text-secondary transition-colors",
           className,
         )}
       >
@@ -353,14 +353,14 @@ export function ModelPickerDropdown({
                         <span
                           className={cn(
                             compact
-                              ? "text-[11px]"
-                              : "text-[10px] uppercase tracking-wider",
+                              ? "text-[12px]"
+                              : "text-[12px] uppercase tracking-wider",
                             "font-medium text-text-secondary",
                           )}
                         >
                           {provider.name}
                         </span>
-                        <span className="text-[10px] text-text-muted/40 ml-auto tabular-nums">
+                        <span className="text-[12px] text-text-muted/40 ml-auto tabular-nums">
                           {provider.models.length}
                         </span>
                       </button>
@@ -427,7 +427,7 @@ export function ModelPickerDropdown({
                                   {model.name}
                                 </div>
                                 {!compact && (
-                                  <div className="text-[10px] text-text-tertiary">
+                                  <div className="text-[12px] text-text-tertiary">
                                     {provider.name}
                                   </div>
                                 )}
@@ -454,7 +454,7 @@ export function ModelPickerDropdown({
                   track("workspace_configure_model_provider_click");
                   onOpenSettings();
                 }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] text-text-secondary hover:bg-surface-2 transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-text-secondary hover:bg-surface-2 transition-colors"
               >
                 <Settings size={11} />
                 <span>{t("home.configureProviders")}</span>
