@@ -1,6 +1,16 @@
 import { detectDuplicate } from "./signals/duplicate-detector.mjs";
 import { matchRoadmap } from "./signals/roadmap-matcher.mjs";
 
+export function createTriagePlan() {
+  return {
+    labelsToAdd: [],
+    labelsToRemove: [],
+    commentsToAdd: [],
+    closeIssue: false,
+    diagnostics: [],
+  };
+}
+
 function sanitizeJsonResponse(raw) {
   return raw.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
 }
@@ -71,13 +81,7 @@ export async function buildOpenedIssueTriagePlan({
   issueAssignee,
   chat,
 }) {
-  const plan = {
-    labelsToAdd: [],
-    labelsToRemove: [],
-    commentsToAdd: [],
-    closeIssue: false,
-    diagnostics: [],
-  };
+  const plan = createTriagePlan();
 
   const translation = await detectAndTranslate({ chat, issueTitle, issueBody });
   let englishTitle = issueTitle;

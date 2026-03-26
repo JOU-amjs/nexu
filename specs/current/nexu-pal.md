@@ -24,9 +24,22 @@ Runs in order:
 
 4. **Triage label** — If the issue has no assignee, adds the `needs-triage` label.
 
+The opened-issue flow is split into a small pipeline:
+
+- `process-issue-opened.mjs` is the workflow entrypoint.
+- `lib/triage-opened-engine.mjs` builds a stable `TriagePlan` shape.
+- `lib/github-client.mjs` executes the plan.
+
+Current Phase 3 behavior keeps roadmap and duplicate detection as no-op stubs, but the shared `TriagePlan` / executor contract already supports:
+
+- `commentsToAdd`
+- `labelsToAdd`
+- `labelsToRemove`
+- `closeIssue`
+
 ## On issue assigned
 
-Removes the `needs-triage` label (no-op if the label is already absent).
+Removes the `needs-triage` label (no-op if the label is already absent) via the same shared GitHub issue client used by the main triage pipeline.
 
 ## Feishu notifications
 
@@ -74,7 +87,11 @@ The Feishu notification workflows do not use the GitHub App. They use the defaul
   feishu-discussion-notify.yml
 scripts/nexu-pal/
   process-issue-opened.mjs # opened-issue triage pipeline with bug-only labeling
-  process-issue-assignment.mjs  # remove needs-triage on assignment
+  process-issue-assignment.mjs  # remove needs-triage on assignment via shared client
+  lib/github-client.mjs         # shared GitHub issue executor for comments/labels/close actions
+  lib/triage-opened-engine.mjs  # builds the stable opened-issue TriagePlan
+  lib/signals/roadmap-matcher.mjs     # roadmap matcher stub
+  lib/signals/duplicate-detector.mjs  # duplicate detector stub
 scripts/notify/
   feishu-triage-notify.mjs # route needs-triage issue notifications via BUG_WEBHOOK / REQ_WEBHOOK
   feishu-notify.mjs        # legacy issue-opened and discussion Feishu webhook card notification

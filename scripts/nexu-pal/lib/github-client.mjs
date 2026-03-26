@@ -1,5 +1,45 @@
 const FETCH_TIMEOUT_MS = 30_000;
 
+function toOrderedUniqueStrings(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const result = [];
+
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    const normalizedValue = value.trim();
+    if (normalizedValue === "" || seen.has(normalizedValue)) {
+      continue;
+    }
+
+    seen.add(normalizedValue);
+    result.push(normalizedValue);
+  }
+
+  return result;
+}
+
+export function normalizeTriagePlan(plan) {
+  const labelsToAdd = toOrderedUniqueStrings(plan?.labelsToAdd);
+  const labelsToRemove = toOrderedUniqueStrings(plan?.labelsToRemove).filter(
+    (label) => !labelsToAdd.includes(label),
+  );
+
+  return {
+    labelsToAdd,
+    labelsToRemove,
+    commentsToAdd: toOrderedUniqueStrings(plan?.commentsToAdd),
+    closeIssue: plan?.closeIssue === true,
+    diagnostics: toOrderedUniqueStrings(plan?.diagnostics),
+  };
+}
+
 export async function fetchWithTimeout(
   url,
   options,
@@ -71,13 +111,42 @@ export function createGitHubIssueClient({ token, repo, issueNumber }) {
       });
     },
 
+    async removeLabel(label) {
+      try {
+        await ghApi(
+          `/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
+          "DELETE",
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("failed (404)")) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+
+    closeIssue() {
+      return ghApi(`/issues/${issueNumber}`, "PATCH", { state: "closed" });
+    },
+
     async applyPlan(plan) {
-      for (const comment of plan.commentsToAdd) {
+      const normalizedPlan = normalizeTriagePlan(plan);
+
+      for (const comment of normalizedPlan.commentsToAdd) {
         await this.addComment(comment);
       }
 
-      for (const label of plan.labelsToAdd) {
+      for (const label of normalizedPlan.labelsToAdd) {
         await this.addLabel(label);
+      }
+
+      for (const label of normalizedPlan.labelsToRemove) {
+        await this.removeLabel(label);
+      }
+
+      if (normalizedPlan.closeIssue) {
+        await this.closeIssue();
       }
     },
   };
