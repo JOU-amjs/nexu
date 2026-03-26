@@ -16,7 +16,7 @@
 # - project_number
 # - sender
 # - org_or_user
-name: Feishu Projects V2 Item Notify
+name: Feishu Project Item Notify
 
 on:
   repository_dispatch:
