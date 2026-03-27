@@ -71,6 +71,7 @@ function SkillCard({
   detailTo: string;
   isDetailAvailable: boolean;
 }) {
+  const { t } = useTranslation();
   const installMutation = useInstallSkill();
   const uninstallMutation = useUninstallSkill();
   const [pendingAction, setPendingAction] = useState<
@@ -174,7 +175,7 @@ function SkillCard({
         {isQueueActive || (isMutating && pendingAction === "install") ? (
           <span className="inline-flex items-center gap-1.5 rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium border border-border text-text-muted cursor-default">
             <Loader2 size={12} className="animate-spin" />
-            Installing…
+            {t("skills.installingAction")}
           </span>
         ) : isInstalled ? (
           <button
@@ -187,7 +188,9 @@ function SkillCard({
             disabled={isMutating}
             className="text-[12px] font-medium text-text-muted hover:text-[var(--color-danger)] transition-colors"
           >
-            {pendingAction === "uninstall" ? "Uninstalling…" : "Uninstall"}
+            {pendingAction === "uninstall"
+              ? t("skills.uninstallingAction")
+              : t("skills.uninstallAction")}
           </button>
         ) : (
           <button
@@ -200,7 +203,7 @@ function SkillCard({
             disabled={isMutating}
             className="rounded-[8px] px-[14px] py-[5px] text-[12px] font-medium border border-border text-text-primary hover:bg-surface-2 hover:border-border-hover transition-colors"
           >
-            Install
+            {t("skills.installAction")}
           </button>
         )}
       </div>

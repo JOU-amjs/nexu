@@ -472,6 +472,10 @@ const zhCN = {
   "skills.justNow": "刚刚",
   "skills.hoursAgo": "{{count}}小时前",
   "skills.daysAgo": "{{count}}天前",
+  "skills.installAction": "安装",
+  "skills.uninstallAction": "卸载",
+  "skills.installingAction": "安装中…",
+  "skills.uninstallingAction": "卸载中…",
 
   // ── Skill Detail Page ──
   "skillDetail.backToSkills": "返回技能列表",

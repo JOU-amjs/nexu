@@ -495,6 +495,10 @@ const en = {
   "skills.justNow": "just now",
   "skills.hoursAgo": "{{count}}h ago",
   "skills.daysAgo": "{{count}}d ago",
+  "skills.installAction": "Install",
+  "skills.uninstallAction": "Uninstall",
+  "skills.installingAction": "Installing…",
+  "skills.uninstallingAction": "Uninstalling…",
 
   // ── Skill Detail Page ──
   "skillDetail.backToSkills": "Back to Skills",
