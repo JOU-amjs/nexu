@@ -1,6 +1,23 @@
 name: Desktop CI Dist Full
 
 on:
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - "apps/controller/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "openclaw-runtime/**"
+      - "openclaw-runtime-patches/**"
+      - ".npmrc"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "scripts/desktop-check-dist.sh"
+      - "scripts/desktop-ci-check.mjs"
+      - "scripts/postinstall.mjs"
+      - ".github/workflows/desktop-ci-dist-lite.yml"
+      - ".github/workflows/desktop-ci-dist-full.yml"
   push:
     branches:
       - main
