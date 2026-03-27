@@ -102,9 +102,16 @@ verify_spctl "packaged app" "$packaged_app"
 verify_spctl "extracted runner" "$runner_app"
 
 echo "[runner-check] smoke running extracted runner"
+# Use a temp script file instead of -e to avoid Electron's internal
+# ../package.json lookup that fires in eval mode and fails when cwd
+# is inside the .app bundle.
+smoke_script="$tmp_dir/nexu-runner-smoke.js"
+mkdir -p "$tmp_dir"
+printf 'process.stdout.write("nexu-runner-smoke-ok\\n");\n' > "$smoke_script"
 output="$({
-  HOME="$packaged_home" TMPDIR="$tmp_dir" ELECTRON_RUN_AS_NODE=1 "$runner_executable" -e 'console.log("nexu-runner-smoke-ok")'
+  HOME="$packaged_home" TMPDIR="$tmp_dir" ELECTRON_RUN_AS_NODE=1 "$runner_executable" "$smoke_script"
 } 2>&1)"
+rm -f "$smoke_script"
 printf '%s\n' "$output"
 
 if [[ "$output" != *"nexu-runner-smoke-ok"* ]]; then
