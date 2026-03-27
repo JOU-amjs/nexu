@@ -78,6 +78,22 @@ verify_spctl() {
 }
 
 verify_structure "packaged app" "$packaged_app" "$packaged_executable"
+
+# The runner is normally extracted during launchd bootstrap, which does not
+# run in CI (check:dist uses orchestrator mode).  Extract it explicitly so
+# we can verify the bundle integrity.
+if [ ! -d "$runner_app" ]; then
+  echo "[runner-check] extracted runner not found, triggering extraction"
+  app_version="$(HOME="$packaged_home" TMPDIR="$tmp_dir" ELECTRON_RUN_AS_NODE=1 \
+    "$packaged_executable" -e 'const p=require("fs").readFileSync(require("path").join(__dirname,"..","package.json"),"utf8");process.stdout.write(JSON.parse(p).version)')"
+  nexu_home="$packaged_home/.nexu"
+  mkdir -p "$nexu_home/runtime"
+  echo "[runner-check] cloning $packaged_app → $runner_app"
+  cp -Rc "$packaged_app" "$runner_app"
+  echo "$app_version" > "$nexu_home/runtime/.nexu-runner-version"
+  echo "[runner-check] extraction complete (version=$app_version)"
+fi
+
 verify_structure "extracted runner" "$runner_app" "$runner_executable"
 
 verify_codesign "packaged app" "$packaged_app"
