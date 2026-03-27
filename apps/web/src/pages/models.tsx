@@ -2082,17 +2082,6 @@ function ByokProviderDetail({
           </div>
         )}
 
-        {/* Z.AI "or general API" divider */}
-        {isZaiProvider && authMode === "oauth" && (
-          <div className="flex items-center gap-3 my-1">
-            <div className="flex-1 border-t border-border" />
-            <span className="text-[10px] text-text-muted">
-              {t("models.byok.zaiOrGeneralApi")}
-            </span>
-            <div className="flex-1 border-t border-border" />
-          </div>
-        )}
-
         {/* API Key mode inputs */}
         {!isOAuthConnected &&
           (!hasMultipleAuthModes || authMode === "apiKey") && (
