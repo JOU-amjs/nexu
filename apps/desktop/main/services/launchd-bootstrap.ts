@@ -1237,7 +1237,11 @@ export async function ensureExternalNodeRunner(
   const runnerRoot = path.join(nexuHome, "runtime", "nexu-runner.app");
   const stagingRoot = `${runnerRoot}.staging`;
   const binaryPath = path.join(runnerRoot, "Contents", "MacOS", binaryName);
-  const stampPath = path.join(runnerRoot, ".version-stamp");
+  // Version stamp lives OUTSIDE the .app bundle so it does not break the
+  // code signature's sealed-resources check.  Writing any file into the
+  // bundle root causes `codesign --verify` to fail with
+  // "unsealed contents present in the bundle root".
+  const stampPath = path.join(nexuHome, "runtime", ".nexu-runner-version");
 
   assertSafeRmTarget(runnerRoot);
   assertSafeRmTarget(stagingRoot);
@@ -1294,14 +1298,15 @@ export async function ensureExternalNodeRunner(
     );
   }
 
-  // Write version stamp inside staging directory
-  const stagingStampPath = path.join(stagingRoot, ".version-stamp");
-  writeFileSync(stagingStampPath, appVersion, "utf8");
-
   // Atomic swap: remove old directory, then rename staging into place.
   // mv (rename) is atomic on the same filesystem (POSIX guarantee).
   await execFileAsync("rm", ["-rf", runnerRoot]).catch(() => {});
   await fs.rename(stagingRoot, runnerRoot);
+
+  // Write version stamp AFTER the swap so it is only visible when the
+  // runner bundle is fully in place.  The stamp file is a sibling of the
+  // .app bundle, not inside it, to preserve the code signature.
+  writeFileSync(stampPath, appVersion, "utf8");
 
   console.log(`External node runner ready at ${binaryPath}`);
   return binaryPath;

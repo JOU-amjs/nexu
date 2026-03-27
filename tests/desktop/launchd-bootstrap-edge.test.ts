@@ -313,12 +313,12 @@ describe("resolveLaunchdPaths — packaged mode details", () => {
     >;
 
     existsSync.mockImplementation((target: string) => {
-      if (target.endsWith(".version-stamp")) return true;
+      if (target.endsWith(".nexu-runner-version")) return true;
       if (target.includes("nexu-runner.app/Contents/MacOS/Nexu")) return true;
       return target.endsWith("Info.plist");
     });
     readFileSync.mockImplementation((target: string) => {
-      if (target.endsWith(".version-stamp")) return "1.2.3";
+      if (target.endsWith(".nexu-runner-version")) return "1.2.3";
       return "";
     });
 
@@ -405,7 +405,7 @@ describe("resolveLaunchdPaths — packaged mode details", () => {
     >;
 
     existsSync.mockImplementation((target: string) => {
-      if (target.endsWith(".version-stamp")) return false;
+      if (target.endsWith(".nexu-runner-version")) return false;
       if (
         target.endsWith(
           "/Users/testuser/.nexu/runtime/nexu-runner.app.staging/Contents/MacOS/Nexu",
@@ -549,13 +549,13 @@ describe("external runner — path stability and edge cases", () => {
 
     // Mock: stamp exists with old version, binary exists, Info.plist exists
     existsSync.mockImplementation((target: string) => {
-      if (target.endsWith(".version-stamp")) return true;
+      if (target.endsWith(".nexu-runner-version")) return true;
       if (target.includes("MacOS/Nexu")) return true;
       if (target.endsWith("Info.plist")) return true;
       return false;
     });
     readFileSync.mockImplementation((target: string) => {
-      if (target.endsWith(".version-stamp")) return "0.1.6"; // old version
+      if (target.endsWith(".nexu-runner-version")) return "0.1.6"; // old version
       return "";
     });
 
@@ -620,7 +620,7 @@ describe("external runner — path stability and edge cases", () => {
       ) {
         return true;
       }
-      if (target.endsWith(".version-stamp")) return false;
+      if (target.endsWith(".nexu-runner-version")) return false;
       return false;
     });
     readFileSync.mockImplementation((target: string) => {
