@@ -18,11 +18,11 @@ Runs in order:
 
 1. **First-time contributor welcome** — Uses `actions/first-interaction@v3`. If the author has never opened an issue in this repo before, posts a welcome comment.
 
-2. **Language detection & translation** — Sends the issue title and body to an LLM (`google/gemini-2.5-flash` via OpenRouter). If the content is primarily non-English, posts a comment with the English translation, adds the `ai-translated` label, and uses the English translation internally for downstream classification.
+2. **Language detection & translation** — Sends the issue title and body to an LLM (`google/gemini-2.5-flash` via OpenRouter). If the issue is already mostly English and minor non-English text does not affect the meaning, it skips translation. When translation is needed, it translates only the non-English parts, groups them by title / section heading when possible, posts only those translated sections in a comment, adds the `ai-translated` label, and uses the translated result internally for downstream classification.
 
 3. **Intent classification** — Sends the normalized English title and body to the LLM and assigns only the `bug` label when the issue clearly describes broken behavior.
 
-4. **Internal-member short-circuit** — If `issue.author_association` is `MEMBER` or `OWNER`, the opened-issue flow stops after translation + bug classification. Internal issues skip known-issue matching, completeness checks, and `needs-triage` labeling.
+4. **Internal-member short-circuit** — The workflow checks whether `issue.user.login` belongs to the repository owner's GitHub organization via the org-membership API. If the author is an org member, the opened-issue flow stops after translation + bug classification. Internal issues skip known-issue matching, completeness checks, and `needs-triage` labeling.
 
 5. **Completeness check** — For non-internal authors, uses the LLM to decide whether the issue is too incomplete to continue triage. If so, adds `needs-information`, posts a follow-up comment, and pauses there.
 

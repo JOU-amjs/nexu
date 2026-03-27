@@ -63,6 +63,8 @@ This repo is desktop-first. Prefer the controller-first path and remove or ignor
 
 - **No co-author trailer.** Never append `Co-Authored-By:` lines to commit messages.
 - **Conventional commit prefix.** Use `chore:` for changes that are invisible to end users (CI/CD, issue bots, tooling, config). These are excluded from release notes. Use `feat:` / `fix:` / `docs:` etc. for user-visible changes.
+- **Docs commit/PR prefix.** Documentation-only changes must use `docs:` for both commit titles and PR titles.
+- **Non-user-facing commit/PR prefix.** Any change that is not user-facing and should not appear in release notes must use `chore:` for both commit titles and PR titles.
 - **PR format.** When creating a pull request, always follow `.github/pull_request_template.md` — fill in What / Why / How / Affected areas / Checklist sections.
 
 ## Desktop local development
