@@ -12,6 +12,7 @@ import {
 } from "@nexu/dev-utils";
 
 import { getControllerPortPid } from "../services/controller.js";
+import { getScriptsDevRuntimeConfig } from "../shared/dev-runtime-config.js";
 import {
   controllerDevLockPath,
   controllerSourceDirectoryPath,
@@ -37,6 +38,7 @@ if (!sessionId) {
 
 const controllerRunId = runId;
 const controllerSessionId = sessionId;
+const runtimeConfig = getScriptsDevRuntimeConfig();
 
 function createControllerWorkerCommand(): { command: string; args: string[] } {
   const { loaderUrl, preflightPath } = resolveTsxPaths();
@@ -56,16 +58,24 @@ async function waitForControllerPortRelease(): Promise<void> {
         return;
       }
 
-      throw new Error("controller dev server is still listening on port 3010");
+      throw new Error(
+        `controller dev server is still listening on port ${String(runtimeConfig.controllerPort)}`,
+      );
     },
-    () => new Error("controller dev server did not release port 3010"),
+    () =>
+      new Error(
+        `controller dev server did not release port ${String(runtimeConfig.controllerPort)}`,
+      ),
   );
 }
 
 async function waitForControllerPortPid(): Promise<number> {
   return waitFor(
     () => getControllerPortPid(),
-    () => new Error("controller dev server did not open port 3010"),
+    () =>
+      new Error(
+        `controller dev server did not open port ${String(runtimeConfig.controllerPort)}`,
+      ),
     {
       attempts: 30,
     },

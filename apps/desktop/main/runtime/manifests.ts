@@ -25,6 +25,10 @@ function resolveElectronNodeRunner(): string {
   return process.execPath;
 }
 
+function isExternalRuntimeMode(runtimeConfig: DesktopRuntimeConfig): boolean {
+  return runtimeConfig.runtimeMode === "external";
+}
+
 export async function createRuntimeUnitManifests(
   electronRoot: string,
   userDataPath: string,
@@ -78,6 +82,7 @@ export async function createRuntimeUnitManifests(
   const controllerPort = runtimeConfig.ports.controller;
   const webPort = runtimeConfig.ports.web;
   const webUrl = runtimeConfig.urls.web;
+  const externalRuntimeMode = isExternalRuntimeMode(runtimeConfig);
   const electronNodeRunner = resolveElectronNodeRunner();
   const openclawNodePath =
     platformCapabilities.runtimeExecutables.resolveOpenclawNodePath({
@@ -101,7 +106,7 @@ export async function createRuntimeUnitManifests(
       id: "web",
       label: "nexu Web Surface",
       kind: "surface",
-      launchStrategy: "managed",
+      launchStrategy: externalRuntimeMode ? "external" : "managed",
       runner: "spawn",
       command: electronNodeRunner,
       args: [webModulePath],
@@ -130,7 +135,7 @@ export async function createRuntimeUnitManifests(
       id: "controller",
       label: "nexu Controller",
       kind: "service",
-      launchStrategy: "managed",
+      launchStrategy: externalRuntimeMode ? "external" : "managed",
       // Use spawn instead of utility-process due to Electron bugs:
       // - https://github.com/electron/electron/issues/43186
       //   Network requests fail with ECONNRESET after event loop blocking
@@ -182,7 +187,7 @@ export async function createRuntimeUnitManifests(
       id: "openclaw",
       label: "OpenClaw Runtime",
       kind: "runtime",
-      launchStrategy: "delegated",
+      launchStrategy: externalRuntimeMode ? "external" : "delegated",
       delegatedProcessMatch: "openclaw-gateway",
       binaryPath: openclawBinPath,
       port: null,

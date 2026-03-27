@@ -18,6 +18,10 @@ import {
 import { ensure } from "@nexu/shared";
 
 import {
+  createWebInjectedEnv,
+  getScriptsDevRuntimeConfig,
+} from "../shared/dev-runtime-config.js";
+import {
   getWebDevLogPath,
   webDevLockPath,
   webSupervisorPath,
@@ -55,14 +59,21 @@ function createWebCommand(sessionId: string): {
 }
 
 async function getWebPortPid(): Promise<number> {
-  return getListeningPortPid(5173, "web dev server");
+  return getListeningPortPid(
+    getScriptsDevRuntimeConfig().webPort,
+    "web dev server",
+  );
 }
 
 async function waitForWebPortPid(): Promise<number> {
-  return waitForListeningPortPid(5173, "web dev server", {
-    attempts: 20,
-    delayMs: 500,
-  });
+  return waitForListeningPortPid(
+    getScriptsDevRuntimeConfig().webPort,
+    "web dev server",
+    {
+      attempts: 20,
+      delayMs: 500,
+    },
+  );
 }
 
 export async function startWebDevProcess(options: {
@@ -92,6 +103,7 @@ export async function startWebDevProcess(options: {
     env: {
       ...process.env,
       NODE_OPTIONS: createNodeOptions(),
+      ...createWebInjectedEnv(),
       NEXU_DEV_WEB_RUN_ID: runId,
       NEXU_DEV_SESSION_ID: sessionId,
       NEXU_DEV_SERVICE: "web",

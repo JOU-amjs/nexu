@@ -3,41 +3,48 @@ import { type ChildProcess, spawn } from "node:child_process";
 import {
   createNodeOptions,
   removeDevLock,
-  resolveViteBinPath,
   terminateProcess,
   waitForChildExit,
   writeDevLock,
 } from "@nexu/dev-utils";
 
-import { getScriptsDevRuntimeConfig } from "../shared/dev-runtime-config.js";
-import { webDevLockPath, webWorkingDirectoryPath } from "../shared/paths.js";
+import {
+  createOpenclawInjectedEnv,
+  getOpenclawWorkingDirectoryPath,
+  getScriptsDevRuntimeConfig,
+} from "../shared/dev-runtime-config.js";
+import { openclawDevLockPath } from "../shared/paths.js";
 import { createDevTraceEnv } from "../shared/trace.js";
 
-const runId = process.env.NEXU_DEV_WEB_RUN_ID;
+const runId = process.env.NEXU_DEV_OPENCLAW_RUN_ID;
 const sessionId = process.env.NEXU_DEV_SESSION_ID;
 
 if (!runId) {
-  throw new Error("NEXU_DEV_WEB_RUN_ID is required");
+  throw new Error("NEXU_DEV_OPENCLAW_RUN_ID is required");
 }
 
 if (!sessionId) {
   throw new Error("NEXU_DEV_SESSION_ID is required");
 }
 
-const webRunId = runId;
-const webSessionId = sessionId;
+const openclawRunId = runId;
+const openclawSessionId = sessionId;
 const runtimeConfig = getScriptsDevRuntimeConfig();
 
-function createWebWorkerCommand(): { command: string; args: string[] } {
+function createOpenclawWorkerCommand(): { command: string; args: string[] } {
   return {
     command: process.execPath,
     args: [
-      resolveViteBinPath(webWorkingDirectoryPath),
-      "--host",
-      "127.0.0.1",
+      runtimeConfig.openclawEntryPath,
+      "gateway",
+      "run",
+      "--allow-unconfigured",
+      "--bind",
+      "loopback",
       "--port",
-      String(runtimeConfig.webPort),
-      "--strictPort",
+      String(runtimeConfig.openclawPort),
+      "--force",
+      "--verbose",
     ],
   };
 }
@@ -45,27 +52,28 @@ function createWebWorkerCommand(): { command: string; args: string[] } {
 let workerChild: ChildProcess | null = null;
 
 async function writeRunningLock(): Promise<void> {
-  await writeDevLock(webDevLockPath, {
+  await writeDevLock(openclawDevLockPath, {
     pid: process.pid,
-    runId: webRunId,
-    sessionId: webSessionId,
+    runId: openclawRunId,
+    sessionId: openclawSessionId,
   });
 }
 
 async function removeRunningLock(): Promise<void> {
-  await removeDevLock(webDevLockPath);
+  await removeDevLock(openclawDevLockPath);
 }
 
 async function startWorker(): Promise<void> {
-  const commandSpec = createWebWorkerCommand();
+  const commandSpec = createOpenclawWorkerCommand();
   const child = spawn(commandSpec.command, commandSpec.args, {
-    cwd: webWorkingDirectoryPath,
+    cwd: getOpenclawWorkingDirectoryPath(),
     env: {
       ...process.env,
       NODE_OPTIONS: createNodeOptions(),
+      ...createOpenclawInjectedEnv(),
       ...createDevTraceEnv({
-        sessionId: webSessionId,
-        service: "web",
+        sessionId: openclawSessionId,
+        service: "openclaw",
         role: "worker",
       }),
     },
@@ -74,7 +82,7 @@ async function startWorker(): Promise<void> {
   });
 
   if (!child.pid) {
-    throw new Error("web worker did not expose a pid");
+    throw new Error("openclaw worker did not expose a pid");
   }
 
   workerChild = child;
@@ -84,23 +92,22 @@ async function startWorker(): Promise<void> {
   });
 }
 
-process.on("SIGINT", async () => {
+async function shutdown(): Promise<void> {
   if (workerChild?.pid) {
     await terminateProcess(workerChild.pid);
     await waitForChildExit(workerChild);
   }
 
   await removeRunningLock();
+}
+
+process.on("SIGINT", async () => {
+  await shutdown();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
-  if (workerChild?.pid) {
-    await terminateProcess(workerChild.pid);
-    await waitForChildExit(workerChild);
-  }
-
-  await removeRunningLock();
+  await shutdown();
   process.exit(0);
 });
 

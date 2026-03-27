@@ -1,6 +1,6 @@
 import { createRunId } from "@nexu/dev-utils";
 
-export type DevService = "controller" | "web";
+export type DevService = "controller" | "web" | "openclaw";
 export type DevRole = "supervisor" | "worker";
 
 export function createDevSessionId(): string {

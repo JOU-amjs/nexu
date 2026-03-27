@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import {
   createNodeOptions,
+  ensureDirectory,
   ensureParentDirectory,
   getListeningPortPid,
   readDevLock,
@@ -17,27 +18,27 @@ import {
 import { ensure } from "@nexu/shared";
 
 import {
-  createControllerInjectedEnv,
+  createOpenclawInjectedEnv,
   getScriptsDevRuntimeConfig,
 } from "../shared/dev-runtime-config.js";
 import {
-  controllerDevLockPath,
-  controllerSupervisorPath,
-  getControllerDevLogPath,
+  getOpenclawDevLogPath,
+  openclawDevLockPath,
+  openclawSupervisorPath,
 } from "../shared/paths.js";
 import { createDevMarkerArgs } from "../shared/trace.js";
 
-export type ControllerDevSnapshot = {
-  service: "controller";
+export type OpenclawDevSnapshot = {
+  service: "openclaw";
   status: "running" | "stopped" | "stale";
   pid?: number;
-  workerPid?: number;
+  listenerPid?: number;
   runId?: string;
   sessionId?: string;
   logFilePath?: string;
 };
 
-function createControllerCommand(sessionId: string): {
+function createOpenclawCommand(sessionId: string): {
   command: string;
   args: string[];
 } {
@@ -47,27 +48,27 @@ function createControllerCommand(sessionId: string): {
     command: process.execPath,
     args: [
       cliPath,
-      controllerSupervisorPath,
+      openclawSupervisorPath,
       ...createDevMarkerArgs({
         sessionId,
-        service: "controller",
+        service: "openclaw",
         role: "supervisor",
       }),
     ],
   };
 }
 
-export async function getControllerPortPid(): Promise<number> {
+export async function getOpenclawPortPid(): Promise<number> {
   return getListeningPortPid(
-    getScriptsDevRuntimeConfig().controllerPort,
-    "controller dev server",
+    getScriptsDevRuntimeConfig().openclawPort,
+    "openclaw gateway",
   );
 }
 
-async function waitForControllerPortPid(): Promise<number> {
+async function waitForOpenclawPortPid(): Promise<number> {
   return waitForListeningPortPid(
-    getScriptsDevRuntimeConfig().controllerPort,
-    "controller dev server",
+    getScriptsDevRuntimeConfig().openclawPort,
+    "openclaw gateway",
     {
       attempts: 30,
       delayMs: 500,
@@ -75,24 +76,28 @@ async function waitForControllerPortPid(): Promise<number> {
   );
 }
 
-export async function startControllerDevProcess(options: {
+export async function startOpenclawDevProcess(options: {
   sessionId: string;
-}): Promise<ControllerDevSnapshot> {
-  const existingSnapshot = await getCurrentControllerDevSnapshot();
+}): Promise<OpenclawDevSnapshot> {
+  const existingSnapshot = await getCurrentOpenclawDevSnapshot();
 
   ensure(existingSnapshot.status !== "running").orThrow(
     () =>
       new Error(
-        "controller dev process is already running; run `pnpm dev stop` first",
+        "openclaw dev process is already running; run `pnpm dev stop` first",
       ),
   );
 
   const runId = options.sessionId;
   const sessionId = options.sessionId;
-  const logFilePath = getControllerDevLogPath(runId);
-  const commandSpec = createControllerCommand(sessionId);
+  const logFilePath = getOpenclawDevLogPath(runId);
+  const commandSpec = createOpenclawCommand(sessionId);
+  const runtimeConfig = getScriptsDevRuntimeConfig();
 
   await ensureParentDirectory(logFilePath);
+  await ensureDirectory(runtimeConfig.openclawStateDir);
+  await ensureParentDirectory(runtimeConfig.openclawConfigPath);
+  await ensureDirectory(runtimeConfig.openclawLogDir);
 
   const processHandle = await spawnHiddenProcess({
     command: commandSpec.command,
@@ -101,11 +106,11 @@ export async function startControllerDevProcess(options: {
     env: {
       ...process.env,
       NODE_OPTIONS: createNodeOptions(),
-      ...createControllerInjectedEnv(),
-      NEXU_DEV_CONTROLLER_RUN_ID: runId,
-      NEXU_DEV_CONTROLLER_LOG_PATH: logFilePath,
+      ...createOpenclawInjectedEnv(),
+      NEXU_DEV_OPENCLAW_RUN_ID: runId,
+      NEXU_DEV_OPENCLAW_LOG_PATH: logFilePath,
       NEXU_DEV_SESSION_ID: sessionId,
-      NEXU_DEV_SERVICE: "controller",
+      NEXU_DEV_SERVICE: "openclaw",
       NEXU_DEV_ROLE: "supervisor",
     },
     logFilePath,
@@ -113,77 +118,77 @@ export async function startControllerDevProcess(options: {
 
   try {
     if (processHandle.child) {
-      await waitForProcessStart(processHandle.child, "controller dev process");
+      await waitForProcessStart(processHandle.child, "openclaw dev process");
     }
   } finally {
     processHandle.dispose();
   }
 
   ensure(Boolean(processHandle.pid)).orThrow(
-    () => new Error("controller dev process did not expose a pid"),
+    () => new Error("openclaw dev process did not expose a pid"),
   );
   const supervisorPid = processHandle.pid as number;
-  const workerPid = await waitForControllerPortPid();
+  const listenerPid = await waitForOpenclawPortPid();
 
-  await writeDevLock(controllerDevLockPath, {
+  await writeDevLock(openclawDevLockPath, {
     pid: supervisorPid,
     runId,
     sessionId,
   });
 
   return {
-    service: "controller",
+    service: "openclaw",
     status: "running",
     pid: supervisorPid,
-    workerPid,
+    listenerPid,
     runId,
     sessionId,
     logFilePath,
   };
 }
 
-export async function stopControllerDevProcess(): Promise<ControllerDevSnapshot> {
-  const snapshot = await getCurrentControllerDevSnapshot();
+export async function stopOpenclawDevProcess(): Promise<OpenclawDevSnapshot> {
+  const snapshot = await getCurrentOpenclawDevSnapshot();
 
   ensure(snapshot.status === "running" && Boolean(snapshot.pid)).orThrow(
-    () => new Error("controller dev process is not running"),
+    () => new Error("openclaw dev process is not running"),
   );
   const supervisorPid = snapshot.pid as number;
 
   await terminateProcess(supervisorPid);
 
   try {
-    const workerPid = await getControllerPortPid();
-    await terminateProcess(workerPid);
+    const listenerPid = await getOpenclawPortPid();
+    await terminateProcess(listenerPid);
   } catch {}
 
-  await removeDevLock(controllerDevLockPath);
+  await removeDevLock(openclawDevLockPath);
 
   return snapshot;
 }
 
-export async function restartControllerDevProcess(options: {
+export async function restartOpenclawDevProcess(options: {
   sessionId: string;
-}): Promise<ControllerDevSnapshot> {
-  const snapshot = await getCurrentControllerDevSnapshot();
+}): Promise<OpenclawDevSnapshot> {
+  const snapshot = await getCurrentOpenclawDevSnapshot();
 
   if (snapshot.status === "running") {
-    await stopControllerDevProcess();
+    await stopOpenclawDevProcess();
   }
 
-  return startControllerDevProcess(options);
+  return startOpenclawDevProcess(options);
 }
 
-export async function getCurrentControllerDevSnapshot(): Promise<ControllerDevSnapshot> {
+export async function getCurrentOpenclawDevSnapshot(): Promise<OpenclawDevSnapshot> {
   try {
-    const lock = await readDevLock(controllerDevLockPath);
-    const logFilePath = getControllerDevLogPath(lock.runId);
+    const lock = await readDevLock(openclawDevLockPath);
+    const logFilePath = getOpenclawDevLogPath(lock.runId);
 
     try {
       process.kill(lock.pid, 0);
     } catch {
       return {
-        service: "controller",
+        service: "openclaw",
         status: "stale",
         pid: lock.pid,
         runId: lock.runId,
@@ -192,17 +197,17 @@ export async function getCurrentControllerDevSnapshot(): Promise<ControllerDevSn
       };
     }
 
-    let workerPid: number | undefined;
+    let listenerPid: number | undefined;
 
     try {
-      workerPid = await getControllerPortPid();
+      listenerPid = await getOpenclawPortPid();
     } catch {}
 
     return {
-      service: "controller",
+      service: "openclaw",
       status: "running",
       pid: lock.pid,
-      workerPid,
+      listenerPid,
       runId: lock.runId,
       sessionId: lock.sessionId,
       logFilePath,
@@ -210,7 +215,7 @@ export async function getCurrentControllerDevSnapshot(): Promise<ControllerDevSn
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return {
-        service: "controller",
+        service: "openclaw",
         status: "stopped",
       };
     }
@@ -219,11 +224,11 @@ export async function getCurrentControllerDevSnapshot(): Promise<ControllerDevSn
   }
 }
 
-export async function readControllerDevLog(): Promise<string> {
-  const snapshot = await getCurrentControllerDevSnapshot();
+export async function readOpenclawDevLog(): Promise<string> {
+  const snapshot = await getCurrentOpenclawDevSnapshot();
 
   ensure(Boolean(snapshot.logFilePath)).orThrow(
-    () => new Error("controller dev log is unavailable"),
+    () => new Error("openclaw dev log is unavailable"),
   );
 
   return readFile(snapshot.logFilePath as string, "utf8");

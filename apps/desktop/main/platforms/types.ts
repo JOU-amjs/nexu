@@ -14,7 +14,7 @@ export type RuntimeConfigPreparation = {
   runtimeConfig: DesktopRuntimeConfig;
 };
 
-export type RuntimeResidencyMode = "managed" | "launchd";
+export type RuntimeResidencyMode = "managed" | "launchd" | "external";
 
 export type PackagedArchiveFormat = "tar.gz" | "zip";
 

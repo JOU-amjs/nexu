@@ -61,6 +61,34 @@ export async function runManagedColdStart({
   };
 }
 
+export async function runExternalColdStart({
+  diagnosticsReporter,
+  logColdStart,
+  logStartupStep,
+  rotateDesktopLogSession,
+  waitForControllerReadiness,
+}: Parameters<DesktopRuntimePlatformAdapter["runColdStart"]>[0]) {
+  logStartupStep("externalColdStart:start");
+  diagnosticsReporter?.markColdStartRunning("attaching to external runtime");
+  logColdStart("attaching to external runtime");
+
+  diagnosticsReporter?.markColdStartRunning(
+    "waiting for external controller readiness",
+  );
+  logColdStart("waiting for external controller readiness");
+  await waitForControllerReadiness();
+
+  const sessionId = rotateDesktopLogSession();
+  logColdStart(`external runtime session ready sessionId=${sessionId}`);
+  logColdStart("external runtime attach complete");
+  diagnosticsReporter?.markColdStartSucceeded();
+  logStartupStep("externalColdStart:done");
+
+  return {
+    launchdResult: null,
+  };
+}
+
 export function createManagedRuntimePlatformAdapter(
   id: DesktopRuntimePlatformAdapter["id"],
   capabilities: DesktopPlatformCapabilities,
@@ -72,5 +100,24 @@ export function createManagedRuntimePlatformAdapter(
     prepareRuntimeConfig: (args) =>
       prepareManagedRuntimeConfig(id, capabilities, args),
     runColdStart: (args) => runManagedColdStart(args),
+  };
+}
+
+export function createExternalRuntimePlatformAdapter(
+  id: DesktopRuntimePlatformAdapter["id"],
+  capabilities: DesktopPlatformCapabilities,
+): DesktopRuntimePlatformAdapter {
+  return {
+    id,
+    mode: "external",
+    capabilities,
+    prepareRuntimeConfig: async ({ baseRuntimeConfig, logStartupStep }) => {
+      logStartupStep(`${id}:prepareRuntimeConfig:external`);
+      return {
+        allocations: [],
+        runtimeConfig: baseRuntimeConfig,
+      };
+    },
+    runColdStart: (args) => runExternalColdStart(args),
   };
 }

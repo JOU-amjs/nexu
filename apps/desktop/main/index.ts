@@ -79,14 +79,16 @@ const baseRuntimeConfig = getDesktopRuntimeConfig(process.env, {
   useBuildConfig: app.isPackaged,
 });
 logStartupStep("base runtime config created");
-const runtimePlatform = getDesktopRuntimePlatformAdapter();
+const runtimePlatform = getDesktopRuntimePlatformAdapter(baseRuntimeConfig);
 const { allocations: runtimePortAllocations, runtimeConfig } =
   await runtimePlatform.prepareRuntimeConfig({
     baseRuntimeConfig,
     env: process.env,
     logStartupStep,
   });
-logStartupStep(`runtime config ready platform=${runtimePlatform.id}`);
+logStartupStep(
+  `runtime config ready platform=${runtimePlatform.id} mode=${runtimeConfig.runtimeMode}`,
+);
 const orchestrator = new RuntimeOrchestrator(
   await measureStartupStep("createRuntimeUnitManifests", () =>
     createRuntimeUnitManifests(
@@ -756,6 +758,10 @@ app.whenReady().then(async () => {
 
     try {
       logColdStart(`bootstrap mode: ${runtimePlatform.mode}`);
+      logColdStart(`runtime mode: ${runtimeConfig.runtimeMode}`);
+      logColdStart(
+        `runtime targets controller=${runtimeConfig.urls.controllerBase} web=${runtimeConfig.urls.web} openclaw=${runtimeConfig.urls.openclawBase}`,
+      );
       const coldStartResult = await runtimePlatform.runColdStart({
         app,
         electronRoot,
