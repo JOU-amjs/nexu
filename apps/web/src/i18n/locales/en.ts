@@ -310,7 +310,7 @@ const en = {
   "models.byok.apiKeySaved": "API key saved",
   "models.byok.apiKeySavedHint":
     "For security, the saved key is not shown. Enter a new key only if you want to replace it.",
-  "models.byok.changeApiKey": "Replace key",
+  "models.byok.changeApiKey": "Replace",
   "models.byok.verify": "Check",
   "models.byok.keyValid": "Key valid — {{count}} models detected",
   "models.byok.keyInvalid": "Key invalid: {{error}}",
@@ -326,7 +326,10 @@ const en = {
   "models.byok.fetchingModels": "Fetching models...",
   "models.byok.updateConfig": "Update configuration",
   "models.byok.saveAndEnable": "Save",
+  "models.byok.regionLabel": "Region",
   "models.byok.remove": "Remove",
+  "models.byok.removeSuccess": "Provider removed",
+  "models.byok.removeFailed": "Failed to remove provider",
   "models.byok.confirmRemove":
     "Are you sure you want to remove this provider configuration?",
   "models.byok.saveSuccess": "Saved successfully",
@@ -338,12 +341,15 @@ const en = {
   "models.byok.oauthSuccess": "ChatGPT connected successfully",
   "models.byok.oauthFailed": "ChatGPT login failed",
   "models.byok.oauthOrApiKey": "Or enter an API key manually",
+  "models.byok.oauthTab": "OAuth Login",
+  "models.byok.apiKeyTab": "API Key",
   "models.byok.oauthDescription": "Use your ChatGPT Plus/Pro subscription",
   "models.byok.minimax.authModeOauth": "OAuth Login",
   "models.byok.minimax.authModeApiKey": "API Key",
   "models.byok.minimax.oauthTitle": "MiniMax Coding Plan OAuth",
   "models.byok.minimax.oauthDescription":
     "Use MiniMax OAuth for Coding Plan access without manually pasting an API key.",
+  "models.byok.minimax.regionLabel": "Region",
   "models.byok.minimax.regionGlobal": "Global",
   "models.byok.minimax.regionCn": "CN",
   "models.byok.minimax.endpoint": "Endpoint: {{endpoint}}",
@@ -354,8 +360,10 @@ const en = {
   "models.byok.minimax.reconnect": "Reconnect",
   "models.byok.minimax.login": "Login with MiniMax",
   "models.byok.zaiCodingPlan": "Z.AI Coding Plan",
+  "models.byok.zaiCodingPlanToggleHint": "Optional subscription plan",
   "models.byok.zaiCodingPlanDesc":
     "Free models with your Z.AI Coding Plan subscription",
+  "models.byok.zaiCodingPlanKeyLabel": "Coding Plan Key",
   "models.byok.zaiOrGeneralApi": "Or use General API key",
 
   // ── Channels Page ──
