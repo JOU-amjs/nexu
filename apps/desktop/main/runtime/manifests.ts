@@ -1,4 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 import {
   existsSync,
   mkdirSync,
@@ -235,6 +238,103 @@ export function ensurePackagedOpenclawSidecar(
   }
 
   return extractedSidecarRoot;
+}
+
+/**
+ * Check if the packaged openclaw sidecar archive needs extraction.
+ * Fast, synchronous, filesystem-read-only.
+ */
+export function checkOpenclawExtractionNeeded(
+  electronRoot: string,
+  userDataPath: string,
+  isPackaged: boolean,
+): boolean {
+  if (!isPackaged) return false;
+
+  const runtimeSidecarBaseRoot = path.resolve(electronRoot, "runtime");
+  const runtimeRoot = path.resolve(userDataPath, "runtime");
+  const packagedSidecarRoot = path.resolve(runtimeSidecarBaseRoot, "openclaw");
+  const archivePath = path.resolve(packagedSidecarRoot, "payload.tar.gz");
+
+  if (!existsSync(archivePath)) return false;
+
+  const extractedSidecarRoot = path.resolve(runtimeRoot, "openclaw-sidecar");
+  const stampPath = path.resolve(extractedSidecarRoot, ".archive-stamp");
+  const extractedEntry = path.resolve(
+    extractedSidecarRoot,
+    "node_modules/openclaw/openclaw.mjs",
+  );
+
+  try {
+    const archiveStat = statSync(archivePath);
+    const archiveStamp = `${archiveStat.size}:${archiveStat.mtimeMs}`;
+    return !(
+      existsSync(stampPath) &&
+      existsSync(extractedEntry) &&
+      readFileSync(stampPath, "utf8") === archiveStamp
+    );
+  } catch {
+    return true; // Can't verify — assume needs extraction
+  }
+}
+
+/**
+ * Extract the openclaw sidecar archive asynchronously with retries.
+ * Uses staging dir + atomic rename to prevent half-extracted directories.
+ * Must be called before the controller unit starts.
+ */
+export async function extractOpenclawSidecarAsync(
+  electronRoot: string,
+  userDataPath: string,
+): Promise<void> {
+  const runtimeSidecarBaseRoot = path.resolve(electronRoot, "runtime");
+  const runtimeRoot = path.resolve(userDataPath, "runtime");
+  const packagedSidecarRoot = path.resolve(runtimeSidecarBaseRoot, "openclaw");
+  const archivePath = path.resolve(packagedSidecarRoot, "payload.tar.gz");
+  const extractedSidecarRoot = path.resolve(runtimeRoot, "openclaw-sidecar");
+  const archiveStat = statSync(archivePath);
+  const archiveStamp = `${archiveStat.size}:${archiveStat.mtimeMs}`;
+  const stagingRoot = `${extractedSidecarRoot}.staging`;
+
+  // Clean up leftover staging from a previous interrupted extraction
+  if (existsSync(stagingRoot)) {
+    await execFileAsync("rm", ["-rf", stagingRoot]);
+  }
+
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      if (existsSync(stagingRoot)) {
+        await execFileAsync("rm", ["-rf", stagingRoot]);
+      }
+      mkdirSync(stagingRoot, { recursive: true });
+      await execFileAsync("tar", ["-xzf", archivePath, "-C", stagingRoot]);
+
+      // Verify critical entry point
+      const stagingEntry = path.resolve(
+        stagingRoot,
+        "node_modules/openclaw/openclaw.mjs",
+      );
+      if (!existsSync(stagingEntry)) {
+        throw new Error(
+          `Extraction verification failed: ${stagingEntry} not found`,
+        );
+      }
+
+      // Write stamp inside staging
+      writeFileSync(path.resolve(stagingRoot, ".archive-stamp"), archiveStamp);
+
+      // Atomic swap
+      if (existsSync(extractedSidecarRoot)) {
+        await execFileAsync("rm", ["-rf", extractedSidecarRoot]);
+      }
+      await execFileAsync("mv", [stagingRoot, extractedSidecarRoot]);
+      return;
+    } catch (err) {
+      if (attempt === MAX_RETRIES - 1) throw err;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
 }
 
 export function createRuntimeUnitManifests(
