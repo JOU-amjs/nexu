@@ -17,6 +17,7 @@ import type { CompiledOpenClawStore } from "../store/compiled-openclaw-store.js"
 import type { NexuConfigStore } from "../store/nexu-config-store.js";
 import type { NexuConfig } from "../store/schemas.js";
 import type { OpenClawGatewayService } from "./openclaw-gateway-service.js";
+import type { SkillDb } from "./skillhub/skill-db.js";
 
 function resolvePrimaryModelRef(
   model: string | { primary: string } | undefined,
@@ -105,6 +106,7 @@ export class OpenClawSyncService {
     private readonly templateWriter: WorkspaceTemplateWriter,
     private readonly watchTrigger: OpenClawWatchTrigger,
     private readonly gatewayService: OpenClawGatewayService,
+    private readonly skillDb: SkillDb | null = null,
   ) {}
 
   async compileCurrentConfig(): Promise<
@@ -112,7 +114,10 @@ export class OpenClawSyncService {
   > {
     const config = await this.configStore.getConfig();
     const oauthState = await this.authProfilesStore.getOAuthConnectionState();
-    return compileOpenClawConfig(config, this.env, oauthState);
+    const installedSlugs = this.skillDb
+      ? this.skillDb.getAllInstalled().map((r) => r.slug)
+      : undefined;
+    return compileOpenClawConfig(config, this.env, oauthState, installedSlugs);
   }
 
   /**
@@ -213,7 +218,15 @@ export class OpenClawSyncService {
     const seq = ++this.syncCounter;
     const config = await this.configStore.getConfig();
     const oauthState = await this.authProfilesStore.getOAuthConnectionState();
-    const compiled = compileOpenClawConfig(config, this.env, oauthState);
+    const installedSlugs = this.skillDb
+      ? this.skillDb.getAllInstalled().map((r) => r.slug)
+      : undefined;
+    const compiled = compileOpenClawConfig(
+      config,
+      this.env,
+      oauthState,
+      installedSlugs,
+    );
 
     logger.info(
       {

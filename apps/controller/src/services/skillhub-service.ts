@@ -116,6 +116,10 @@ export class SkillhubService {
     }
   }
 
+  get skillDb(): SkillDb {
+    return this.db;
+  }
+
   get catalog(): CatalogManager {
     return this.catalogManager;
   }

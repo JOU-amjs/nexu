@@ -101,6 +101,7 @@ export async function createContainer(): Promise<ControllerContainer> {
       getLocale: () => configStore.getDesktopLocale(),
     },
   );
+  const skillhubService = await SkillhubService.create(env);
   const openclawSyncService = new OpenClawSyncService(
     env,
     configStore,
@@ -113,9 +114,9 @@ export async function createContainer(): Promise<ControllerContainer> {
     templateWriter,
     watchTrigger,
     gatewayService,
+    skillhubService.skillDb,
   );
   const openclawAuthService = new OpenClawAuthService(env, authProfilesStore);
-  const skillhubService = await SkillhubService.create(env);
   const analyticsService = new AnalyticsService(
     env,
     configStore,
