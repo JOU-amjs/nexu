@@ -242,6 +242,68 @@ function SkillCard({
   );
 }
 
+function AgentSkillGroups({
+  groups,
+  allSkills,
+  queueBySlug,
+  unavailableDetailSlugs,
+  locationSearch,
+  locale,
+}: {
+  groups: ReadonlyMap<string, InstalledSkill[]>;
+  allSkills: readonly MinimalSkill[];
+  queueBySlug: ReadonlyMap<
+    string,
+    "queued" | "downloading" | "installing-deps" | "done" | "failed" | undefined
+  >;
+  unavailableDetailSlugs: ReadonlySet<string>;
+  locationSearch: string;
+  locale: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-6">
+      {[...groups.entries()].map(([agentName, skills]) => (
+        <div key={agentName}>
+          <h3 className="text-[13px] font-semibold text-text-heading mb-3">
+            {t("skills.installedByAgent", { agentName })}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {skills.map((skill) => {
+              const catalogEntry = allSkills.find((s) => s.slug === skill.slug);
+              const minimalSkill: MinimalSkill = catalogEntry ?? {
+                slug: skill.slug,
+                name: skill.name || skill.slug,
+                description: skill.description || "",
+                downloads: 0,
+                stars: 0,
+                tags: [],
+                version: "",
+                updatedAt: "",
+              };
+              const firstTag = minimalSkill.tags[0];
+              return (
+                <SkillCard
+                  key={skill.slug}
+                  skill={minimalSkill}
+                  isInstalled={true}
+                  queueStatus={queueBySlug.get(skill.slug)}
+                  detailTo={createSkillDetailPath(skill.slug, locationSearch)}
+                  isDetailAvailable={!unavailableDetailSlugs.has(skill.slug)}
+                  skillSource="builtin"
+                  categoryLabel={
+                    firstTag ? getTagLabel(firstTag, locale) : undefined
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SkillsPage() {
   const { t } = useTranslation();
   const { stars } = useGitHubStars();
@@ -430,9 +492,9 @@ export function SkillsPage() {
       ];
     }
     if (yoursSubTab === "installed") {
-      const customSlugs = new Set(
+      const customOrWsSlugs = new Set(
         installedSkills
-          .filter((is) => is.source === "custom")
+          .filter((is) => is.source === "custom" || is.source === "workspace")
           .map((is) => is.slug),
       );
       const filteredDownloading = downloadingWithSource
@@ -440,7 +502,7 @@ export function SkillsPage() {
         .map((d) => d.skill);
       return [
         ...filteredDownloading,
-        ...installed.filter((s) => customSlugs.has(s.slug)),
+        ...installed.filter((s) => customOrWsSlugs.has(s.slug)),
       ];
     }
     if (yoursSubTab === "agent") {
@@ -506,9 +568,10 @@ export function SkillsPage() {
 
   const visibleSkills = filteredSkills.slice(0, visibleCount);
 
-  // Group workspace skills by agent for the "agent" sub-tab
+  // Group workspace skills by agent for the "agent" and "installed" sub-tabs
   const workspaceSkillsByAgent = useMemo(() => {
-    if (yoursSubTab !== "agent") return new Map<string, InstalledSkill[]>();
+    if (yoursSubTab !== "agent" && yoursSubTab !== "installed")
+      return new Map<string, InstalledSkill[]>();
     const workspaceSkills = installedSkills.filter(
       (is) => is.source === "workspace",
     );
@@ -555,8 +618,9 @@ export function SkillsPage() {
       (qi) => qi.source === "curated" || qi.source === "managed",
     ).length;
   const customCount =
-    installedSkills.filter((is) => is.source === "custom").length +
-    activeQueueItems.filter((qi) => qi.source === "custom").length;
+    installedSkills.filter(
+      (is) => is.source === "custom" || is.source === "workspace",
+    ).length + activeQueueItems.filter((qi) => qi.source === "custom").length;
   const workspaceCount = installedSkills.filter(
     (is) => is.source === "workspace",
   ).length;
@@ -829,7 +893,7 @@ export function SkillsPage() {
           {t("skills.clawhubDisclaimerAfterLink")}
         </p>
 
-        {/* Agent Skills grouped view */}
+        {/* Agent Skills grouped view (agent-only tab) */}
         {yoursSubTab === "agent" ? (
           workspaceSkillsByAgent.size === 0 ? (
             <div className="text-center py-12">
@@ -842,56 +906,14 @@ export function SkillsPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {[...workspaceSkillsByAgent.entries()].map(
-                ([agentName, skills]) => (
-                  <div key={agentName}>
-                    <h3 className="text-[13px] font-semibold text-text-heading mb-3">
-                      {t("skills.installedByAgent", { agentName })}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {skills.map((skill) => {
-                        const catalogEntry = allSkills.find(
-                          (s) => s.slug === skill.slug,
-                        );
-                        const minimalSkill: MinimalSkill = catalogEntry ?? {
-                          slug: skill.slug,
-                          name: skill.name || skill.slug,
-                          description: skill.description || "",
-                          downloads: 0,
-                          stars: 0,
-                          tags: [],
-                          version: "",
-                          updatedAt: "",
-                        };
-                        const firstTag = minimalSkill.tags[0];
-                        return (
-                          <SkillCard
-                            key={skill.slug}
-                            skill={minimalSkill}
-                            isInstalled={true}
-                            queueStatus={queueBySlug.get(skill.slug)}
-                            detailTo={createSkillDetailPath(
-                              skill.slug,
-                              location.search,
-                            )}
-                            isDetailAvailable={
-                              !unavailableDetailSlugs.has(skill.slug)
-                            }
-                            skillSource="builtin"
-                            categoryLabel={
-                              firstTag
-                                ? getTagLabel(firstTag, locale)
-                                : undefined
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
+            <AgentSkillGroups
+              groups={workspaceSkillsByAgent}
+              allSkills={allSkills}
+              queueBySlug={queueBySlug}
+              unavailableDetailSlugs={unavailableDetailSlugs}
+              locationSearch={location.search}
+              locale={locale}
+            />
           )
         ) : (
           <>
@@ -936,17 +958,32 @@ export function SkillsPage() {
               </div>
             )}
 
-            {/* Empty state */}
-            {filteredSkills.length === 0 && (
-              <div className="text-center py-12">
-                <Search size={24} className="mx-auto text-text-muted mb-3" />
-                <div className="text-[13px] text-text-muted">
-                  {topTab === "yours" && !debouncedQuery.trim()
-                    ? t("skills.noInstalledSkills")
-                    : t("skills.noMatchingSkills")}
-                </div>
+            {/* Workspace skills grouped by agent (shown below shared skills in "installed" tab) */}
+            {yoursSubTab === "installed" && workspaceSkillsByAgent.size > 0 && (
+              <div className="mt-6">
+                <AgentSkillGroups
+                  groups={workspaceSkillsByAgent}
+                  allSkills={allSkills}
+                  queueBySlug={queueBySlug}
+                  unavailableDetailSlugs={unavailableDetailSlugs}
+                  locationSearch={location.search}
+                  locale={locale}
+                />
               </div>
             )}
+
+            {/* Empty state */}
+            {filteredSkills.length === 0 &&
+              workspaceSkillsByAgent.size === 0 && (
+                <div className="text-center py-12">
+                  <Search size={24} className="mx-auto text-text-muted mb-3" />
+                  <div className="text-[13px] text-text-muted">
+                    {topTab === "yours" && !debouncedQuery.trim()
+                      ? t("skills.noInstalledSkills")
+                      : t("skills.noMatchingSkills")}
+                  </div>
+                </div>
+              )}
           </>
         )}
       </div>
