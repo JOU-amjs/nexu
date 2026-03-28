@@ -39,6 +39,20 @@ const OAUTH_PROVIDER_MAP: Record<string, string> = {
   openai: "openai-codex",
 };
 
+function resolveByokDefaultBaseUrlAliases(input: {
+  providerId: string;
+  oauthRegion: "global" | "cn" | null;
+}): string[] {
+  const defaultBaseUrl = resolveByokDefaultBaseUrl(input);
+  const aliases = defaultBaseUrl ? [defaultBaseUrl] : [];
+
+  if (resolveOpenClawProviderId(input.providerId) === "siliconflow") {
+    aliases.push("https://api.siliconflow.com/v1");
+  }
+
+  return aliases;
+}
+
 function resolveByokDefaultBaseUrl(input: {
   providerId: string;
   oauthRegion: "global" | "cn" | null;
@@ -109,13 +123,21 @@ function isByokProviderProxied(
   baseUrl: string | null,
   oauthRegion: "global" | "cn" | null,
 ): boolean {
-  const defaultBaseUrl = normalizeProviderBaseUrl(
-    resolveByokDefaultBaseUrl({ providerId, oauthRegion }),
-  );
   const normalizedBaseUrl = normalizeProviderBaseUrl(baseUrl);
 
-  return Boolean(
-    defaultBaseUrl && normalizedBaseUrl && normalizedBaseUrl !== defaultBaseUrl,
+  if (!normalizedBaseUrl) {
+    return false;
+  }
+
+  const normalizedDefaultBaseUrls = new Set(
+    resolveByokDefaultBaseUrlAliases({ providerId, oauthRegion })
+      .map((value) => normalizeProviderBaseUrl(value))
+      .filter((value): value is string => value !== null),
+  );
+
+  return (
+    normalizedDefaultBaseUrls.size > 0 &&
+    !normalizedDefaultBaseUrls.has(normalizedBaseUrl)
   );
 }
 
