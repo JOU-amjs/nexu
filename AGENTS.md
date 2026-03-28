@@ -106,6 +106,7 @@ The split is intentional: `NEXU_HOME` holds lightweight user preferences that sh
 
 ## Hard rules
 
+- **Debugging first principle: binary isolate, don't guess.** For UI/runtime regressions, start with overall bisection and add tiny reversible `quick return` / `quick fail` probes at key boundaries. Prefer changes that create obvious UI/log differences, narrow the fault domain quickly, and can be reverted immediately after verification. Do not start by rewriting route guards, state flows, or core logic based on intuition.
 - **Never use `any`.** Use `unknown` with narrowing or `z.infer<typeof schema>`.
 - No foreign keys in Drizzle schema — application-level joins only.
 - Credentials (bot tokens, signing secrets) must never appear in logs or errors.
