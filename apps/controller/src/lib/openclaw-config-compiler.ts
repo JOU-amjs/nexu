@@ -39,18 +39,21 @@ const OAUTH_PROVIDER_MAP: Record<string, string> = {
   openai: "openai-codex",
 };
 
+const SILICONFLOW_OFFICIAL_API_BASE_URLS = [
+  "https://api.siliconflow.cn/v1",
+  "https://api.siliconflow.com/v1",
+] as const;
+
 function resolveByokDefaultBaseUrlAliases(input: {
   providerId: string;
   oauthRegion: "global" | "cn" | null;
 }): string[] {
-  const defaultBaseUrl = resolveByokDefaultBaseUrl(input);
-  const aliases = defaultBaseUrl ? [defaultBaseUrl] : [];
-
   if (resolveOpenClawProviderId(input.providerId) === "siliconflow") {
-    aliases.push("https://api.siliconflow.com/v1");
+    return [...SILICONFLOW_OFFICIAL_API_BASE_URLS];
   }
 
-  return aliases;
+  const defaultBaseUrl = resolveByokDefaultBaseUrl(input);
+  return defaultBaseUrl ? [defaultBaseUrl] : [];
 }
 
 function resolveByokDefaultBaseUrl(input: {

@@ -306,6 +306,56 @@ describe("compileOpenClawConfig", () => {
     });
   });
 
+  it("treats the explicit SiliconFlow .cn URL as a direct official endpoint", () => {
+    const result = compileOpenClawConfig(
+      createConfig({
+        bots: [
+          {
+            ...createConfig().bots[0],
+            modelId: "siliconflow/Pro/MiniMaxAI/MiniMax-M2.5",
+          },
+        ],
+        runtime: {
+          gateway: {
+            port: 18789,
+            bind: "loopback",
+            authMode: "token",
+          },
+          defaultModelId: "siliconflow/Pro/MiniMaxAI/MiniMax-M2.5",
+        },
+        providers: [
+          {
+            id: "provider-siliconflow-cn",
+            providerId: "siliconflow",
+            displayName: "SiliconFlow",
+            enabled: true,
+            authMode: "apiKey",
+            baseUrl: "https://api.siliconflow.cn/v1",
+            apiKey: "sk-test",
+            oauthRegion: null,
+            oauthCredential: null,
+            models: ["Pro/MiniMaxAI/MiniMax-M2.5"],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+        desktop: {},
+      }),
+      createEnv(),
+    );
+
+    expect(result.models?.providers.siliconflow?.baseUrl).toBe(
+      "https://api.siliconflow.cn/v1",
+    );
+    expect(result.models?.providers.byok_siliconflow).toBeUndefined();
+    expect(result.models?.providers.siliconflow?.models[0]?.id).toBe(
+      "Pro/MiniMaxAI/MiniMax-M2.5",
+    );
+    expect(result.agents.defaults?.model).toEqual({
+      primary: "siliconflow/Pro/MiniMaxAI/MiniMax-M2.5",
+    });
+  });
+
   it("treats the legacy SiliconFlow .com URL as a direct default endpoint", () => {
     const result = compileOpenClawConfig(
       createConfig({
