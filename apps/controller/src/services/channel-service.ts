@@ -1041,14 +1041,54 @@ export class ChannelService {
   }
 
   async disconnectChannel(channelId: string) {
-    // Align with OpenClaw's "remove" semantics: disconnect only unbinds the
-    // channel from Nexu config and leaves the linked session intact. Explicit
-    // logout remains a separate operation.
+    // Look up the channel before removing so we can clean up runtime state.
+    const channel = await this.configStore.getChannel(channelId);
+
     const removed = await this.configStore.disconnectChannel(channelId);
     if (removed) {
       await this.syncService.syncAll();
     }
+
+    // Clean up WeChat account state (index + credentials + sync buf) so
+    // disconnected accounts don't linger and start on next cold boot.
+    if (removed && channel?.channelType === "wechat" && channel.accountId) {
+      this.cleanupWechatAccountState(channel.accountId);
+    }
+
     return removed;
+  }
+
+  private cleanupWechatAccountState(accountId: string) {
+    const stateDir = this.env.openclawStateDir;
+    if (!stateDir) return;
+
+    const accountsDir = path.join(stateDir, "openclaw-weixin", "accounts");
+    const indexPath = path.join(stateDir, "openclaw-weixin", "accounts.json");
+
+    // Remove credential and sync files
+    for (const suffix of [".json", ".sync.json"]) {
+      try {
+        rmSync(path.join(accountsDir, `${accountId}${suffix}`));
+      } catch {
+        // ignore if not found
+      }
+    }
+
+    // Remove from accounts index
+    try {
+      if (existsSync(indexPath)) {
+        const raw = readFileSync(indexPath, "utf-8");
+        const ids = JSON.parse(raw) as string[];
+        if (Array.isArray(ids)) {
+          const updated = ids.filter((id) => id !== accountId);
+          if (updated.length !== ids.length) {
+            writeFileSync(indexPath, JSON.stringify(updated, null, 2), "utf-8");
+          }
+        }
+      }
+    } catch {
+      // best-effort cleanup
+    }
   }
 
   private async waitForWechatReady(accountId: string) {
