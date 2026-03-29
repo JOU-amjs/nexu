@@ -25,6 +25,7 @@ npm run test:smoke    # 跑 smoke 验证基本流程
 | `npm run test:login` | Smoke → 点击「使用 nexu 账号」→ 浏览器 OAuth → 等 connected → workspace 跳转 → Agent 运行中 |
 | `npm run test:model` | Smoke → fake provider 创建 → model A/B 切换 → 验证 runtime-model.json |
 | `npm run test:update` | Smoke → 版本降级 → 本地 update feed → check + download + install |
+| `npm run test:resilience` | Smoke → 5 个边界场景（见下方详情） |
 | `npm test` | 以上全部（full） |
 | `npm run cleanup` | 杀掉所有 Nexu 进程、bootout launchd 服务、释放端口 |
 
@@ -67,6 +68,18 @@ cp apps/desktop/release/*.dmg apps/desktop/release/*.zip e2e/desktop/artifacts/
 cd e2e/desktop
 NEXU_DESKTOP_E2E_SKIP_CODESIGN=true npm run test:model
 ```
+
+### Resilience 模式（边界场景）
+
+`test:resilience` 验证 app 在异常条件下的恢复能力：
+
+| 场景 | 模拟什么 | 预期行为 |
+|------|---------|---------|
+| **Crash Recovery** | `kill -9` Electron 主进程（模拟 Force Quit） | launchd 服务存活，重启后 app 正确 attach 或重建 |
+| **Orphan Cleanup** | 杀 Electron 留下 controller/openclaw 孤儿进程 | 重启后 app 检测并清理孤儿，正常启动 |
+| **Port Conflict** | 在 50800 端口启动 dummy listener，然后启动 app | app 检测到端口占用，选择备用端口或报错退出 |
+| **Stale State** | 写入假的 `runtime-ports.json`（指向不存在的服务） | app 检测到 stale session，忽略假状态，fresh start |
+| **Double Launch** | app 运行中再启动第二个实例 | 第二个实例退出（single-instance lock），第一个不受影响 |
 
 ### Login 模式注意事项
 

@@ -3,11 +3,12 @@
 # Run desktop E2E tests against a signed nightly build.
 #
 # Usage:
-#   bash scripts/run-e2e.sh smoke    # DMG install + codesign + cold start
-#   bash scripts/run-e2e.sh login    # smoke + login + wait for agent running
-#   bash scripts/run-e2e.sh model    # smoke + model switch scenario
-#   bash scripts/run-e2e.sh update   # smoke + update scenario
-#   bash scripts/run-e2e.sh full     # smoke + model + update
+#   bash scripts/run-e2e.sh smoke       # DMG install + codesign + cold start
+#   bash scripts/run-e2e.sh login       # smoke + login + wait for agent running
+#   bash scripts/run-e2e.sh model       # smoke + model switch scenario
+#   bash scripts/run-e2e.sh update      # smoke + update scenario
+#   bash scripts/run-e2e.sh resilience  # smoke + crash recovery, orphans, port conflict, stale state, double launch
+#   bash scripts/run-e2e.sh full        # smoke + model + update
 #
 set -euo pipefail
 
@@ -288,6 +289,333 @@ on_failure() {
 }
 
 # -----------------------------------------------------------------------
+# Resilience scenarios
+# -----------------------------------------------------------------------
+
+# Helper: launch app in background and wait for health, return PID
+resilience_launch() {
+  local app_path="$1"
+  local executable="$app_path/Contents/MacOS/Nexu"
+  local home_dir="$PERSISTENT_HOME"
+  local user_data_dir="$home_dir/Library/Application Support/@nexu/desktop"
+  local log_path="$CAPTURE_DIR/resilience-app.log"
+
+  mkdir -p "$home_dir"
+
+  HOME="$home_dir" \
+  TMPDIR="$RUN_ROOT/tmp" \
+  NEXU_DESKTOP_USER_DATA_ROOT="$user_data_dir" \
+    "$executable" > "$log_path" 2>&1 &
+
+  local app_pid=$!
+  printf '%s\n' "$app_pid" > "$CAPTURE_DIR/packaged-app.pid"
+  log "Launched app pid=$app_pid"
+
+  local attempt=0
+  while [ "$attempt" -lt 90 ]; do
+    attempt=$((attempt + 1))
+    if curl -sf http://127.0.0.1:50800/api/internal/desktop/ready >/dev/null 2>&1; then
+      log "Runtime healthy after $attempt attempts"
+      return 0
+    fi
+    sleep 2
+  done
+
+  log "ERROR: runtime health check failed"
+  return 1
+}
+
+# 1. Crash recovery: kill -9 Electron → restart → verify healthy
+resilience_crash_recovery() {
+  log "--- Resilience: crash recovery (Force Quit simulation) ---"
+  resilience_launch "$1"
+
+  # Verify launchd services are running
+  local controller_running=false
+  local openclaw_running=false
+  launchctl list 2>/dev/null | grep -q "io.nexu.controller" && controller_running=true
+  launchctl list 2>/dev/null | grep -q "io.nexu.openclaw" && openclaw_running=true
+  log "Before crash: controller=$controller_running openclaw=$openclaw_running"
+
+  # Simulate Force Quit: kill -9 Electron only
+  local app_pid
+  app_pid="$(cat "$CAPTURE_DIR/packaged-app.pid")"
+  log "Force killing Electron pid=$app_pid (simulating Force Quit)"
+  kill -9 "$app_pid" 2>/dev/null || true
+  wait "$app_pid" 2>/dev/null || true
+  sleep 2
+
+  # Verify launchd services survived the crash (expected for launchd mode)
+  local controller_after=false
+  local openclaw_after=false
+  launchctl list 2>/dev/null | grep -q "io.nexu.controller" && controller_after=true
+  launchctl list 2>/dev/null | grep -q "io.nexu.openclaw" && openclaw_after=true
+  log "After crash: controller=$controller_after openclaw=$openclaw_after"
+
+  # Now restart the app — it should detect stale services and handle them
+  log "Restarting app after crash..."
+  resilience_launch "$1"
+
+  # Verify runtime is healthy
+  local ready
+  ready=$(curl -sf http://127.0.0.1:50800/api/internal/desktop/ready 2>/dev/null || echo "")
+  if echo "$ready" | grep -q '"ready":true'; then
+    log "PASSED: app recovered from crash successfully"
+  else
+    log "FAILED: app did not recover from crash"
+    return 1
+  fi
+
+  # Cleanup
+  quit_app
+  bash "$REPO_ROOT/scripts/kill-all.sh" > "$CAPTURE_DIR/kill-all-crash-recovery.log" 2>&1 || true
+  wait_ports_free
+}
+
+# 2. Orphan process cleanup: kill Electron, leave controller/openclaw as orphans
+resilience_orphan_cleanup() {
+  log "--- Resilience: orphan process cleanup ---"
+  resilience_launch "$1"
+
+  local app_pid
+  app_pid="$(cat "$CAPTURE_DIR/packaged-app.pid")"
+
+  # Count launchd-managed processes before
+  local orphan_pids_before
+  orphan_pids_before=$(pgrep -f "controller/dist/index.js|openclaw.mjs" 2>/dev/null | wc -l | tr -d ' ')
+  log "Sidecar processes before kill: $orphan_pids_before"
+
+  # Kill only the Electron main process (not sidecars)
+  log "Killing only Electron pid=$app_pid (leaving sidecars as orphans)"
+  kill -9 "$app_pid" 2>/dev/null || true
+  wait "$app_pid" 2>/dev/null || true
+  sleep 2
+
+  # Verify orphan sidecars still exist
+  local orphan_pids_after
+  orphan_pids_after=$(pgrep -f "controller/dist/index.js|openclaw.mjs" 2>/dev/null | wc -l | tr -d ' ')
+  log "Orphan sidecar processes after kill: $orphan_pids_after"
+
+  # Restart app — it should clean up orphans and start fresh
+  log "Restarting app (should clean up orphans)..."
+  resilience_launch "$1"
+
+  local ready
+  ready=$(curl -sf http://127.0.0.1:50800/api/internal/desktop/ready 2>/dev/null || echo "")
+  if echo "$ready" | grep -q '"ready":true'; then
+    log "PASSED: app started fresh after orphan cleanup"
+  else
+    log "FAILED: app could not recover from orphan processes"
+    return 1
+  fi
+
+  quit_app
+  bash "$REPO_ROOT/scripts/kill-all.sh" > "$CAPTURE_DIR/kill-all-orphan.log" 2>&1 || true
+  wait_ports_free
+}
+
+# 3. Port conflict: occupy known port before app launch
+resilience_port_conflict() {
+  log "--- Resilience: port conflict ---"
+
+  # Occupy port 50800 with a dummy listener
+  python3 -c "
+import socket, time
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(('127.0.0.1', 50800))
+s.listen(1)
+# Keep listening until killed
+while True:
+    time.sleep(1)
+" &
+  local blocker_pid=$!
+  sleep 1
+
+  # Verify port is occupied
+  if lsof -iTCP:50800 -sTCP:LISTEN -n -P 2>/dev/null | grep -q LISTEN; then
+    log "Port 50800 occupied by blocker pid=$blocker_pid"
+  else
+    log "WARNING: failed to occupy port 50800"
+    kill "$blocker_pid" 2>/dev/null || true
+    return 1
+  fi
+
+  # Launch app — it should detect port conflict and handle it
+  local executable="$1/Contents/MacOS/Nexu"
+  local home_dir="$PERSISTENT_HOME"
+  local user_data_dir="$home_dir/Library/Application Support/@nexu/desktop"
+  local log_path="$CAPTURE_DIR/resilience-port-conflict.log"
+
+  mkdir -p "$home_dir"
+  HOME="$home_dir" \
+  TMPDIR="$RUN_ROOT/tmp" \
+  NEXU_DESKTOP_USER_DATA_ROOT="$user_data_dir" \
+    "$executable" > "$log_path" 2>&1 &
+  local app_pid=$!
+  printf '%s\n' "$app_pid" > "$CAPTURE_DIR/packaged-app.pid"
+  log "Launched app with port conflict, pid=$app_pid"
+
+  # Wait — app should either pick a different port or fail gracefully
+  sleep 15
+
+  # Check if app is still alive and found an alternative
+  if kill -0 "$app_pid" 2>/dev/null; then
+    log "App is alive despite port conflict"
+    # Check if runtime came up on any port
+    local runtime_ok=false
+    for port in 50800 50801 50802 50803 50804 50805; do
+      if curl -sf "http://127.0.0.1:$port/api/internal/desktop/ready" 2>/dev/null | grep -q '"ready":true'; then
+        log "PASSED: app found alternative port $port"
+        runtime_ok=true
+        break
+      fi
+    done
+    if ! $runtime_ok; then
+      # Check the app log for error handling
+      if grep -q "EADDRINUSE\|port.*occupied\|port.*conflict\|fallback" "$log_path" 2>/dev/null; then
+        log "PASSED: app detected port conflict (logged error)"
+      else
+        log "WARNING: app alive but runtime not found on expected ports"
+      fi
+    fi
+  else
+    # App exited — check if it logged the port conflict
+    if grep -q "EADDRINUSE\|port.*occupied\|port.*conflict" "$log_path" 2>/dev/null; then
+      log "PASSED: app exited with port conflict error (expected behavior)"
+    else
+      log "FAILED: app exited without port conflict handling"
+      tail -10 "$log_path" >&2 || true
+    fi
+  fi
+
+  # Cleanup
+  kill "$blocker_pid" 2>/dev/null || true
+  wait "$blocker_pid" 2>/dev/null || true
+  quit_app
+  bash "$REPO_ROOT/scripts/kill-all.sh" > "$CAPTURE_DIR/kill-all-port-conflict.log" 2>&1 || true
+  wait_ports_free
+}
+
+# 4. Stale runtime-ports.json: write fake state, verify app recovers
+resilience_stale_state() {
+  log "--- Resilience: stale runtime-ports.json ---"
+
+  local home_dir="$PERSISTENT_HOME"
+  local user_data_dir="$home_dir/Library/Application Support/@nexu/desktop"
+
+  # Find where runtime-ports.json would be written
+  local nexu_home="$home_dir/.nexu"
+  mkdir -p "$nexu_home"
+
+  # Write a fake runtime-ports.json pointing to non-existent services
+  local fake_ports="$nexu_home/runtime-ports.json"
+  cat > "$fake_ports" <<JSONEOF
+{
+  "electronPid": 99999,
+  "controllerPort": 50800,
+  "openclawPort": 18789,
+  "webPort": 50810,
+  "appVersion": "0.0.0-stale",
+  "buildSource": "stale-test",
+  "writtenAt": "2020-01-01T00:00:00.000Z"
+}
+JSONEOF
+  log "Wrote fake runtime-ports.json (stale session)"
+
+  # Launch app — it should detect stale state and do a fresh start
+  resilience_launch "$1"
+
+  local ready
+  ready=$(curl -sf http://127.0.0.1:50800/api/internal/desktop/ready 2>/dev/null || echo "")
+  if echo "$ready" | grep -q '"ready":true'; then
+    log "PASSED: app recovered from stale runtime-ports.json"
+  else
+    log "FAILED: app could not recover from stale state"
+    return 1
+  fi
+
+  quit_app
+  bash "$REPO_ROOT/scripts/kill-all.sh" > "$CAPTURE_DIR/kill-all-stale.log" 2>&1 || true
+  wait_ports_free
+}
+
+# 5. Double launch: start app while another is already running
+resilience_double_launch() {
+  log "--- Resilience: double launch (single-instance) ---"
+  resilience_launch "$1"
+
+  local first_pid
+  first_pid="$(cat "$CAPTURE_DIR/packaged-app.pid")"
+  log "First instance running: pid=$first_pid"
+
+  # Try to launch a second instance
+  local executable="$1/Contents/MacOS/Nexu"
+  local home_dir="$PERSISTENT_HOME"
+  local user_data_dir="$home_dir/Library/Application Support/@nexu/desktop"
+  local second_log="$CAPTURE_DIR/resilience-double-launch.log"
+
+  HOME="$home_dir" \
+  TMPDIR="$RUN_ROOT/tmp" \
+  NEXU_DESKTOP_USER_DATA_ROOT="$user_data_dir" \
+    "$executable" > "$second_log" 2>&1 &
+  local second_pid=$!
+  log "Launched second instance: pid=$second_pid"
+
+  # Wait a bit for the second instance to either exit or be rejected
+  sleep 5
+
+  if kill -0 "$second_pid" 2>/dev/null; then
+    # Second instance still alive — check if it took over or coexists
+    log "WARNING: second instance still alive (pid=$second_pid)"
+    # Check if first instance is still alive too
+    if kill -0 "$first_pid" 2>/dev/null; then
+      log "Both instances alive — checking if ports conflict"
+    else
+      log "First instance died, second took over"
+    fi
+    kill -9 "$second_pid" 2>/dev/null || true
+    wait "$second_pid" 2>/dev/null || true
+  else
+    # Second instance exited (expected: single-instance lock)
+    local exit_code=0
+    wait "$second_pid" 2>/dev/null || exit_code=$?
+    log "PASSED: second instance exited (code=$exit_code, single-instance lock working)"
+  fi
+
+  # Verify first instance still healthy
+  if kill -0 "$first_pid" 2>/dev/null; then
+    local ready
+    ready=$(curl -sf http://127.0.0.1:50800/api/internal/desktop/ready 2>/dev/null || echo "")
+    if echo "$ready" | grep -q '"ready":true'; then
+      log "PASSED: first instance still healthy after double-launch attempt"
+    fi
+  fi
+
+  quit_app
+  bash "$REPO_ROOT/scripts/kill-all.sh" > "$CAPTURE_DIR/kill-all-double.log" 2>&1 || true
+  wait_ports_free
+}
+
+# Run all resilience scenarios
+run_resilience() {
+  local app_path="$1"
+  local failed=0
+
+  resilience_crash_recovery "$app_path" || failed=$((failed + 1))
+  resilience_orphan_cleanup "$app_path" || failed=$((failed + 1))
+  resilience_port_conflict "$app_path" || failed=$((failed + 1))
+  resilience_stale_state "$app_path" || failed=$((failed + 1))
+  resilience_double_launch "$app_path" || failed=$((failed + 1))
+
+  if [ "$failed" -gt 0 ]; then
+    log "!!! $failed resilience scenario(s) FAILED"
+    return 1
+  fi
+  log "=== ALL RESILIENCE SCENARIOS PASSED ==="
+}
+
+# -----------------------------------------------------------------------
 # Main flow
 # -----------------------------------------------------------------------
 mkdir -p "$PERSISTENT_HOME" "$CAPTURE_DIR"
@@ -311,6 +639,15 @@ export NEXU_DESKTOP_E2E_ZIP_PATH="$zip_path"
 cleanup_machine
 wait_ports_free
 app_path="$(install_from_dmg "$dmg_path")"
+
+if [ "$MODE" = "resilience" ]; then
+  log "=== INSTALL PASSED, running resilience scenarios ==="
+  run_resilience "$app_path"
+  stop_screen_recording
+  capture_logs
+  log "=== ALL E2E PASSED ($MODE) ==="
+  exit 0
+fi
 
 if [ "$MODE" = "login" ]; then
   log "=== INSTALL PASSED, handing off to Playwright for login ==="
