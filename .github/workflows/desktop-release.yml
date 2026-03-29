@@ -437,3 +437,30 @@ jobs:
             echo "[r2] uploading legacy arm64 compatibility feed to prefix: ${CHANNEL}/"
             upload_prefix "${CHANNEL}"
           fi
+
+  trigger-e2e:
+    needs: release
+    runs-on: ubuntu-latest
+    if: always() && needs.release.result == 'success'
+    steps:
+      - name: Resolve channel
+        id: channel
+        run: |
+          tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}"
+          if [[ "$tag" == *-* ]]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Desktop E2E (async)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'desktop-e2e.yml',
+              ref: context.ref || 'main',
+              inputs: { mode: 'model', channel: '${{ steps.channel.outputs.channel }}' },
+            });
