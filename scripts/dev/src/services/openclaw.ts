@@ -404,21 +404,13 @@ export async function getCurrentOpenclawDevSnapshot(): Promise<OpenclawDevSnapsh
     const logFilePath = getOpenclawDevLogPath(lock.runId);
     const supervisorPid = lock.pid;
     const workerPid = lock.workerPid;
-    const supervisorRunning = isProcessRunning(supervisorPid);
-    const workerRunning =
-      typeof workerPid === "number" && isProcessRunning(workerPid);
     let listenerPid: number | undefined;
 
     try {
       listenerPid = await getOpenclawPortPid();
     } catch {}
 
-    if (
-      (await getOpenclawHealthStatus()) ||
-      listenerPid ||
-      workerRunning ||
-      supervisorRunning
-    ) {
+    if ((await getOpenclawHealthStatus()) || listenerPid) {
       return {
         service: "openclaw",
         status: "running",
