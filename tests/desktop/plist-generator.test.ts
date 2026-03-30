@@ -30,6 +30,7 @@ describe("generatePlist", () => {
       HTTPS_PROXY: "http://secure-proxy.example.com:8443",
       ALL_PROXY: "socks5://proxy.example.com:1080",
       NO_PROXY: "example.com,localhost,127.0.0.1,::1",
+      NODE_USE_ENV_PROXY: "1",
     },
   };
 
@@ -332,6 +333,7 @@ describe("generatePlist", () => {
       expect(plist).toContain("<key>HTTPS_PROXY</key>");
       expect(plist).toContain("<key>ALL_PROXY</key>");
       expect(plist).toContain("<key>NO_PROXY</key>");
+      expect(plist).toContain("<key>NODE_USE_ENV_PROXY</key>");
       expect(plist).toContain("example.com,localhost,127.0.0.1,::1");
     }
   });

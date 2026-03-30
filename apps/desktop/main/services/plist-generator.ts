@@ -58,7 +58,13 @@ export interface PlistEnv {
 }
 
 function renderProxyEnvEntries(proxyEnv: Record<string, string>): string {
-  const orderedKeys = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"];
+  const orderedKeys = [
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "NODE_USE_ENV_PROXY",
+  ];
 
   return orderedKeys
     .flatMap((key) => {
