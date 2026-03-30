@@ -98,13 +98,15 @@ jobs:
         run: |
           mkdir -p e2e/desktop/artifacts/source-maps/dist
           mkdir -p e2e/desktop/artifacts/source-maps/dist-electron/preload
+          mkdir -p e2e/desktop/artifacts/source-maps/web-dist
           cp -R apps/desktop/dist/. e2e/desktop/artifacts/source-maps/dist/
           cp -R apps/desktop/dist-electron/preload/. e2e/desktop/artifacts/source-maps/dist-electron/preload/
+          cp -R apps/web/dist/. e2e/desktop/artifacts/source-maps/web-dist/
 
       - name: Write coverage build manifest
         if: github.event.inputs.coverage == 'true'
         run: |
-          node -e "const fs = require('node:fs'); const path = require('node:path'); const manifestPath = path.join('e2e', 'desktop', 'artifacts', 'coverage-build-manifest.json'); const manifest = { gitSha: process.env.GITHUB_SHA, workflowRunId: process.env.GITHUB_RUN_ID, mode: process.env.NEXU_DESKTOP_E2E_MODE, source: 'build', coverageEnabled: true, builtAt: new Date().toISOString(), pathNormalizationVersion: 1, sourceMaps: ['source-maps/dist/**', 'source-maps/dist-electron/preload/**'] }; fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');"
+          node -e "const fs = require('node:fs'); const path = require('node:path'); const manifestPath = path.join('e2e', 'desktop', 'artifacts', 'coverage-build-manifest.json'); const manifest = { gitSha: process.env.GITHUB_SHA, workflowRunId: process.env.GITHUB_RUN_ID, mode: process.env.NEXU_DESKTOP_E2E_MODE, source: 'build', coverageEnabled: true, builtAt: new Date().toISOString(), pathNormalizationVersion: 1, sourceMaps: ['source-maps/dist/**', 'source-maps/dist-electron/preload/**', 'source-maps/web-dist/**'] }; fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');"
         env:
           NEXU_DESKTOP_E2E_MODE: ${{ github.event.inputs.mode || 'model' }}
 

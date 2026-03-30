@@ -111,6 +111,19 @@ async function ensureExistingRuntimeInstall() {
   ]);
 }
 
+async function resolveElectronDistPath() {
+  if (process.env.NEXU_DESKTOP_ELECTRON_DIST_PATH) {
+    return process.env.NEXU_DESKTOP_ELECTRON_DIST_PATH;
+  }
+
+  const electronPackageJsonPath = require.resolve("electron/package.json", {
+    paths: [electronRoot, repoRoot],
+  });
+  const electronDistPath = resolve(dirname(electronPackageJsonPath), "dist");
+  await ensureExistingPath(electronDistPath, "electron dist");
+  return electronDistPath;
+}
+
 async function timedStep(stepName, fn, timings) {
   const startedAt = performance.now();
   console.log(`[dist:mac][timing] start ${stepName}`);
@@ -762,6 +775,7 @@ async function main() {
   // Falls back to "dev" for local builds outside a git repo.
   let buildVersion = "dev";
   const electronVersion = await getElectronVersion();
+  const electronDistPath = await resolveElectronDistPath();
   try {
     buildVersion = execFileSync("git", ["rev-parse", "--short=7", "HEAD"], {
       encoding: "utf8",
@@ -780,6 +794,7 @@ async function main() {
         "--publish",
         "never",
         `--config.electronVersion=${electronVersion}`,
+        `--config.electronDist=${electronDistPath}`,
         `--config.buildVersion=${buildVersion}`,
         `--config.directories.output=${releaseRoot}`,
         ...(isFastCiMode

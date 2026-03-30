@@ -309,9 +309,11 @@ async function buildArtifactSourceMapsIndex({ artifactsDir, repoRoot }) {
     const sourceMapsRelative = toPosixPath(
       path.relative(sourceMapsRoot, compiledArtifactPath),
     );
-    const compiledRepoPath = sourceMapsRelative.startsWith("dist-electron/")
-      ? `apps/desktop/${sourceMapsRelative}`
-      : `apps/desktop/${sourceMapsRelative}`;
+    const compiledRepoPath = resolveCompiledRepoPath(sourceMapsRelative);
+    const matchSuffixes = buildArtifactMatchSuffixes(sourceMapsRelative);
+    if (!compiledRepoPath || matchSuffixes.length === 0) {
+      continue;
+    }
     const compiledContent = (await exists(compiledArtifactPath))
       ? await readFile(compiledArtifactPath, "utf8")
       : null;
@@ -325,12 +327,39 @@ async function buildArtifactSourceMapsIndex({ artifactsDir, repoRoot }) {
       sourceMap,
       sourceMapLines: parseMappings(sourceMap.mappings ?? ""),
       sourceMapPath: filePath,
-      suffix: sourceMapsRelative,
+      matchSuffixes,
       repoRoot,
     });
   }
 
   return mapIndex;
+}
+
+function resolveCompiledRepoPath(sourceMapsRelative) {
+  if (sourceMapsRelative.startsWith("dist/")) {
+    return `apps/desktop/${sourceMapsRelative}`;
+  }
+  if (sourceMapsRelative.startsWith("dist-electron/")) {
+    return `apps/desktop/${sourceMapsRelative}`;
+  }
+  if (sourceMapsRelative.startsWith("web-dist/")) {
+    return `apps/web/dist/${sourceMapsRelative.slice("web-dist/".length)}`;
+  }
+  return null;
+}
+
+function buildArtifactMatchSuffixes(sourceMapsRelative) {
+  const suffixes = new Set([sourceMapsRelative]);
+
+  if (sourceMapsRelative.startsWith("dist/")) {
+    suffixes.add(sourceMapsRelative.slice("dist/".length));
+  }
+
+  if (sourceMapsRelative.startsWith("web-dist/")) {
+    suffixes.add(sourceMapsRelative.slice("web-dist/".length));
+  }
+
+  return [...suffixes].filter(Boolean);
 }
 
 function pickArtifactSourceMap(url, mapIndex) {
@@ -340,10 +369,14 @@ function pickArtifactSourceMap(url, mapIndex) {
 
   const normalized = toPosixPath((fromFileUrl(url) ?? url).replace(/\\/g, "/"));
   const ranked = mapIndex
-    .filter((entry) => normalized.endsWith(entry.suffix))
+    .flatMap((entry) =>
+      entry.matchSuffixes
+        .filter((suffix) => normalized.endsWith(suffix))
+        .map((suffix) => ({ entry, suffix })),
+    )
     .sort((left, right) => right.suffix.length - left.suffix.length);
 
-  return ranked[0] ?? null;
+  return ranked[0]?.entry ?? null;
 }
 
 function getNodeSourceMapEntry(rawNodeCoverage, url) {
