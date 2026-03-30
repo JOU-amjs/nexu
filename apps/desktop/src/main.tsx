@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster, toast } from "sonner";
+import setupLoopVideoUrl from "../assets/setup-animation-loop.mp4";
 import setupVideoUrl from "../assets/setup-animation.mp4";
 import type {
   AppInfo,
@@ -960,14 +961,24 @@ function DesktopShell() {
     useState<DesktopRuntimeConfig | null>(null);
   const update = useAutoUpdate();
 
-  // Setup animation: video plays once → fades out → four-color NexuLoader takes over
-  const [setupPhase, setSetupPhase] = useState<"playing" | "fading" | "done">(
-    window.nexuHost.bootstrap.needsSetupAnimation ? "playing" : "done",
-  );
+  // Setup animation phases:
+  // "playing" → main video (23s) plays once
+  // "looping" → short loop video repeats until cold-start is ready
+  // "fading" → overlay fades out (0.6s CSS transition)
+  // "done" → overlay removed from DOM
+  const [setupPhase, setSetupPhase] = useState<
+    "playing" | "looping" | "fading" | "done"
+  >(window.nexuHost.bootstrap.needsSetupAnimation ? "playing" : "done");
 
   useEffect(() => {
     void getRuntimeConfig()
-      .then(setRuntimeConfig)
+      .then((config) => {
+        setRuntimeConfig(config);
+        // Cold-start is done — if we're still in the looping phase, fade out.
+        // If main video hasn't finished yet, it will transition to fade on its
+        // own via onEnded (the main video is the minimum guaranteed animation).
+        setSetupPhase((prev) => (prev === "looping" ? "fading" : prev));
+      })
       .catch(() => null);
   }, []);
 
@@ -1178,7 +1189,11 @@ function DesktopShell() {
         version={update.version}
       />
 
-      {/* Setup animation overlay — shown during first install / post-update extraction */}
+      {/* Setup animation overlay — shown during first install / post-update extraction.
+          Phase flow: "playing" (main 23s video) → "looping" (4s loop until ready)
+                      → "fading" (0.6s opacity transition) → "done" (removed from DOM).
+          If cold-start finishes during the main video, it skips straight to "fading"
+          when the main video ends (no loop needed). */}
       {setupPhase !== "done" && (
         <div
           style={{
@@ -1209,18 +1224,50 @@ function DesktopShell() {
               zIndex: 1,
             }}
           />
-          <video
-            autoPlay
-            muted
-            playsInline
-            src={setupVideoUrl}
-            onEnded={() => setSetupPhase("fading")}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
+
+          {/* Main animation: plays once (23s). When it ends, either fade out
+              (if cold-start is already done) or switch to the loop video. */}
+          {setupPhase === "playing" && (
+            <video
+              autoPlay
+              muted
+              playsInline
+              src={setupVideoUrl}
+              onEnded={() => {
+                // If runtime config is already loaded, cold-start is done — fade out.
+                // Otherwise, switch to the short loop video to fill time.
+                setSetupPhase((prev) =>
+                  prev === "playing"
+                    ? runtimeConfig
+                      ? "fading"
+                      : "looping"
+                    : prev,
+                );
+              }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+
+          {/* Loop animation: short 4s video that repeats until cold-start finishes.
+              getRuntimeConfig().then() sets phase to "fading" when ready. */}
+          {setupPhase === "looping" && (
+            <video
+              autoPlay
+              muted
+              playsInline
+              loop
+              src={setupLoopVideoUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )}
         </div>
       )}
     </div>
