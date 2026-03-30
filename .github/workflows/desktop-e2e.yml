@@ -1,5 +1,9 @@
 name: Desktop E2E
 
+permissions:
+  contents: read
+  id-token: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -76,7 +80,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build unsigned desktop (arm64)
-        run: pnpm dist:mac:unsigned:arm64
+        run: |
+          rm -f apps/desktop/release/*.dmg apps/desktop/release/*.zip
+          pnpm dist:mac:unsigned:arm64
 
       - name: Copy build artifacts to E2E
         run: |
@@ -105,7 +111,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-e2e-build-${{ github.run_id }}
+          name: desktop-e2e-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: e2e/desktop/artifacts/
           retention-days: 3
 
@@ -149,7 +155,7 @@ jobs:
         if: github.event.inputs.source == 'build'
         uses: actions/download-artifact@v4
         with:
-          name: desktop-e2e-build-${{ github.run_id }}
+          name: desktop-e2e-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: e2e/desktop/artifacts/
 
       - name: Verify artifacts
@@ -162,14 +168,51 @@ jobs:
       - name: Run desktop E2E
         env:
           NEXU_DESKTOP_E2E_SKIP_CODESIGN: ${{ github.event.inputs.source == 'build' && 'true' || 'false' }}
+          NEXU_DESKTOP_E2E_COVERAGE: ${{ github.event.inputs.coverage == 'true' && '1' || '0' }}
+          NEXU_DESKTOP_E2E_COVERAGE_RUN_ID: desktop-e2e-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.inputs.mode || 'model' }}
+          NEXU_DESKTOP_E2E_GIT_SHA: ${{ github.sha }}
+          NEXU_DESKTOP_E2E_SOURCE: ${{ github.event.inputs.source || 'download' }}
+          NEXU_DESKTOP_E2E_WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: bash scripts/run-e2e.sh "${{ github.event.inputs.mode || 'model' }}"
+
+      - name: Merge desktop E2E coverage
+        if: always() && github.event.inputs.coverage == 'true'
+        run: npm run coverage:merge
+
+      - name: Write desktop E2E coverage summary
+        if: always() && github.event.inputs.coverage == 'true'
+        run: npm run coverage:report
+
+      - name: Upload desktop E2E coverage artifacts
+        if: always() && github.event.inputs.coverage == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-e2e-coverage-${{ github.event.inputs.mode || 'model' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e/desktop/captures/coverage/
+            e2e/desktop/artifacts/coverage-build-manifest.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload desktop E2E coverage to Codecov
+        if: ${{ !cancelled() && github.event.inputs.coverage == 'true' && hashFiles('e2e/desktop/captures/coverage/lcov.info') != '' }}
+        uses: codecov/codecov-action@v6
+        with:
+          use_oidc: true
+          files: e2e/desktop/captures/coverage/lcov.info
+          flags: desktop-e2e
+          name: desktop-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          fail_ci_if_error: true
+          verbose: true
+          os: macos
 
       - name: Upload E2E diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-e2e-${{ github.event.inputs.source || 'download' }}-${{ github.event.inputs.channel || 'nightly' }}-${{ github.event.inputs.mode || 'model' }}-${{ github.run_id }}
+          name: desktop-e2e-${{ github.event.inputs.source || 'download' }}-${{ github.event.inputs.channel || 'nightly' }}-${{ github.event.inputs.mode || 'model' }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             e2e/desktop/captures/
+            !e2e/desktop/captures/coverage/**
           if-no-files-found: warn
           retention-days: 14

@@ -1,0 +1,18 @@
+flags:
+  desktop-e2e:
+    carryforward: true
+
+coverage:
+  status:
+    project:
+      desktop-e2e:
+        flags:
+          - desktop-e2e
+    patch:
+      desktop-e2e:
+        flags:
+          - desktop-e2e
+
+comment:
+  layout: "reach,diff,flags,files"
+  require_changes: true
