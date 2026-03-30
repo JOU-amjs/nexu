@@ -118,6 +118,53 @@ async function waitForOpenclawPortPid(supervisorPid: number): Promise<number> {
   throw new Error(`openclaw gateway did not open port ${port}`);
 }
 
+async function waitForOpenclawHealth(supervisorPid: number): Promise<void> {
+  const logger = getScriptsDevLogger({
+    component: "openclaw-service",
+    service: "openclaw",
+  });
+  const runtimeConfig = getScriptsDevRuntimeConfig();
+  const healthUrl = `${runtimeConfig.openclawBaseUrl}/health`;
+  const attempts = 20;
+  const delayMs = 500;
+  const waitStartedAt = Date.now();
+
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      const response = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (response.ok) {
+        return;
+      }
+    } catch {}
+
+    if (!isProcessRunning(supervisorPid)) {
+      throw new Error("openclaw supervisor exited before health check passed");
+    }
+
+    if ((index + 1) % 4 === 0) {
+      logger.info("waiting for openclaw health endpoint", {
+        supervisorPid,
+        healthUrl,
+        elapsedMs: Date.now() - waitStartedAt,
+      });
+    }
+
+    if (index < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  if (!isProcessRunning(supervisorPid)) {
+    throw new Error("openclaw supervisor exited before health check passed");
+  }
+
+  throw new Error(
+    `openclaw health endpoint did not become ready at ${healthUrl}`,
+  );
+}
+
 async function prepareOpenclawEntryPath(): Promise<string> {
   const logger = getScriptsDevLogger({
     component: "openclaw-service",
@@ -227,6 +274,17 @@ export async function startOpenclawDevProcess(options: {
   }
 
   logOpenclawTiming(`listener-pid=${listenerPid}`, startedAt);
+
+  try {
+    await waitForOpenclawHealth(supervisorPid);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `${message}. Inspect ${logFilePath} for OpenClaw startup details.`,
+    );
+  }
+
+  logOpenclawTiming("health-ready", startedAt);
 
   const recordedLock = await readDevLock(openclawDevLockPath).catch(() => null);
   const recordedPid = recordedLock?.pid ?? supervisorPid;
