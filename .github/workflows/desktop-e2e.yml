@@ -23,6 +23,12 @@ on:
         default: 'nightly'
         type: choice
         options: [nightly, beta, stable]
+      coverage:
+        description: 'Enable precise coverage collection (build source only)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
   schedule:
     # Run nightly at 03:00 UTC (11:00 CST)
     - cron: '0 3 * * *'
@@ -31,11 +37,23 @@ env:
   RELEASE_BASE: https://desktop-releases.nexu.io
 
 jobs:
+  validate-inputs:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate coverage input
+        if: github.event.inputs.coverage == 'true' && github.event.inputs.source != 'build'
+        run: |
+          echo "coverage=true requires source=build for precise path remapping and per-run source map parity."
+          echo "Use source=build for coverage runs, or set coverage=false when testing downloaded artifacts."
+          exit 1
+
   # --------------------------------------------------------------------------
   # Option A: Build unsigned from current branch
   # --------------------------------------------------------------------------
   build:
-    if: github.event.inputs.source == 'build'
+    needs: [validate-inputs]
+    if: always() && github.event.inputs.source == 'build' && (needs.validate-inputs.result == 'success' || needs.validate-inputs.result == 'skipped')
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     steps:
@@ -69,6 +87,21 @@ jobs:
           echo "Artifacts:"
           ls -lh e2e/desktop/artifacts/
 
+      - name: Collect coverage remap artifacts
+        if: github.event.inputs.coverage == 'true'
+        run: |
+          mkdir -p e2e/desktop/artifacts/source-maps/dist
+          mkdir -p e2e/desktop/artifacts/source-maps/dist-electron/preload
+          cp -R apps/desktop/dist/. e2e/desktop/artifacts/source-maps/dist/
+          cp -R apps/desktop/dist-electron/preload/. e2e/desktop/artifacts/source-maps/dist-electron/preload/
+
+      - name: Write coverage build manifest
+        if: github.event.inputs.coverage == 'true'
+        run: |
+          node -e "const fs = require('node:fs'); const path = require('node:path'); const manifestPath = path.join('e2e', 'desktop', 'artifacts', 'coverage-build-manifest.json'); const manifest = { gitSha: process.env.GITHUB_SHA, workflowRunId: process.env.GITHUB_RUN_ID, mode: process.env.NEXU_DESKTOP_E2E_MODE, source: 'build', coverageEnabled: true, builtAt: new Date().toISOString(), pathNormalizationVersion: 1, sourceMaps: ['source-maps/dist/**', 'source-maps/dist-electron/preload/**'] }; fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');"
+        env:
+          NEXU_DESKTOP_E2E_MODE: ${{ github.event.inputs.mode || 'model' }}
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -80,8 +113,8 @@ jobs:
   # E2E test
   # --------------------------------------------------------------------------
   e2e:
-    needs: [build]
-    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    needs: [validate-inputs, build]
+    if: always() && (needs.validate-inputs.result == 'success' || needs.validate-inputs.result == 'skipped') && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     defaults:
