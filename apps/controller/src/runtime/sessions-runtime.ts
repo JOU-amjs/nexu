@@ -48,6 +48,7 @@ type SanitizedUserMessageText = {
 };
 type SessionHints = {
   senderName?: string;
+  groupName?: string;
   channelType?: string;
   metadata?: SessionMetadataRecord;
   feishuMessageId?: string;
@@ -131,6 +132,7 @@ export class SessionsRuntime {
           );
           const hints: SessionHints = {
             senderName: transcriptHints.senderName ?? indexHints.senderName,
+            groupName: transcriptHints.groupName ?? indexHints.groupName,
             channelType: transcriptHints.channelType ?? indexHints.channelType,
             metadata: transcriptHints.metadata ?? indexHints.metadata,
             feishuMessageId:
@@ -146,16 +148,20 @@ export class SessionsRuntime {
           if (!channelType && hints.channelType) {
             channelType = hints.channelType;
           }
-          if (
-            this.shouldReplaceInferredTitle(title, sessionKey) &&
-            hints.senderName
-          ) {
-            title =
-              channelType === "openclaw-weixin"
-                ? hints.senderName
-                : channelType
-                  ? `${hints.senderName} · ${channelType}`
-                  : hints.senderName;
+          if (this.shouldReplaceInferredTitle(title, sessionKey)) {
+            if (hints.groupName) {
+              title =
+                channelType && channelType !== "openclaw-weixin"
+                  ? `${hints.groupName} · ${channelType}`
+                  : hints.groupName;
+            } else if (hints.senderName) {
+              title =
+                channelType === "openclaw-weixin"
+                  ? hints.senderName
+                  : channelType
+                    ? `${hints.senderName} · ${channelType}`
+                    : hints.senderName;
+            }
           }
           if (
             this.shouldReplaceInferredTitle(title, sessionKey) &&
@@ -851,6 +857,23 @@ export class SessionsRuntime {
       this.readStringValue(conversationMeta, "sender") ??
       undefined;
 
+    // Extract group name from conversation metadata, with multi-source fallback
+    const rawGroupName =
+      this.readStringValue(conversationMeta, "group_name") ??
+      this.readStringValue(conversationMeta, "chat_name") ??
+      this.readStringValue(conversationMeta, "group_subject") ??
+      this.readStringValue(conversationMeta, "conversation_label") ??
+      undefined;
+
+    // Filter out platform-internal IDs that look like identifiers rather than
+    // human-readable group names:
+    //   oc_ / ou_  — OpenClaw / Feishu internal IDs (hex suffix)
+    //   C[A-Z0-9]{8,} — Slack channel IDs (e.g. C05ABCD1234), uppercase only
+    const isIdLike =
+      rawGroupName !== undefined &&
+      /^(?:oc_|ou_)[a-f0-9]+$|^C[A-Z0-9]{8,}$/.test(rawGroupName);
+    const groupName = isIdLike ? undefined : rawGroupName;
+
     let channelType: string | undefined;
     const combined = [
       this.readStringValue(senderMeta, "label") ?? "",
@@ -888,6 +911,7 @@ export class SessionsRuntime {
 
     return {
       senderName,
+      groupName,
       channelType: this.normalizeInferredChannelType(channelType),
       metadata: this.extractExactChatTargetMetadata(
         senderMeta,
