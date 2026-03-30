@@ -994,7 +994,10 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawWorkspaceTemplatesDir: path.join(rootDir, "workspace-templates"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
       }),
     );
 
@@ -1017,22 +1020,30 @@ describe("SessionsRuntime", () => {
               text: [
                 "Conversation info (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  message_id: "om_grp_1",
-                  sender_id: "ou_abc123def456abc123def456abc123de",
-                  group_name: "Engineering Team",
-                  sender: "Alice",
-                  is_group_chat: true,
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    message_id: "om_grp_1",
+                    sender_id: "ou_abc123def456abc123def456abc123de",
+                    group_name: "Engineering Team",
+                    sender: "Alice",
+                    is_group_chat: true,
+                  },
+                  null,
+                  2,
+                ),
                 "```",
                 "",
                 "Sender (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  label: "Alice (ou_abc123def456abc123def456abc123de)",
-                  id: "ou_abc123def456abc123def456abc123de",
-                  name: "Alice",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    label: "Alice (ou_abc123def456abc123def456abc123de)",
+                    id: "ou_abc123def456abc123def456abc123de",
+                    name: "Alice",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
               ].join("\n"),
             },
@@ -1055,7 +1066,10 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawWorkspaceTemplatesDir: path.join(rootDir, "workspace-templates"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
       }),
     );
 
@@ -1078,22 +1092,30 @@ describe("SessionsRuntime", () => {
               text: [
                 "Conversation info (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  message_id: "om_grp_2",
-                  sender_id: "ou_abc123def456abc123def456abc123de",
-                  conversation_label: "oc_22e522a5c7c13fbbfbf22d82463a5d11",
-                  sender: "Bob",
-                  is_group_chat: true,
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    message_id: "om_grp_2",
+                    sender_id: "ou_abc123def456abc123def456abc123de",
+                    conversation_label: "oc_22e522a5c7c13fbbfbf22d82463a5d11",
+                    sender: "Bob",
+                    is_group_chat: true,
+                  },
+                  null,
+                  2,
+                ),
                 "```",
                 "",
                 "Sender (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  label: "Bob (ou_abc123def456abc123def456abc123de)",
-                  id: "ou_abc123def456abc123def456abc123de",
-                  name: "Bob",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    label: "Bob (ou_abc123def456abc123def456abc123de)",
+                    id: "ou_abc123def456abc123def456abc123de",
+                    name: "Bob",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
               ].join("\n"),
             },
@@ -1117,7 +1139,10 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawWorkspaceTemplatesDir: path.join(rootDir, "workspace-templates"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
       }),
     );
 
@@ -1140,19 +1165,27 @@ describe("SessionsRuntime", () => {
               text: [
                 "Conversation info (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  message_id: "slack-msg-1",
-                  chat_name: "Christmas Party Planning",
-                  sender: "Carol",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    message_id: "slack-msg-1",
+                    chat_name: "Christmas Party Planning",
+                    sender: "Carol",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
                 "",
                 "Sender (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  label: "Carol",
-                  name: "Carol",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    label: "Carol",
+                    name: "Carol",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
               ].join("\n"),
             },
@@ -1176,7 +1209,10 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawWorkspaceTemplatesDir: path.join(rootDir, "workspace-templates"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
       }),
     );
 
@@ -1199,19 +1235,27 @@ describe("SessionsRuntime", () => {
               text: [
                 "Conversation info (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  message_id: "slack-msg-2",
-                  conversation_label: "C05ABCD1234",
-                  sender: "Dave",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    message_id: "slack-msg-2",
+                    conversation_label: "C05ABCD1234",
+                    sender: "Dave",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
                 "",
                 "Sender (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  label: "Dave",
-                  name: "Dave",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    label: "Dave",
+                    name: "Dave",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
               ].join("\n"),
             },
@@ -1235,7 +1279,10 @@ describe("SessionsRuntime", () => {
         openclawStateDir: rootDir,
         openclawConfigPath: path.join(rootDir, "openclaw.json"),
         openclawSkillsDir: path.join(rootDir, "skills"),
-        openclawWorkspaceTemplatesDir: path.join(rootDir, "workspace-templates"),
+        openclawWorkspaceTemplatesDir: path.join(
+          rootDir,
+          "workspace-templates",
+        ),
       }),
     );
 
@@ -1258,19 +1305,27 @@ describe("SessionsRuntime", () => {
               text: [
                 "Conversation info (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  message_id: "slack-msg-3",
-                  conversation_label: "G01ABC2DEF3",
-                  sender: "Eve",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    message_id: "slack-msg-3",
+                    conversation_label: "G01ABC2DEF3",
+                    sender: "Eve",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
                 "",
                 "Sender (untrusted metadata):",
                 "```json",
-                JSON.stringify({
-                  label: "Eve",
-                  name: "Eve",
-                }, null, 2),
+                JSON.stringify(
+                  {
+                    label: "Eve",
+                    name: "Eve",
+                  },
+                  null,
+                  2,
+                ),
                 "```",
               ].join("\n"),
             },
