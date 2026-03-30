@@ -3,11 +3,13 @@ import { bootstrapController } from "./app/bootstrap.js";
 import { createContainer } from "./app/container.js";
 import { createApp } from "./app/create-app.js";
 import { logger } from "./lib/logger.js";
+import { flushV8CoverageIfEnabled } from "./lib/v8-coverage.js";
 
 async function main(): Promise<void> {
   const container = await createContainer();
   const stopBackgroundLoops = await bootstrapController(container);
   const app = createApp(container);
+  let shutdownInProgress = false;
 
   const server = serve(
     {
@@ -24,10 +26,25 @@ async function main(): Promise<void> {
   );
 
   const shutdown = async () => {
+    if (shutdownInProgress) {
+      return;
+    }
+    shutdownInProgress = true;
+
     stopBackgroundLoops();
     server.close();
-    await container.openclawProcess.stop();
-    process.exit(0);
+
+    try {
+      await container.openclawProcess.stop();
+    } catch (error: unknown) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        "controller shutdown stop failed",
+      );
+    } finally {
+      flushV8CoverageIfEnabled();
+      process.exit(0);
+    }
   };
 
   process.on("SIGINT", () => {

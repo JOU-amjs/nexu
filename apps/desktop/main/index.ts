@@ -53,6 +53,7 @@ import {
   resolveLaunchdPaths,
   teardownLaunchdServices,
 } from "./services";
+import { flushV8CoverageIfEnabled } from "./services/v8-coverage";
 import { ProxyManager } from "./services/proxy-manager";
 import {
   getLegacyNexuHomeStateDir,
@@ -308,6 +309,7 @@ async function gracefulShutdown(reason: string): Promise<void> {
     sleepGuard?.dispose(reason);
     await diagnosticsReporter?.flushNow().catch(() => undefined);
     flushRuntimeLoggers();
+    flushV8CoverageIfEnabled();
 
     if (launchdResult) {
       await teardownLaunchdServices({
@@ -670,6 +672,9 @@ async function runLaunchdColdStart(): Promise<void> {
     skillNodePath,
     openclawTmpDir,
     proxyEnv,
+    nodeV8Coverage: process.env.NODE_V8_COVERAGE,
+    desktopE2ECoverage: process.env.NEXU_DESKTOP_E2E_COVERAGE,
+    desktopE2ECoverageRunId: process.env.NEXU_DESKTOP_E2E_COVERAGE_RUN_ID,
     appVersion: app.getVersion(),
     userDataPath: app.getPath("userData"),
     buildSource:
@@ -1110,6 +1115,7 @@ app.whenReady().then(async () => {
           sleepGuard?.dispose("launchd-quit");
           await diagnosticsReporter?.flushNow().catch(() => undefined);
           flushRuntimeLoggers();
+          flushV8CoverageIfEnabled();
         },
       });
     }

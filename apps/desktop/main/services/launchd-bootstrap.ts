@@ -83,6 +83,12 @@ export interface LaunchdBootstrapEnv {
   openclawTmpDir: string;
   /** Normalized proxy env propagated to controller/openclaw launchd services */
   proxyEnv: Record<string, string>;
+  /** Optional Node V8 coverage output directory */
+  nodeV8Coverage?: string;
+  /** Optional desktop E2E coverage mode switch */
+  desktopE2ECoverage?: string;
+  /** Optional desktop E2E coverage run identifier */
+  desktopE2ECoverageRunId?: string;
 }
 
 export interface LaunchdBootstrapResult {
@@ -418,6 +424,9 @@ export async function bootstrapWithLaunchd(
     skillNodePath: env.skillNodePath,
     openclawTmpDir: env.openclawTmpDir,
     proxyEnv: env.proxyEnv,
+    nodeV8Coverage: env.nodeV8Coverage,
+    desktopE2ECoverage: env.desktopE2ECoverage,
+    desktopE2ECoverageRunId: env.desktopE2ECoverageRunId,
   };
   await cleanupStalePlists(launchd, plistDir, labels, cleanupPlistEnv);
 
