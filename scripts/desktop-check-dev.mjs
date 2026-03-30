@@ -70,10 +70,7 @@ async function main() {
     ["dev", "stop", "controller"],
     ["dev", "stop", "openclaw"],
   ]) {
-    const stopResult = await run("pnpm", args);
-    if (exitCode === 0 && stopResult.code !== 0) {
-      exitCode = stopResult.code;
-    }
+    await run("pnpm", args);
   }
 
   process.exit(exitCode);
