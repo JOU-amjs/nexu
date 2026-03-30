@@ -1,4 +1,5 @@
 !include "LogicLib.nsh"
+!include "WordFunc.nsh"
 
 !define NEXU_DATA_DIR_NAME "nexu-desktop"
 !define NEXU_TOMBSTONE_PREFIX "nexu-desktop.tombstone-"
@@ -21,10 +22,18 @@
   Push "customInit entered"
   Call LogNexuInstallerEvent
   ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ReadRegStr $1 HKCU "${INSTALL_REGISTRY_KEY}" DisplayVersion
   ${if} $0 == ""
     StrCpy $INSTDIR "$LOCALAPPDATA\Programs\nexu-desktop"
+  ${else}
+    StrCpy $INSTDIR "$0"
   ${endif}
   SetShellVarContext current
+  Call EnsureNexuNotRunning
+  ${if} $1 != ""
+    Push $1
+    Call ConfirmExistingInstallAction
+  ${endif}
   Call CleanupPriorNexuDataTombstones
   Push "customInit leaving"
   Call LogNexuInstallerEvent
@@ -92,6 +101,62 @@
     WriteRegStr HKCU "${NEXU_RUNONCE_KEY}" "${NEXU_RUNONCE_VALUE_PREFIX}$1" $2
 
     Pop $2
+    Pop $1
+    Pop $0
+  FunctionEnd
+
+  Function EnsureNexuNotRunning
+    Push $0
+    Push $1
+    Push $2
+
+  retry:
+    nsExec::ExecToStack '"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq Nexu.exe" /NH'
+    Pop $0
+    Pop $1
+    StrCpy $2 $1 8
+
+    ${If} $0 == "0"
+    ${AndIf} $2 == "Nexu.exe"
+      Push "Nexu process detected during install init"
+      Call LogNexuInstallerEvent
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Nexu is currently running.$\r$\n$\r$\nPlease quit the app before continuing the installation." /SD IDCANCEL IDRETRY retry
+      Abort
+    ${EndIf}
+
+    Pop $2
+    Pop $1
+    Pop $0
+  FunctionEnd
+
+  Function ConfirmExistingInstallAction
+    Exch $0
+    Push $1
+
+    ${If} $0 == ""
+      Goto done
+    ${EndIf}
+
+    ${VersionCompare} "$0" "${VERSION}" $1
+
+    ${If} $1 == 1
+      Push "Blocking downgrade install: installed=$0 installer=${VERSION}"
+      Call LogNexuInstallerEvent
+      MessageBox MB_OK|MB_ICONSTOP "A newer version of Nexu ($0) is already installed at:$\r$\n$INSTDIR$\r$\n$\r$\nThis installer contains ${VERSION}. Downgrading is blocked by default." /SD IDOK
+      Abort
+    ${ElseIf} $1 == 0
+      Push "Prompting same-version reinstall confirmation: version=$0"
+      Call LogNexuInstallerEvent
+      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "Nexu $0 is already installed at:$\r$\n$INSTDIR$\r$\n$\r$\nContinuing will repair or reinstall the existing app." /SD IDCANCEL IDOK done
+      Abort
+    ${Else}
+      Push "Prompting upgrade confirmation: installed=$0 installer=${VERSION}"
+      Call LogNexuInstallerEvent
+      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "Nexu $0 is already installed at:$\r$\n$INSTDIR$\r$\n$\r$\nContinuing will upgrade the existing installation to ${VERSION}." /SD IDCANCEL IDOK done
+      Abort
+    ${EndIf}
+
+  done:
     Pop $1
     Pop $0
   FunctionEnd

@@ -4,6 +4,7 @@ import {
   lstat,
   mkdir,
   readFile,
+  readdir,
   realpath,
   rm,
   writeFile,
@@ -370,6 +371,35 @@ async function getWindowsBuildVersion() {
   return numericParts.slice(0, 4).join(".");
 }
 
+async function cleanupReleaseIntermediates(releaseRoot) {
+  const entries = await readdir(releaseRoot, { withFileTypes: true });
+  const removableNames = entries
+    .filter((entry) => {
+      if (entry.isDirectory()) {
+        return false;
+      }
+
+      return (
+        entry.name === "builder-debug.yml" ||
+        entry.name.endsWith(".__uninstaller.exe") ||
+        entry.name.endsWith(".nsis.7z")
+      );
+    })
+    .map((entry) => entry.name);
+
+  await Promise.all(
+    removableNames.map((name) =>
+      rm(resolve(releaseRoot, name), rmWithRetriesOptions),
+    ),
+  );
+
+  if (removableNames.length > 0) {
+    console.log(
+      `[dist:win] removed release intermediates: ${removableNames.join(", ")}`,
+    );
+  }
+}
+
 async function main() {
   const rawArgs = new Set(process.argv.slice(2));
   const dirOnly = rawArgs.has("--dir-only") || rawArgs.has("--target=dir");
@@ -560,6 +590,13 @@ async function main() {
           },
         },
       );
+    },
+    timings,
+  );
+  await timedStep(
+    "clean release intermediates",
+    async () => {
+      await cleanupReleaseIntermediates(releaseRoot);
     },
     timings,
   );
