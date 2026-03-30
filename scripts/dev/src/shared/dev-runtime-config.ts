@@ -100,8 +100,8 @@ export function getScriptsDevRuntimeConfig(): ScriptsDevRuntimeConfig {
     ...process.env,
   };
 
-  const controllerPort = readNumber(mergedEnv.NEXU_DEV_CONTROLLER_PORT, 3010);
-  const webPort = readNumber(mergedEnv.NEXU_DEV_WEB_PORT, 5173);
+  const controllerPort = readNumber(mergedEnv.NEXU_DEV_CONTROLLER_PORT, 50800);
+  const webPort = readNumber(mergedEnv.NEXU_DEV_WEB_PORT, 50810);
   const openclawPort = readNumber(mergedEnv.NEXU_DEV_OPENCLAW_PORT, 18789);
   const nexuHomeDir = resolvePath(
     mergedEnv.NEXU_DEV_NEXU_HOME_DIR,
