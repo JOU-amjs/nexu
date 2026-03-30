@@ -157,7 +157,9 @@ export function ChannelsPage() {
           const channelLive = liveStatusData?.channels?.find(
             (e) => e.channelId === configuredChannel?.id,
           );
-          const channelLiveStatus = channelLive?.status;
+          const channelLiveStatus = liveStatusData
+            ? (channelLive?.status ?? "connecting")
+            : undefined;
           return (
             <button
               type="button"
@@ -306,7 +308,11 @@ function ConfiguredView({
   const liveEntry = liveStatusData?.channels?.find(
     (e) => e.channelId === channel.id,
   );
-  const liveStatus = liveEntry?.status ?? "connected";
+  // Before live-status data arrives, show a neutral loading state
+  // instead of defaulting to green "connected".
+  const liveStatus = liveStatusData
+    ? (liveEntry?.status ?? "connecting")
+    : "connecting";
   const liveError = liveEntry?.lastError ?? null;
 
   const disconnectMutation = useMutation({
