@@ -80,7 +80,8 @@ function createCheckContext(mode) {
         openclawHealth: "http://127.0.0.1:18789/health",
       },
       processChecks: {
-        stateFile: resolve(repoRoot, ".tmp/desktop/manager/state.json"),
+        lockFile: resolve(repoRoot, ".tmp/dev/desktop.pid"),
+        pidKey: "pid",
       },
       diagnosticsFiles: [resolve(desktopLogsDir, "desktop-diagnostics.json")],
       logs: {
@@ -97,7 +98,7 @@ function createCheckContext(mode) {
         ]),
       },
       capturePaths: [
-        { source: resolve(repoRoot, ".tmp/logs"), target: "repo-logs" },
+        { source: resolve(repoRoot, ".tmp/dev/logs"), target: "repo-logs" },
         { source: desktopLogsDir, target: "electron-logs" },
       ],
     };
@@ -403,6 +404,16 @@ async function fetchText(url) {
 }
 
 async function collectAppProcessResults(context) {
+  if (context.processChecks.lockFile) {
+    return {
+      mainProcess: await readJsonPidIfAlive(
+        context.processChecks.lockFile,
+        context.processChecks.pidKey ?? "pid",
+      ),
+      auxiliaryProcess: null,
+    };
+  }
+
   if (context.processChecks.pidFile) {
     return {
       mainProcess: await readPidIfAlive(context.processChecks.pidFile),
@@ -425,6 +436,32 @@ async function collectAppProcessResults(context) {
     },
     auxiliaryProcess: null,
   };
+}
+
+async function readJsonPidIfAlive(filePath, pidKey) {
+  if (!filePath || !(await fileExists(filePath))) {
+    return { alive: false, pid: null, detail: "pid file is missing" };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return { alive: false, pid: null, detail: "pid file is invalid JSON" };
+  }
+
+  const pid = parsed?.[pidKey];
+  if (!Number.isInteger(pid)) {
+    return {
+      alive: false,
+      pid: null,
+      detail: `pid file does not contain a valid ${pidKey}`,
+    };
+  }
+
+  return isPidAlive(pid)
+    ? { alive: true, pid, detail: `pid ${pid} is running` }
+    : { alive: false, pid, detail: `pid ${pid} is not running` };
 }
 
 function buildMissingCheckSummary(missingChecks) {
