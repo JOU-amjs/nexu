@@ -1236,49 +1236,44 @@ function DesktopShell() {
             }}
           />
 
-          {/* Main animation: plays once (23s). When it ends, either fade out
-              (if cold-start is already done) or switch to the loop video. */}
-          {setupPhase === "playing" && (
-            <video
-              autoPlay
-              muted
-              playsInline
-              src={setupVideoUrl}
-              onEnded={() => {
-                // If runtime config is already loaded, cold-start is done — fade out.
-                // Otherwise, switch to the short loop video to fill time.
-                setSetupPhase((prev) =>
-                  prev === "playing"
-                    ? runtimeConfig
-                      ? "fading"
-                      : "looping"
-                    : prev,
-                );
-              }}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          )}
-
-          {/* Loop animation: short 4s video that repeats until cold-start finishes.
-              getRuntimeConfig().then() sets phase to "fading" when ready. */}
-          {setupPhase === "looping" && (
-            <video
-              autoPlay
-              muted
-              playsInline
-              loop
-              src={setupLoopVideoUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          )}
+          {/* Both videos are mounted simultaneously. The loop video preloads
+              in the background while the main video plays, so the transition
+              is instant — no blank gap waiting for the loop video to buffer.
+              Visibility is controlled via CSS (display none/block). */}
+          <video
+            autoPlay
+            muted
+            playsInline
+            src={setupVideoUrl}
+            onEnded={() => {
+              setSetupPhase((prev) =>
+                prev === "playing"
+                  ? runtimeConfig
+                    ? "fading"
+                    : "looping"
+                  : prev,
+              );
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: setupPhase === "playing" ? "block" : "none",
+            }}
+          />
+          <video
+            autoPlay
+            muted
+            playsInline
+            loop
+            src={setupLoopVideoUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: setupPhase === "looping" ? "block" : "none",
+            }}
+          />
         </div>
       )}
     </div>
