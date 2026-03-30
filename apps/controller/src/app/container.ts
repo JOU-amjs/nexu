@@ -104,7 +104,9 @@ export async function createContainer(): Promise<ControllerContainer> {
   let syncService: OpenClawSyncService | null = null;
   const skillhubService = await SkillhubService.create(env, {
     onSyncNeeded: () => {
-      void syncService?.syncAll().catch(() => {});
+      void syncService?.syncAll().catch((err: unknown) => {
+        logger.error({ err }, "onSyncNeeded: syncAll failed");
+      });
     },
     getBotIds: async () => {
       const config = await configStore.getConfig();
