@@ -77,6 +77,20 @@ async function waitForControllerPortPid(): Promise<number> {
 }
 
 async function ensureOpenclawReadyForController(): Promise<void> {
+  const runtimeConfig = getScriptsDevRuntimeConfig();
+
+  try {
+    await waitForListeningPortPid(
+      runtimeConfig.openclawPort,
+      "openclaw gateway",
+      {
+        attempts: 8,
+        delayMs: 250,
+      },
+    );
+    return;
+  } catch {}
+
   const openclawSnapshot = await getCurrentOpenclawDevSnapshot();
 
   ensure(openclawSnapshot.status === "running").orThrow(
