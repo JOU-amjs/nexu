@@ -15,6 +15,13 @@ created: '2026-03-30'
 
 积分方案的第一步是设计积分持久化方案，先聚焦一下数据怎么存，确定之后就可以分工搞了。基本的原则是：写入在 cloud 做，读取在 link 做。
 
+补充约束：首发就必须支持 **到期积分**。至少包括：
+
+- 每日赠送积分按天过期。
+- 订阅月积分按计费周期过期。
+
+这意味着积分在存储上不再是完全同质的总余额，必须能表达「某一批积分从何而来、何时过期、还剩多少、一次消耗实际扣了哪些 lot」。因此 v1 的持久化方案必须直接支持 expiring lot，而不是只做 aggregate balance。
+
 ## Research
 
 ### 现有系统
@@ -80,61 +87,81 @@ created: '2026-03-30'
 
 ### Architecture
 
-选择 **方案 C：务实平衡**。
+选择 **方案 C（更新版）：shared 主账本 + expiring lot inventory**。
 
 核心原则：
 
-- **shared `public` schema 存积分主账本**，由 `nexu-cloud` 负责 migration 与写入。
-- **`nexu-link` 只读 shared DB** 做准入判断，不拥有 `public` schema migration。
+- **shared `public` schema 存积分权威账本与 lot 库存**，由 `nexu-cloud` 负责 migration 与写入。
+- **`nexu-link` 只读 shared DB** 做准入判断，不拥有 `public` schema migration，也不写 `public.credit_*`。
 - **`link.*` 只保留运行态遥测/对账信息**，不作为积分权威账本。
-- **v1 只做双账本 + 账户投影**：充值账本、消耗账本、账户余额快照。
-- **v1 不做 debt / allocation / 外部读 API**，先把主链路打通。
+- **v1 必须支持到期积分**：`daily_gift` 当天过期；`subscription` 月积分在 `billing_period_end` 过期；默认 **no rollover**。
+- **v1 采用 lot-based 模型**：每次入账都是一笔独立 `credit_recharges` lot，带 `remaining_credits`、`expires_at`、来源信息。
+- **v1 固定按最早过期优先扣减**（FEFO：first-expiring-first-out）。
+- **v1 采用 reservation / hold 结算**，由 link 发起、cloud 正式记账。
+- **reservation 在 v1 是严格上界**：`actualAmountCredits` 不允许超过该请求的 `reserved_credits`；不做自动 overdraft / platform absorb。
+- **v1 不做 debt / overdraft / postpaid / 对外余额 API**。
 
 ```text
-充值/赠送/后台加积分
+充值 / 发奖 / 月积分发放
   -> nexu-cloud
-  -> public.credit_recharges (append-only)
+  -> public.credit_recharges 插入一笔 lot
   -> public.credit_accounts.available_credits += amount
 
 模型请求
   -> nexu-link 鉴权(api_key -> user_id)
-  -> 读取 public.credit_accounts.available_credits (fast-path precheck)
-  -> 进入“LLM 结算策略”分支（待拍板）
-       A. reservation / hold：先冻结，再按实际 usage 结算
-       B. platform absorb：不冻结，由平台吞掉超额差值
-  -> 记录 link.usage_events
+  -> 读取 public.credit_accounts.available_credits / reserved_credits 做 fast-path precheck
+  -> nexu-link 调用 nexu-cloud/internal/credits/reservations 创建 hold
+  -> nexu-cloud 按 expires_at asc 选择可用 lots 并落 reservation
+  -> nexu-link 调 provider
+  -> nexu-link 调用 nexu-cloud/internal/credits/finalize 完成最终结算
+  -> nexu-cloud 写 credit_usages + credit_usage_allocations
+  -> nexu-link 写 link.usage_events
+
+过期清理
+  -> nexu-cloud cron 扫描已过期且未被 hold 占用的 lots
+  -> 标记 expired 并同步扣减 credit_accounts.available_credits
 ```
 
 ### Data Model
 
 - **`public.credit_accounts`**
   - 每个 `user_id` 一行，给 `nexu-link` 提供快速准入读取。
+  - 这是账户级聚合投影；lot 级真相仍在 `credit_recharges` / `credit_usage_allocations` / `credit_reservation_allocations`。
   - 建议字段：
     - `id text primary key`
     - `user_id text not null unique`
     - `available_credits bigint not null default 0`
+    - `reserved_credits bigint not null default 0`
     - `total_recharged_credits bigint not null default 0`
     - `total_used_credits bigint not null default 0`
+    - `total_expired_credits bigint not null default 0`
     - `version bigint not null default 0`
     - `created_at timestamptz not null default now()`
     - `updated_at timestamptz not null default now()`
-  - 约束：`user_id` 唯一；`available_credits >= 0`；所有积分字段为 `bigint` 最小单位，避免浮点误差。
-  - 不变量：在 v1 无 debt / expiry 前提下，`available_credits = total_recharged_credits - total_used_credits`。
+  - 约束：所有积分字段为 `bigint` 最小单位；`available_credits >= 0`；`reserved_credits >= 0`；`available_credits >= reserved_credits`。
+  - 关键语义：`available_credits` 包含已 hold 但尚未 finalize 的额度；`spendable_credits = available_credits - reserved_credits`。
 
 - **`public.credit_recharges`**
-  - 充值/赠送/后台补偿等入账流水，append-only。
+  - 权威 lot 库存表。每次入账都会生成一笔独立 lot；`remaining_credits` 会随结算/过期而变化。
   - 建议字段：
     - `id text primary key`
     - `user_id text not null`
     - `source text not null`
     - `amount_credits bigint not null`
+    - `remaining_credits bigint not null`
+    - `expires_at timestamptz null`
+    - `billing_period_start timestamptz null`
+    - `billing_period_end timestamptz null`
+    - `status text not null default 'active'` -- `active | exhausted | expired`
     - `idempotency_key text not null unique`
     - `external_ref text null`
     - `metadata jsonb not null default '{}'::jsonb`
     - `created_at timestamptz not null default now()`
-  - 推荐 `source`：`purchase`、`reward_redemption`、`invite_reward`、`admin_grant`、`compensation_refund`。
-  - 索引：`(user_id, created_at desc)`；必要时可增加 `(source, external_ref)` 唯一约束。
-  - v1 不要求 lot 级扣减，只要求保留完整入账历史。
+    - `updated_at timestamptz not null default now()`
+  - 推荐 `source`：`daily_gift`、`subscription`、`purchase`、`reward_redemption`、`invite_reward`、`admin_grant`、`compensation_refund`。
+  - 约束：`0 <= remaining_credits <= amount_credits`；`daily_gift` 必须有 `expires_at`；`subscription` 必须带 `billing_period_end`。
+  - 索引：`(user_id, status, expires_at asc, created_at asc)`；必要时增加 `(source, external_ref)` 唯一约束。
+  - 说明：这里沿用 `credit_recharges` 命名，但在语义上它已经是 expiring lot / credit grant inventory。
 
 - **`public.credit_usages`**
   - 模型调用等消耗流水，append-only。
@@ -143,6 +170,7 @@ created: '2026-03-30'
     - `user_id text not null`
     - `api_key_id text null`
     - `request_id text not null unique`
+    - `reservation_id text null`
     - `usage_type text not null`
     - `amount_credits bigint not null`
     - `provider text null`
@@ -153,64 +181,97 @@ created: '2026-03-30'
   - 索引：`(user_id, created_at desc)`、可选 `(api_key_id, created_at desc)`。
   - `request_id` 必须由网关生成，用作幂等键，避免重试导致重复扣费。
 
+- **`public.credit_usage_allocations`**
+  - 记录一笔 usage 实际消耗了哪些 lots。
+  - 之所以需要这张表，是因为一笔 usage 可能跨多个 lot 扣减；只有保留 allocation 才能解释过期、审计和未来的退款/回滚。
+  - 建议字段：
+    - `id text primary key`
+    - `usage_id text not null`
+    - `recharge_id text not null`
+    - `amount_credits bigint not null`
+    - `created_at timestamptz not null default now()`
+  - 索引：`(usage_id)`、`(recharge_id)`；约束 `amount_credits > 0`。
+
+- **`public.credit_reservations`**
+  - 请求前的 hold 记录，保证 prepaid 语义与并发正确性。
+  - 建议字段：
+    - `id text primary key`
+    - `user_id text not null`
+    - `api_key_id text null`
+    - `request_id text not null unique`
+    - `reserved_credits bigint not null`
+    - `status text not null default 'active'` -- `active | finalized | released | expired`
+    - `expires_at timestamptz not null`
+    - `metadata jsonb not null default '{}'::jsonb`
+    - `created_at timestamptz not null default now()`
+    - `updated_at timestamptz not null default now()`
+
+- **`public.credit_reservation_allocations`**
+  - 记录一笔 reservation 预留了哪些 lots。
+  - 这样才能在 lot 有过期机制时，把 hold 与具体 lot 绑定起来，避免并发下“余额够但同一批快过期 lot 被重复假定可用”的问题。
+  - 建议字段：
+    - `id text primary key`
+    - `reservation_id text not null`
+    - `recharge_id text not null`
+    - `amount_credits bigint not null`
+    - `created_at timestamptz not null default now()`
+
 - **继续保留 `link.usage_events`**
   - 用于网关运行态观察、排障、对账。
   - 不是积分权威账本，不承载余额语义。
 
-- **v1 不新增单独的 package / reward / adjustment 表**
-  - 积分包、奖励兑换、邀请奖励、后台赠送都先映射为 `credit_recharges` 的不同 `source`。
-  - 套餐编码、支付单号、活动信息放入 `external_ref` / `metadata`。
+- **v1 不引入 `credit_balances` 作为权威表**
+  - 如果后续需要单独的余额缓存表或 Redis 热缓存，只能作为 projection / cache，不能作为 source of truth。
 
-- **LLM token 结算策略待拍板**
-  - 因为 LLM 的最终成本通常要等 provider 返回 usage 后才能精确知道，当前设计保留两条候选路线，后续再定。
-  - **路线 A：Reservation / Hold**
-    - 给 `credit_accounts` 增加 `reserved_credits bigint not null default 0`。
-    - 新增 `public.credit_reservations`：`id`、`user_id`、`api_key_id`、`request_id unique`、`reserved_credits`、`status`、`expires_at`、`metadata`、`created_at`、`updated_at`。
-    - 语义：请求前先冻结上界额度，请求完成后再把真实消耗写入 `credit_usages`，并释放未使用部分。
-  - **路线 B：Platform absorb overrun**
-    - 不新增 reservation 表，保留当前 3 张核心表。
-    - 但 `credit_usages` 需要能表达“实际成本”和“用户实际被扣金额”的差异；若采用该路线，需补充如 `actual_credits`、`charged_credits`、`platform_absorbed_credits` 三类字段，或等价字段组合。
-    - 语义：请求前只做轻量准入检查，不冻结额度；请求结束后按实际 usage 结算，若最终超出可扣范围，差额由平台吸收。
+- **业务域表与积分主账本解耦**
+  - `subscription_plans`、`subscriptions`、`credit_pack_plans`、`reward_task_definitions`、`reward_claims`、`payment_records`、`model_definitions` 可以由 cloud 侧并行设计。
+  - 但这些表在本轮不是积分权威账本的一部分，只通过 `source`、`external_ref`、`metadata`、`billing_period_*` 与主账本关联。
+
+### Expiry and Deduction Policy
+
+- **扣减顺序固定为 FEFO**：按 `expires_at asc nulls last, created_at asc` 选择可用 lot。
+- **`daily_gift`**：当天 `23:59:59 UTC` 过期。
+- **`subscription` 月积分**：在该 lot 的 `billing_period_end` 过期。
+- **默认 no rollover**：上一计费周期未用完的 `subscription` lot 直接过期，不滚入下周期。
+- **其他来源**：`purchase` / `reward` / `admin_grant` 是否过期由该来源显式写入 `expires_at` 决定；若允许永久有效则为 `NULL`。
+- **reservation 与 expiry 的关系**：已被 active reservation 占用的额度视为被 pin 住，不在同一次 expiry sweep 中直接过期；待 reservation finalize / release 后再处理剩余 free amount。
+- **跨过期边界的 finalize**：只要 reservation 在 lot 过期前已成功创建，就允许在 `expires_at` 之后用这部分 pinned amount 完成 finalize。
+- **过期后释放未消费 hold**：若 reservation release 时对应 lot 已经过期，则释放出来的未消费 remainder 立即转为 expired，不重新变成 spendable。
 
 ### Read / Write Boundaries
 
 - **Cloud 写入职责**
-  - 固定负责充值、奖励、后台赠送等入账写入。
-  - 若最终选择 **Option A / cloud internal API**，则 cloud 也负责 reservation / usage / refund 等模型消耗相关主账本写入。
-  - 若最终选择 **Option B / link 直写部分 shared 数据**，则 cloud 保留 shared schema ownership 与入账类写入职责。
+  - `nexu-cloud` 是 `public.credit_*` 的唯一 writer。
+  - 固定负责入账、reservation 创建、usage finalize、release、expiry sweep。
+  - cloud 同时是 **积分金额计算的权威执行者**：最终 `actualAmountCredits` 由 cloud 根据 provider usage / pricing context 计算，不信任 link 直接传入已计算好的扣减值。
+  - 所有对 `credit_accounts`、`credit_recharges`、`credit_usages`、`credit_usage_allocations`、`credit_reservations`、`credit_reservation_allocations` 的修改，都必须发生在 cloud 的本地 DB transaction 中。
 
 - **Link 读取职责**
-  - 基于 `api_key -> user_id` 读取 `public.credit_accounts.available_credits`。
-  - 作为 fast-path 预检查；最终如何控制 spend 取决于后续选定的 LLM 结算策略。
-  - v1 不再依赖现有时间窗 / usage limit。
+  - 基于 `api_key -> user_id` 读取 `public.credit_accounts.available_credits` 与 `reserved_credits`。
+  - 只做 fast-path admission precheck，不直接写 shared 主账本。
+  - v1 不再依赖现有时间窗 / usage limit 作为主准入逻辑。
 
 - **内部接口约定（非用户侧 API）**
-  - 若采用 **cloud internal API** 路线：
-    - `PostRecharge(userId, amountCredits, source, externalRef?)`
-    - `CreateReservation(userId, apiKeyId?, requestId, reserveAmount, pricingContext)`（仅结算方案 A）
-    - `FinalizeUsage(userId, apiKeyId?, requestId, actualAmountCredits, usageType, dimensions)`
-  - 若采用 **link 直写部分 shared 数据** 路线：
-    - 不需要额外 internal credit write API
-    - 但 link 需要直接执行 `credit_accounts` / `credit_usages` / `credit_reservations`（如有）相关写事务
+  - `PostCreditGrant(userId, amountCredits, source, expiresAt?, billingPeriodStart?, billingPeriodEnd?, externalRef?, idempotencyKey, metadata?)`
+  - `CreateReservation(userId, apiKeyId?, requestId, reserveAmount, pricingContext)`
+  - `FinalizeUsage(userId, apiKeyId?, requestId, usageType, providerUsage, pricingContext, dimensions)`
+  - `ReleaseReservation(requestId, reason)`
   - `GetAvailableCredits(userId)` 仅作为 link 的读模型，不在本轮设计外部接口。
 
-### Why Service Call + DB Write Are Split (Option A)
+### Why Service Call + DB Write Are Split
 
-> 本节是在解释 **候选路线 A：cloud 暴露 internal API，link 通过服务调用触发记账**。
-> 另一条候选路线见下方 `Open Design Decision: Usage Write Boundary`。
-
-这部分容易混淆，v1 设计里要明确区分 **“谁感知到一次消耗”** 和 **“谁真正把消耗记到账本里”**：
+这部分需要明确区分 **“谁感知到一次消耗”** 和 **“谁真正把消耗记到账本里”**：
 
 - **`nexu-link` 感知消耗发生**
-  - 因为所有模型请求先到 link，link 最清楚“哪个用户发起了哪次模型调用”。
-  - 所以 link 负责生成 `request_id`、构造 pricing context / admission guard、发起内部结算控制调用。
+  - 所有模型请求先到 link，link 最清楚“哪个用户发起了哪次模型调用”。
+  - 所以 link 负责生成 `request_id`、构造 pricing context / admission guard、把 provider usage 原始维度传给 cloud，并发起内部结算控制调用。
 
 - **`nexu-cloud` 真正执行记账**
-  - 因为设计原则是“写入在 cloud 做”。
-  - 所以 reservation 创建、最终余额扣减、usage 流水写入，都必须由 cloud 在本地 DB transaction 中完成。
+  - 因为既定原则是“写入在 cloud 做”。
+  - 所以 reservation 创建、lot 选择、最终金额计算、余额扣减、usage 流水写入，都必须由 cloud 在本地 DB transaction 中完成。
 
 - **因此会同时存在两层记录**
-  - `public.credit_usages`：权威积分账本，由 cloud 写。
+  - `public.credit_usages` + `public.credit_usage_allocations`：权威积分账本，由 cloud 写。
   - `link.usage_events`：网关运行事件，由 link 写。
 
 一句话：
@@ -220,36 +281,40 @@ link 负责“发起结算控制”
 cloud 负责“正式记账”
 ```
 
-### Sequence: LLM Settlement Flow (Pending Decision, shown with Option A write boundary)
+### Sequence: LLM Settlement Flow
 
 ```text
 User/API client
   -> nexu-link: 发起模型请求 + API key
 
 nexu-link
-  -> public.credit_accounts: 读取余额（仅预检查）
-  -> 根据拍板结果进入 A / B 分支
+  -> public.credit_accounts: 读取 available_credits / reserved_credits（仅预检查）
+  -> nexu-cloud/internal/credits/reservations: 创建 hold
 
-A. reservation / hold
-  nexu-link
-    -> nexu-cloud/internal/credits/reservations: 创建 hold
-  nexu-cloud
-    -> DB transaction:
-         1. 增加 credit_accounts.reserved_credits
-         2. 插入 credit_reservations
-    -> nexu-link: 返回 success / insufficient_credits
+nexu-cloud
+  -> DB transaction:
+       1. 按 expires_at asc 选择 spendable lots
+       2. 插入 credit_reservations
+       3. 插入 credit_reservation_allocations
+       4. credit_accounts.reserved_credits += reserveAmount
+  -> nexu-link: 返回 success / insufficient_credits
 
-  If success:
-    nexu-link -> model provider: 发起模型调用
-    provider -> nexu-link: 返回最终 usage
-    nexu-link -> nexu-cloud/internal/credits/finalize: 按实际金额结算
-
-B. platform absorb overrun
+If success:
   nexu-link -> model provider: 发起模型调用
   provider -> nexu-link: 返回最终 usage
-  nexu-link -> nexu-cloud/internal/credits/finalize: 结算用户可扣金额 + 平台吸收差额
+  nexu-link -> nexu-cloud/internal/credits/finalize: 传 provider usage 与 pricing context
 
-Both A/B:
+nexu-cloud finalize transaction:
+  0. 根据 provider usage + pricing context 计算 actualAmountCredits
+  0.5 若 actualAmountCredits > reserved_credits，则按 settlement_invariant_violation 失败，写告警，不走自动 overdraft / absorb
+  1. 插入 credit_usages
+  2. 插入 credit_usage_allocations
+  3. 对被消费的 lots 扣减 remaining_credits
+  4. credit_accounts.available_credits -= actualAmountCredits
+  5. credit_accounts.reserved_credits -= reserveAmount
+  6. 释放未使用部分 hold，更新 reservation status
+
+Always:
   nexu-link -> link.usage_events: 记录运行态事件
 ```
 
@@ -257,7 +322,7 @@ Both A/B:
 
 - **是事务的部分**
   - `nexu-cloud` 内部对 Postgres 的一次本地事务。
-  - 例如：创建 reservation，或结算 `credit_usages` + 更新 `credit_accounts`。
+  - 例如：创建 reservation 并选择具体 lots，或 finalize usage 并写入 allocations。
 
 - **不是事务的部分**
   - `nexu-link -> nexu-cloud` 的 HTTP / internal service call。
@@ -268,57 +333,58 @@ Both A/B:
   - 没有要求 link 和 cloud 同时 commit。
   - 真正的强一致只发生在 cloud 自己那次 DB transaction 里。
 
-### Responsibility Matrix (Option A baseline)
+### Responsibility Matrix
 
 | 动作 | 发起者 | 真正执行者 | 落库位置 |
 |---|---|---|---|
 | 读取余额预检查 | link | link | `public.credit_accounts` 只读 |
-| 创建 reservation（仅方案 A） | link | cloud | `public.credit_accounts` + `public.credit_reservations` |
+| 创建 reservation | link | cloud | `public.credit_accounts` + `public.credit_reservations` + `public.credit_reservation_allocations` |
 | 调模型 | link | link | 不写主账本 |
-| 最终 usage 结算 | link | cloud | `public.credit_accounts` + `public.credit_usages` |
-| 平台 absorb 差额记账（仅方案 B） | link | cloud | `public.credit_usages` |
+| 最终 usage 结算 | link | cloud | `public.credit_accounts` + `public.credit_usages` + `public.credit_usage_allocations` + `public.credit_recharges` |
+| 释放失败/超时 reservation | link/cloud | cloud | `public.credit_accounts` + `public.credit_reservations` |
+| 清理过期 reservation | cloud job | cloud | `public.credit_accounts` + `public.credit_reservations` |
+| 过期 sweep | cloud job | cloud | `public.credit_accounts` + `public.credit_recharges` |
 | 运行态 usage 记录 | link | link | `link.usage_events` |
 
-### Why Link Still Writes `usage_events` (Both Options)
+### Why Link Still Writes `usage_events`
 
-无论最终是否让 link 直写部分 shared 数据，link 仍然要写 `link.usage_events`，原因是：
+link 仍然要写 `link.usage_events`，原因是：
 
 - 它是模型网关，天然拥有请求耗时、provider、model、状态码等运行态信息。
 - 这些信息适合做排障、监控、对账。
-- 但它们**不等于**权威余额账本；真正的余额语义仍以 shared 主账本里的 `credit_usages` / `credit_recharges` 为准。
+- 但它们**不等于**权威余额账本；真正的余额语义仍以 shared 主账本里的 usage / allocation / lot 库存为准。
 
 可以把它理解成：
 
 ```text
-credit_usages = 财务账
-usage_events   = 运营日志
+credit_usages + allocations = 财务账
+usage_events                = 运营日志
 ```
 
 ### Implementation Steps
 
 1. **定义 shared schema**
-   - 在 `nexu-cloud` 管理的 shared/public schema 中增加 `credit_accounts`、`credit_recharges`、`credit_usages`。
-   - 为 `user_id`、`request_id`、时间序列查询建立索引。
+   - 在 `nexu-cloud` 管理的 shared/public schema 中增加 `credit_accounts`、`credit_recharges`、`credit_usages`、`credit_usage_allocations`、`credit_reservations`、`credit_reservation_allocations`。
+   - 为 `user_id`、`request_id`、`expires_at`、lot 扣减查询建立索引。
 
 2. **实现 cloud 写路径**
-  - 充值写入：新增 recharge 流水，并原子增加 `credit_accounts`。
-  - 模型消耗写路径待拍板：
-    - 路线 A：cloud 暴露 internal API，cloud 执行 usage / reservation 写事务。
-    - 路线 B：link 直接写 usage 相关 shared 表，cloud 仅负责 recharge 类写入。
-  - 在任一路线下，`request_id` 幂等与余额条件更新都必须保留。
+  - 入账写入：新增 expiring lot，并原子更新 `credit_accounts`。
+  - 模型消耗写入：通过 internal API 执行 reservation / finalize / release 事务。
+  - reservation 清理：实现 stale reservation cleanup，释放 `reserved_credits`，并在必要时把已过期 lot 的 released remainder 立即转成 expired。
+  - 过期写入：实现 expiry sweep，把 lot 的剩余未消费额度转成 expired 并同步更新账户投影。
 
 3. **切换 link 准入读取**
-   - `nexu-link` 在鉴权后按 `user_id` 读取 `credit_accounts.available_credits`。
-   - 余额不足时直接拒绝；其余请求再按最终拍板的结算策略进入 reservation 或 post-settlement 路径。
+   - `nexu-link` 在鉴权后按 `user_id` 读取 `credit_accounts.available_credits` / `reserved_credits`。
+   - `spendable_credits` 不足时直接拒绝；其余请求进入 reservation / finalize 链路。
 
 4. **保留运行态记录与对账能力**
    - `link.usage_events` 继续记录请求结果与成本维度。
    - 用于事后排障、补记、对账，不直接驱动余额。
 
 5. **分阶段上线**
-  - 先落 shared schema。
-  - 再按拍板结果实现 cloud internal API 或 link direct writer。
-  - 再切 link 的 admission gate。
+  - 先落 shared schema 与 internal API。
+  - 再实现 cloud expiry sweep。
+  - 再切 link 的 admission gate 与 settlement client。
   - 最后补齐对账/回放与运营工具能力。
 
 ### Pseudocode
@@ -334,40 +400,86 @@ Compute admission_guard_amount from pricing context
 If creditAccount missing:
   Reject as insufficient credits
 
-If available_credits < admission_guard_amount:
+If (available_credits - reserved_credits) < admission_guard_amount:
   Reject as insufficient credits
 
-Proceed to option A or B settlement path
+CreateReservation(userId, apiKeyId, requestId, reserveAmount)
+Proceed only if reservation succeeds
 ```
 
-#### Recharge Posting in Cloud
+#### Credit Grant Posting in Cloud
 
 ```text
 Begin transaction
-Insert credit_recharges row
+Insert credit_recharges row with:
+  amount_credits = grantAmount
+  remaining_credits = grantAmount
+  source = daily_gift | subscription | purchase | reward_redemption | ...
+  expires_at / billing_period_* according to source policy
 Upsert credit_accounts by userId
 Increase available_credits
 Increase total_recharged_credits
 Commit transaction
 ```
 
-#### Usage Posting in Cloud
+#### Reservation Posting in Cloud
 
 ```text
-Choose settlement strategy
+Begin transaction
+Load active, unexpired recharge lots ordered by expires_at asc, created_at asc
+Subtract amounts already pinned by active reservation allocations
+If spendable total < reserveAmount:
+  Rollback as insufficient credits
 
-If option A (reservation/hold):
-  Create reservation before provider call
-  After provider returns final usage:
-    Capture actual amount into credit_usages
-    Release unused reserved amount
+Insert credit_reservations row
+Insert credit_reservation_allocations rows
+Increase credit_accounts.reserved_credits by reserveAmount
+Commit transaction
+```
 
-If option B (platform absorb):
-  Run provider call after light precheck
-  After provider returns final usage:
-    Deduct user-chargeable credits
-    Record remaining delta as platform_absorbed_credits
-    Write credit_usages
+#### Usage Finalization in Cloud
+
+```text
+Begin transaction
+Load active reservation by request_id
+Compute actualAmountCredits from provider usage + pricing context
+If actualAmountCredits > reservedAmount:
+  Fail as settlement_invariant_violation
+  Write alert / anomaly event
+  Rollback automatic finalize
+Insert credit_usages row
+Insert credit_usage_allocations rows from the reserved lots actually consumed
+Decrease credit_recharges.remaining_credits on consumed lots
+Mark exhausted lots when remaining_credits = 0
+Decrease credit_accounts.available_credits by actualAmountCredits
+Decrease credit_accounts.reserved_credits by reservedAmount
+Mark reservation as finalized / released
+Commit transaction
+```
+
+#### Expiry Sweep in Cloud
+
+```text
+Begin transaction
+Select active recharge lots where expires_at <= now()
+Exclude amounts pinned by active reservation allocations
+For each lot with free remaining_credits > 0:
+  Mark lot expired
+  Decrease credit_accounts.available_credits by expiredFreeAmount
+  Increase credit_accounts.total_expired_credits by expiredFreeAmount
+Commit transaction
+```
+
+#### Reservation Cleanup in Cloud
+
+```text
+Begin transaction
+Select active reservations where expires_at <= now()
+Mark reservations expired
+Decrease credit_accounts.reserved_credits by reservedAmount
+If any released remainder belongs to already expired lots:
+  Expire that remainder immediately
+Commit transaction
 ```
 
 ### Lifecycle Flows
@@ -383,162 +495,80 @@ Do not create recharge/usage rows
 - 建议在注册时就创建 `credit_accounts`，避免后续“是否开户”分支。
 - 若存在历史用户回填，link 仍应把缺失账户视为 0 余额。
 
-#### Flow 2: 购买积分包
+#### Flow 2: 每日赠送积分
 
 ```text
-Payment provider confirms order
+Daily gift job validates eligibility
 Begin transaction
 Insert credit_recharges with:
-  source = purchase
-  idempotency_key = payment_event_id
-  external_ref = order_id or payment_intent_id
-Upsert credit_accounts by user_id
-Increase available_credits
-Increase total_recharged_credits
+  source = daily_gift
+  amount_credits = grantAmount
+  remaining_credits = grantAmount
+  expires_at = same day 23:59:59 UTC
+  idempotency_key = daily_gift_event_id
+Update credit_accounts:
+  available_credits += grantAmount
+  total_recharged_credits += grantAmount
 Commit transaction
 ```
 
-- 支付成功事件必须提供稳定 `idempotency_key`，防止 webhook 重放重复加积分。
-- 积分包本身先不单独建表，套餐信息写入 `metadata.pack_code`。
-
-#### Flow 3: 兑换奖励 / 邀请奖励 / 后台赠送
+#### Flow 3: 订阅月积分发放
 
 ```text
-Reward system validates eligibility
+Billing cycle starts / renews
 Begin transaction
 Insert credit_recharges with:
-  source = reward_redemption | invite_reward | admin_grant
-  idempotency_key = reward_event_id
-  external_ref = reward_id or campaign_id
-Update credit_accounts
-  available_credits += amount
-  total_recharged_credits += amount
+  source = subscription
+  amount_credits = monthlyQuota
+  remaining_credits = monthlyQuota
+  billing_period_start = cycleStart
+  billing_period_end = cycleEnd
+  expires_at = cycleEnd
+  idempotency_key = subscription_cycle_id
+  external_ref = subscription_id or invoice_id
+Update credit_accounts:
+  available_credits += monthlyQuota
+  total_recharged_credits += monthlyQuota
 Commit transaction
 ```
 
-- 奖励类入账与购买积分包共用同一张 recharge 账本，只区分 `source`。
-- 若后续需要反作弊或活动审计，再在 reward 子系统补专属表，不放进 v1 积分主账本。
+- v1 默认 **no rollover**，上一周期未消费完的 lot 由 expiry sweep 过期，不转入新周期。
 
-#### Flow 4: 使用模型并消耗积分
+#### Flow 4: 购买积分包 / 奖励兑换 / 邀请奖励 / 后台赠送
+
+```text
+Source system validates eligibility or payment success
+Begin transaction
+Insert credit_recharges with:
+  source = purchase | reward_redemption | invite_reward | admin_grant
+  remaining_credits = amount_credits
+  expires_at = source policy
+  idempotency_key = source event id
+  external_ref = order_id / reward_id / campaign_id / admin_action_id
+Update credit_accounts:
+  available_credits += amount_credits
+  total_recharged_credits += amount_credits
+Commit transaction
+```
+
+#### Flow 5: 使用模型并消耗积分
 
 ```text
 Link authenticates api_key and resolves user_id
 Link reads credit_accounts for fast-path precheck
 Link generates request_id
-
-Option A: reservation / hold
-  Cloud creates reservation with bounded reserve amount
-  If reservation succeeds:
-    Link dispatches model request
-    Provider returns final usage
-    Cloud captures actual amount and releases the unused reserved amount
-
-Option B: platform absorb overrun
-  Link/cloud perform a light balance check without reservation
+Cloud creates reservation over concrete lots
+If reservation succeeds:
   Link dispatches model request
   Provider returns final usage
-  Cloud deducts the user-chargeable portion
-  Any overrun delta is recorded as platform-absorbed cost
+  Cloud finalizes usage, writes usage allocations, and releases unused hold
+If provider call fails / times out:
+  Cloud releases reservation without writing credit_usages
 ```
 
-- 当前未拍板点：在真实 LLM token 结算场景下，是采用 reservation / hold，还是允许平台吞掉最终超额差值。
-- 两条路线都默认 **不引入 debt 表**；若后续要支持 overdraft / postpaid，再单独设计 debt ledger。
-
-### Open Design Decision: LLM Settlement Strategy
-
-#### Option A: Reservation / Hold
-
-- **核心思路**
-  - 请求前先冻结一个“可接受的上界额度”，请求后按真实 usage 结算。
-- **数据库变化**
-  - `credit_accounts` 增加 `reserved_credits`
-  - 新增 `credit_reservations`
-- **优点**
-  - prepaid 语义最清晰
-  - 不需要 debt
-  - 并发、重试、超时释放更容易做对
-- **缺点**
-  - 多一张表
-  - 需要 expiration / release / finalize 生命周期管理
-
-#### Option B: Platform Absorb Overrun
-
-- **核心思路**
-  - 不冻结额度，请求先执行；结算时若最终成本超过用户可扣范围，差值由平台承担。
-- **数据库变化**
-  - 不新增 reservation 表
-  - `credit_usages` 需要表达 `actual` / `charged` / `platform_absorbed` 三种金额语义
-- **优点**
-  - 结构更简单
-  - 请求生命周期更短，不需要 hold 清理任务
-- **缺点**
-  - 平台承担成本波动风险
-  - prepaid 边界更弱
-  - 并发场景下更容易出现不可预期的平台补贴
-
-#### Pending Decision
-
-- 当前 design 同时保留上述两条路线，等待后续讨论拍板。
-- 在拍板前，shared 主账本仍以 `credit_accounts + credit_recharges + credit_usages` 为基础模型。
-- `credit_debts` 明确不纳入 v1。
-
-### Open Design Decision: Usage Write Boundary
-
-#### Option A: Cloud Internal API（保持 cloud 单点写入）
-
-- **核心思路**
-  - link 继续负责模型入口、余额预检查、usage telemetry。
-  - 一旦需要 reservation / finalize / refund / usage 结算，由 link 调用 cloud internal API。
-  - 真正的积分账本写入统一在 cloud 的本地 DB transaction 中完成。
-- **数据库写入边界**
-  - `cloud`：写 `credit_accounts`、`credit_recharges`、`credit_usages`、`credit_reservations`（如有）。
-  - `link`：只写 `link.usage_events` 等运行态表。
-- **优点**
-  - 最符合当前“写入在 cloud 做，读取在 link 做”的原则。
-  - `public` shared schema 只有一个积分主账本 writer，审计边界更清晰。
-  - 计费规则、补偿、风控策略更容易集中在 cloud 演进。
-- **缺点**
-  - 模型请求链路中多一次 link -> cloud 服务调用。
-  - 需要额外设计 service-to-service auth、internal endpoint、重试和超时策略。
-  - 由于模型生命周期发生在 link，理解成本会更高。
-
-#### Option B: Link Writes Usage-Related Shared Data（link 写部分 shared 数据）
-
-- **核心思路**
-  - 保持 recharge / grant / admin adjustment 仍由 cloud 写。
-  - 但模型请求相关的 reservation / finalize / usage 结算，直接由 link 写 shared `public` 表。
-  - link 在一次本地 DB transaction 中完成 `credit_accounts` 条件更新和 `credit_usages` / `credit_reservations` 写入。
-- **数据库写入边界**
-  - `cloud`：继续写 `credit_recharges` 与账户入账类变更。
-  - `link`：新增对 `credit_accounts`、`credit_usages`、`credit_reservations`（如有）的写权限。
-- **是否存在共同写一张表**
-  - **有。`credit_accounts` 会成为 cloud + link 共同写入的 shared 表。**
-  - `cloud` 负责入账方向更新：`available_credits += x`、`total_recharged_credits += x`。
-  - `link` 负责消耗方向更新：`available_credits -= x`、`total_used_credits += x`，以及 reservation 相关 `reserved_credits` 变化（如采用 hold）。
-  - 当前意图是把共同写表范围**收敛到 `credit_accounts` 一张表**：
-    - `credit_recharges`：仍由 cloud 单写
-    - `credit_usages`：由 link 单写
-    - `credit_reservations`：若存在，则由 link 单写
-  - 这意味着 Option B 的主要复杂度，不是“谁写 usage”，而是“`credit_accounts` 变成双 writer 表后的 ownership 与事务约束”。
-- **优点**
-  - 更贴近模型执行现场，link 更容易把 provider 返回的最终 usage 直接落账。
-  - 少一跳 internal API，请求链路更短。
-  - “谁发请求谁记 usage” 的心智模型更直接。
-- **缺点**
-  - 明确削弱“写入在 cloud 做”的原始边界。
-  - shared `public` schema 变成 cloud + link 双 writer，长期 ownership 更容易变复杂。
-  - 计费规则、补偿策略、风控逻辑可能分散到两个服务。
-  - `credit_accounts` 上必须额外约束字段级责任、条件更新方式、幂等与并发测试，否则容易出现账不平。
-
-#### Pending Decision
-
-- 当前 spec 同时保留 **Option A / Option B**，等待后续讨论拍板。
-- 无论选择哪条路线，shared schema 仍以 `credit_accounts + credit_recharges + credit_usages` 为基础。
-- 若后续采用 reservation / hold，再额外引入 `credit_reservations`。
-- 当前更贴近既定原则的是 **Option A**；更贴近模型调用现场的是 **Option B**。
-- 若采用 **Option B**，需额外确认：模型失败补偿是否仍建模为 `credit_recharges`。
-  - 若 **是**：则仍需保留 cloud refund 写入口，否则 `credit_recharges` 也会变成双写表。
-  - 若 **否**：则需要单独定义 link 侧 usage rollback / adjustment 的表示方式。
+- v1 明确使用 **reservation / hold**，不采用 platform absorb。
+- `reserveAmount` 必须是 v1 的严格上界；没有可计算上界的请求类型不在本轮范围内。
+- v1 明确 **不引入 debt 表**；若后续要支持 overdraft / postpaid，再单独设计 debt ledger。
 
 ### Files / Repos Likely Affected
 
@@ -548,30 +578,36 @@ Option B: platform absorb overrun
 - **nexu-cloud**
   - `apps/api/src/db/schema/index.ts` — 新增 shared/public 积分表定义。
   - `apps/api/migrations/` — 新增积分表 migration。
-  - `apps/api/src/services/credit/*` — 充值写入事务；若选 Option A，也承载 usage / reservation 写入事务。
+  - `apps/api/src/services/credit/*` — 入账事务、reservation / finalize / release、expiry sweep。
+  - `apps/api/src/routes/internal/*` — link -> cloud 的内部结算接口。
 
 - **nexu-link**
-  - `internal/repositories/postgres.go` — 读取 `public.credit_accounts`；若选 Option B，也会新增 usage 相关 shared 写事务。
+  - `internal/repositories/postgres.go` — 读取 `public.credit_accounts`。
   - `internal/middleware/auth.go` — 用积分余额替换旧的 usage-limit admission gate。
-  - `internal/server/server.go` / `internal/domain/types.go` — 注入 credit read model。
+  - `internal/server/server.go` / `internal/domain/types.go` — 注入 credit read model 与 cloud settlement client。
 
 ### Edge Cases
 
 - **重复结算**：`credit_usages.request_id` 唯一，重试只会命中同一笔 usage。
-- **重复支付通知 / 重复奖励发放**：`credit_recharges.idempotency_key` 唯一，防止重复入账。
-- **并发扣减 / 并发 reservation**：无论最终由 cloud 还是 link 执行写入，任何冻结、释放、结算都必须在单次条件更新事务中完成，防止余额或 reserved 状态错乱。
+- **重复支付通知 / 重复奖励发放 / 重复发月积分**：`credit_recharges.idempotency_key` 唯一，防止重复入账。
+- **并发 reservation / finalize**：lot 选择、allocation 写入、账户投影更新必须在 cloud 的单次事务中完成，防止重复占用同一批额度。
+- **lot 部分消费**：通过 `credit_usage_allocations` 显式记录，不靠“猜测总余额变化”。
+- **lot 过期与 hold 竞争**：active reservation 已 pin 的额度不在同一次 expiry sweep 中直接过期；先等 finalize / release。
+- **finalize 超出 hold**：若 `actualAmountCredits > reserved_credits`，按 `settlement_invariant_violation` 处理，触发告警与人工补偿路径；v1 不自动 debt / absorb。
+- **stale reservation**：由 cloud job 统一清理，不依赖 link 一定回调释放。
 - **用户尚未开户**：正常新注册流程应创建 `credit_accounts`；仅在历史回填/异常场景下把缺失账户视为 0 余额。
 - **api key 轮换**：余额归属 `user_id`，不归属单个 key，避免 key 更换导致余额碎片化。
 - **数值精度**：积分统一使用整数最小单位，不使用浮点。
-- **reservation 路线的超时请求**：需要后台任务释放过期 hold，避免 `reserved_credits` 长期占用。
-- **platform absorb 路线的超额成本**：需要把平台承担的差额显式记账，否则无法做财务归因与毛利分析。
-- **本轮明确不做**：debt、过期余额 lot 分摊、订阅/礼包策略、对外余额读取 API。
+- **daily gift 时间边界**：统一以 UTC 计算，避免桌面时区差异导致的过期不一致。
+- **subscription 周期边界**：统一以 `billing_period_end` 为准，不通过“自然月”隐式推导。
+- **本轮明确不做**：debt、postpaid、对外余额 API、把 `credit_balances` / Redis 作为权威账本。
 
 ## Plan
 
-- [ ] Phase 1: 增加 shared 积分表结构并拍板 usage 写入边界
-- [ ] Phase 2: 将 link 准入从窗口限额切换为积分余额读取
-- [ ] Phase 3: 补齐对账、上线保护与运行验证
+- [ ] Phase 1: 冻结 shared schema、lot/expiry 语义和 cloud 单写边界
+- [ ] Phase 2: 在 cloud 落地 credit write path、reservation/finalize internal API、expiry sweep
+- [ ] Phase 3: 将 link 准入从窗口限额切换为积分余额 + reservation 结算链路
+- [ ] Phase 4: 补齐对账、上线保护与运行验证
 
 ## Notes
 
