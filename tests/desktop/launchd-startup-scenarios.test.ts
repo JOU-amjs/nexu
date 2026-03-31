@@ -1039,4 +1039,107 @@ describe("Launchd Startup Scenarios", () => {
       expect.stringContaining("runtime-ports.json"),
     );
   });
+
+  // -----------------------------------------------------------------------
+  // Scenario 27: Global openclaw steals port after launch → auto-reassign
+  // Simulates: `openclaw install` registered ai.openclaw.gateway with
+  // KeepAlive=true on the same port. After Nexu's openclaw starts, the
+  // global service races and grabs the port. Bootstrap detects the PID
+  // mismatch and reassigns to a new port.
+  // -----------------------------------------------------------------------
+  it("Scenario 27: port stolen by competing service triggers reassignment", async () => {
+    const cpMock = await import("node:child_process");
+
+    // Simulate: port is free during findFreePort (bootstrap phase), but
+    // after launchd starts our openclaw, a competing service grabs the port.
+    const THIEF_PID = 77777;
+    const OUR_PID = 55555;
+    let lsofCallCount = 0;
+    (cpMock.execFile as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (
+        _cmd: string,
+        args: string[],
+        callback: (
+          error: Error | null,
+          result: { stdout: string; stderr: string },
+        ) => void,
+      ) => {
+        if (args.some((a: string) => a.includes("50789"))) {
+          lsofCallCount++;
+          if (lsofCallCount <= 1) {
+            // First call (findFreePort): port is free
+            callback(new Error("no process"), { stdout: "", stderr: "" });
+          } else {
+            // Second call (post-launch verification): thief grabbed port
+            callback(null, { stdout: `${THIEF_PID}\n`, stderr: "" });
+          }
+        } else {
+          callback(new Error("no process"), { stdout: "", stderr: "" });
+        }
+      },
+    );
+
+    // Our openclaw service reports a different PID than the port occupier
+    mockLaunchdManager.getServiceStatus.mockResolvedValue({
+      status: "running",
+      pid: OUR_PID,
+    });
+
+    const { bootstrapWithLaunchd } = await import(
+      "../../apps/desktop/main/services/launchd-bootstrap"
+    );
+
+    const result = await bootstrapWithLaunchd(makeBootstrapEnv() as never);
+
+    // Should have reassigned to 50790
+    expect(result.effectivePorts.openclawPort).toBe(50790);
+    expect(mockLaunchdManager.bootoutService).toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // Scenario 28: Our openclaw owns the port → no reassignment
+  // -----------------------------------------------------------------------
+  it("Scenario 28: openclaw owns its port, no reassignment needed", async () => {
+    const cpMock = await import("node:child_process");
+
+    const OUR_PID = 55555;
+    let lsofCallCount = 0;
+    (cpMock.execFile as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (
+        _cmd: string,
+        args: string[],
+        callback: (
+          error: Error | null,
+          result: { stdout: string; stderr: string },
+        ) => void,
+      ) => {
+        if (args.some((a: string) => a.includes("50789"))) {
+          lsofCallCount++;
+          if (lsofCallCount <= 1) {
+            // findFreePort: port is free
+            callback(new Error("no process"), { stdout: "", stderr: "" });
+          } else {
+            // Post-launch check: OUR pid owns it
+            callback(null, { stdout: `${OUR_PID}\n`, stderr: "" });
+          }
+        } else {
+          callback(new Error("no process"), { stdout: "", stderr: "" });
+        }
+      },
+    );
+
+    mockLaunchdManager.getServiceStatus.mockResolvedValue({
+      status: "running",
+      pid: OUR_PID,
+    });
+
+    const { bootstrapWithLaunchd } = await import(
+      "../../apps/desktop/main/services/launchd-bootstrap"
+    );
+
+    const result = await bootstrapWithLaunchd(makeBootstrapEnv() as never);
+
+    // Port should stay — our PID matches
+    expect(result.effectivePorts.openclawPort).toBe(50789);
+  });
 });
